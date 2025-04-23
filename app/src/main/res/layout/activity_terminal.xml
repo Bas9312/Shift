@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0D0F14">
+
+    <!-- ─────── top-bar ─────── -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/topBar"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:backgroundTint="#111822"
+        app:title="⧉  C-терминал"
+        app:titleTextColor="#C8E1FF"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- вертикальная рамка-контейнер для шкалы шума  -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/noiseCard"
+        android:layout_width="10dp"
+        android:layout_height="0dp"
+        android:layout_marginEnd="4dp"
+        app:cardCornerRadius="3dp"
+        app:cardElevation="0dp"
+        app:cardUseCompatPadding="false"
+        app:cardBackgroundColor="#222222"
+        app:layout_constraintTop_toBottomOf="@id/topBar"
+        app:layout_constraintBottom_toTopOf="@+id/inputBar"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:id="@+id/noiseIndicator"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="bottom">
+
+            <!-- 7 цветных «палочек» -->
+            <include layout="@layout/item_noise" android:id="@+id/lvl7"/>
+            <include layout="@layout/item_noise" android:id="@+id/lvl6"/>
+            <include layout="@layout/item_noise" android:id="@+id/lvl5"/>
+            <include layout="@layout/item_noise" android:id="@+id/lvl4"/>
+            <include layout="@layout/item_noise" android:id="@+id/lvl3"/>
+            <include layout="@layout/item_noise" android:id="@+id/lvl2"/>
+            <include layout="@layout/item_noise" android:id="@+id/lvl1"/>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- список консольных строк -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/consoleList"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:scrollbars="vertical"
+        android:clipToPadding="false"
+        android:padding="6dp"
+        app:layout_constraintTop_toBottomOf="@id/topBar"
+        app:layout_constraintBottom_toTopOf="@+id/inputBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/noiseCard" />
+
+    <!-- ─────── bottom input bar ─────── -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/inputBar"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:layout_marginTop="4dp"
+        android:backgroundTint="#111822"
+        app:cardElevation="4dp"
+        app:strokeWidth="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
+            <!-- prompt-input блок занимает всё свободное -->
+            <include
+                android:id="@+id/prompt"
+                layout="@layout/view_prompt_input"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"/>
+
+            <!-- send FAB -->
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/btnSend"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                app:fabSize="mini"
+                app:backgroundTint="#333945"
+                app:tint="#A6E3A1"
+                app:srcCompat="@drawable/ic_send_24"/>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

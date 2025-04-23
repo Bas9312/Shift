@@ -3,16 +3,15 @@ package bas.app.shift
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.http.SslCertificate.saveState
 import android.os.Bundle
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import bas.app.shift.databinding.ActivityMainBinding
-import bas.app.shift.services.LocationService
+import bas.app.shift.ui.terminal.TerminalActivity
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
     private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,6 +41,10 @@ class MainActivity : AppCompatActivity() {
             if (ShiftApplication.instance.isInGame() && hasNotificationPermission()) {
                 startActivity(Intent(this, EkatMaps::class.java))
             }
+        }
+
+        binding.btnNeoHacking.setOnClickListener{
+            startActivity(Intent(this, TerminalActivity::class.java))
         }
     }
 

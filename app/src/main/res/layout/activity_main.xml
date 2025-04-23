@@ -37,6 +37,14 @@
             android:layout_marginStart="8dp"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
 
+        <Button
+            android:id="@+id/btnNeoHacking"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Хакинг"
+            android:layout_marginStart="8dp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
+
     </LinearLayout>
 
     <Button

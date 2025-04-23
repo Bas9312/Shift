@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?><!-- res/layout/view_prompt_input.xml -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingEnd="8dp"
+    android:paddingStart="8dp">
+
+    <!-- prompt -->
+    <TextView
+        android:id="@+id/promptSign"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:text=">"
+        android:textColor="#7AA2F7"
+        android:textSize="16sp" />
+
+    <!-- поле ввода без фона -->
+    <!-- заменяем блок ввода -->
+    <androidx.appcompat.widget.AppCompatAutoCompleteTextView
+        android:id="@+id/editCommand"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:background="@android:color/transparent"
+        android:completionThreshold="1"
+        android:fontFamily="monospace"
+        android:hint=">"
+        android:imeOptions="actionDone"
+        android:inputType="textNoSuggestions"
+        android:textColor="#A6E3A1"
+        android:textSize="16sp" />
+</LinearLayout>

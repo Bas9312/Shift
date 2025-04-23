@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="cmd_list">
+        <item>CAM</item>
+        <item>CAM SCAN</item>
+        <item>CAM ERASE </item>
+        <item>QUERY "</item>
+        <item>VAULT PUT </item>
+        <item>VAULT GET </item>
+        <item>VAULT LIST</item>
+        <item>SYSREFRESH</item>
+        <item>HELP</item>
+        <item>LOG</item>
+    </string-array>
+
+</resources>
