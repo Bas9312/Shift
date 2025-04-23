@@ -18,6 +18,22 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- в activity_terminal.xml сразу под topBar -->
+    <ImageView
+        android:id="@+id/scanOverlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:src="@drawable/scanlines"
+        android:scaleType="fitXY"
+        android:alpha="0"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:elevation="10dp"/>
+
+
     <!-- вертикальная рамка-контейнер для шкалы шума  -->
     <androidx.cardview.widget.CardView
         android:id="@+id/noiseCard"
