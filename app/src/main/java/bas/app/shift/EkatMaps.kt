@@ -11,7 +11,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import bas.app.shift.databinding.ActivityEkatMapsBinding
-import bas.app.shift.models.PointOfInterest
+import bas.app.shift.models.Point
 import bas.app.shift.models.PointType
 import bas.app.shift.services.LocationService
 import bas.app.shift.services.ServerService
@@ -34,15 +34,16 @@ import io.reactivex.disposables.Disposable
 
 class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
+    private lateinit var currentLocation: Location
     private var locationUpdateDisposable: Disposable? = null
     private lateinit var updatePointsRunnable: Runnable
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityEkatMapsBinding
     private var cancellationTokenSource = CancellationTokenSource()
     private var currentLocationMarker: Marker? = null
-    private val pointsOfInterest = mutableMapOf<String, Triple<PointOfInterest, Circle, Marker?>>()
+    private val pointsOfInterest = mutableMapOf<String, Triple<Point, Circle, Marker?>>()
     private val handler = Handler(Looper.getMainLooper())
-    private val pointsUpdateInterval = 60000L // 1 минута
+    private val pointsUpdateInterval = 10000L // 1 минута
     private var lastPointsUpdate = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -136,10 +137,10 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun updatePointsFromServer() {
-        val serverPoints = ServerService.getPointsOfInterest()
+        val serverPoints = ServerService.getPoints()
         if (serverPoints.isEmpty()) {
             // Если сервер не вернул точки, используем тестовые
-            addTestPoints()
+            //addTestPoints()
         } else {
             // Удаляем все существующие точки
             pointsOfInterest.values.forEach { (_, circle, marker) ->
@@ -150,88 +151,55 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
             // Добавляем новые точки с сервера
             serverPoints.forEach { point ->
-                addPointOfInterest(point)
+                addPoint(point)
             }
+
+            updateForLocation()
         }
     }
 
     // Добавляем тестовые точки разных типов
-    val testPoints = listOf(
+    /*val testPoints = listOf(
         PointVisualizer.createPointOfInterest("1", LatLng(56.840527, 60.652171), 500f, PointType.FAMILIAR),
-        PointVisualizer.createPointOfInterest("2", LatLng(56.837609, 60.633470), 300f, PointType.FAKE_FAMILIAR),
+        PointVisualizer.createPointOfInterest("2", LatLng(56.837609, 60.633470), 300f, PointType.FAKE_FAMILIAR_BITER),
         PointVisualizer.createPointOfInterest("3", LatLng(56.835325, 60.613837), 400f, PointType.OPEN_PROBLEM),
         PointVisualizer.createPointOfInterest("4", LatLng(56.834090, 60.599902), 600f, PointType.AGGRESSIVE_FAMILIAR),
         PointVisualizer.createPointOfInterest("5", LatLng(56.841096, 60.659535), 200f, PointType.HIDDEN_EFFECT),
         PointVisualizer.createPointOfInterest("666", LatLng(56.835325, 60.613837), 800f, PointType.HIDDEN_EFFECT),
         PointVisualizer.createPointOfInterest("6", LatLng(56.838011, 60.597465), 800f, PointType.SHRINKING_CIRCLE,
             mapOf("duration" to 30)) // 30 минут
-    )
+    )*/
 
-    private fun addTestPoints() {
+   /* private fun addTestPoints() {
 
         testPoints.forEach { point ->
             addPointOfInterest(point)
         }
-    }
+    }*/
 
-    private fun addPointOfInterest(point: PointOfInterest) {
+    private fun addPoint(point: Point) {
         // Удаляем старую точку, если она существует
-        pointsOfInterest[point.id]?.let { (_, circle, marker) ->
+        pointsOfInterest[point.pointId]?.let { (_, circle, marker) ->
             circle.remove()
             marker?.remove()
         }
-        pointsOfInterest.remove(point.id)
+        pointsOfInterest.remove(point.pointId)
 
         // Создаем круг с виртуальным центром
         val circle = mMap.addCircle(
-            PointVisualizer.getCircleOptions(point.virtualCenter, point.radius, point.type)
+            PointVisualizer.getCircleOptions(
+                LatLng(point.vLat, point.vLng),
+                point.radius.toFloat(),
+                PointType.fromServerValue(point.type)
+            )
         )
 
         // Сохраняем точку, круг и null для маркера (он будет добавлен позже)
-        pointsOfInterest[point.id] = Triple(point, circle, null)
-
-        // Если это сужающийся круг, запускаем анимацию
-        if (point.type == PointType.SHRINKING_CIRCLE) {
-            val duration = point.additionalInfo["duration"] as? Int ?: 30
-            startShrinkingAnimation(point.id, duration)
-        }
+        pointsOfInterest[point.pointId] = Triple(point, circle, null)
     }
 
-    private fun startShrinkingAnimation(pointId: String, durationMinutes: Int) {
-        val point = pointsOfInterest[pointId]?.first ?: return
-        val circle = pointsOfInterest[pointId]?.second ?: return
-        
-        val startRadius = point.radius
-        val endRadius = 0f
-        val durationMillis = durationMinutes * 60 * 1000L
-        val startTime = System.currentTimeMillis()
-
-        /*updateShrinkingCircleRunnable = object : Runnable {
-            override fun run() { TODO
-                val currentTime = System.currentTimeMillis()
-                val elapsed = currentTime - startTime
-                val progress = (elapsed.toFloat() / durationMillis).coerceIn(0f, 1f)
-                
-                val currentRadius = startRadius * (1 - progress)
-                circle.radius = currentRadius.toDouble()
-
-
-                if (progress < 1f) {
-                    handler.postDelayed(this, 100) // Обновляем каждые 100мс
-                } else {
-                    // Удаляем точку после завершения анимации
-                    circle.remove()
-                    pointsOfInterest[pointId]?.third?.remove() // Удаляем маркер
-                    pointsOfInterest.remove(pointId)
-                }
-            }
-        }
-
-        handler.post(updateShrinkingCircleRunnable)*/
-    }
-
-    private fun updateForLocation(location: Location) {
-        val latLng = LatLng(location.latitude, location.longitude)
+    private fun updateForLocation() {
+        val latLng = LatLng(currentLocation.latitude, currentLocation.longitude)
         
         // Удаляем предыдущий маркер, если он существует
         currentLocationMarker?.remove()
@@ -247,59 +215,53 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         // Проверяем, находится ли пользователь в каких-либо кругах
         pointsOfInterest.forEach { (id, pointData) ->
             val (point, circle, currentMarker) = pointData
-            val distance = calculateDistance(latLng, point.virtualCenter)
+            val virtualCenter = LatLng(point.vLat, point.vLng)
+            val distance = calculateDistance(latLng, virtualCenter)
             
             if (distance <= point.radius) {
                 // Если пользователь в круге и маркера еще нет - создаем его
                 if (currentMarker == null) {
                     val newMarker = mMap.addMarker(
                         PointVisualizer.getMarkerOptions(
-                            point.position,
-                            point.type,
-                            getPointTitle(point.type),
+                            LatLng(point.lat, point.lng),
+                            PointType.fromServerValue(point.type),
+                            getPointTitle(PointType.fromServerValue(point.type)),
                             getPointDescription(point)
                         )
                     )
                     pointsOfInterest[id] = Triple(point, circle, newMarker)
-
-                    // Если это скрытый эффект, уведомляем сервер
-                    if (point.type == PointType.HIDDEN_EFFECT) {
-                        ServerService.notifyHiddenEffectEnter(point.id, point.position)
-                    }
                 }
             } else {
                 // Если пользователь вне круга и маркер существует - удаляем его
                 if (currentMarker != null) {
                     currentMarker.remove()
                     pointsOfInterest[id] = Triple(point, circle, null)
-
-                    // Если это скрытый эффект, уведомляем сервер
-                    if (point.type == PointType.HIDDEN_EFFECT) {
-                        ServerService.notifyHiddenEffectExit(point.id, point.position)
-                    }
                 }
             }
         }
-        
-        Log.d("Location", "Location is ${location.latitude}, ${location.longitude}")
+
+        Log.d("Location", "Location is ${currentLocation.latitude}, ${currentLocation.longitude}")
     }
 
     private fun getPointTitle(type: PointType): String {
         return when (type) {
+            PointType.USER -> "Пользователь"
             PointType.FAMILIAR -> "Фамильяр"
-            PointType.FAKE_FAMILIAR -> "Поддельный Фамильяр"
+            PointType.HIDDEN_EFFECT_AREA -> "Скрытая зона эффекта"
+            PointType.FAKE_FAMILIAR_BITER -> "Поддельный Фамильяр"
+            PointType.APPROACHING_BITER -> "Приближающийся Фамильяр"
             PointType.OPEN_PROBLEM -> "Открытая Проблема"
-            PointType.AGGRESSIVE_FAMILIAR -> "Агрессивный Фамильяр"
-            PointType.HIDDEN_EFFECT -> "Скрытый Эффект"
             PointType.SHRINKING_CIRCLE -> "Сужающийся Круг"
+            PointType.DEMON_BLACK_CIRCLE -> "Демон Черный Круг"
+            PointType.APPROACHING_VIRTUAL -> "Приближающийся Виртуальный"
+            PointType.HIDDEN_AR_POINT -> "Скрытая AR точка"
         }
     }
 
-    private fun getPointDescription(point: PointOfInterest): String {
-        return when (point.type) {
+    private fun getPointDescription(point: Point): String {
+        return when (PointType.fromServerValue(point.type)) {
             PointType.SHRINKING_CIRCLE -> {
-                val duration = point.additionalInfo["duration"] as? Int ?: 30
-                "Радиус: ${point.radius}м\nДлительность: $duration мин"
+                "Радиус: ${point.radius}м\nДлительность: 30 мин"
             }
             else -> "Радиус: ${point.radius}м"
         }
@@ -351,16 +313,18 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
         currentTask.addOnCompleteListener { task ->
             if (task.isSuccessful && task.result != null) {
-                val result = task.result
-                val latLng = LatLng(result.latitude, result.longitude)
+                currentLocation = task.result
+                val latLng = LatLng(currentLocation.latitude, currentLocation.longitude)
                 // Центрируем карту на текущем местоположении
                 mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
-                updateForLocation(result)
+
+                updateForLocation()
             } else Log.e("Location", task.exception.toString())
         }
 
         locationUpdateDisposable = LocationService.locationSource.subscribe {
-            updateForLocation(it)
+            currentLocation = it
+            updateForLocation()
         }
     }
 
