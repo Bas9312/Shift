@@ -6,9 +6,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
-import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -18,14 +16,11 @@ import android.os.VibratorManager
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import android.widget.EditText
-import android.widget.ImageButton
 import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.recyclerview.widget.RecyclerView
+import androidx.core.content.ContextCompat.getSystemService
 import bas.app.shift.R
 import bas.app.shift.databinding.ActivityTerminalBinding
 
@@ -84,7 +79,9 @@ class TerminalActivity : AppCompatActivity() {
     private fun sendToServer(cmd: String) {
         // TODO: реальный websocket / retrofit
         Handler(Looper.getMainLooper()).postDelayed({
-            addLine("OK", Line.Type.RSP)
+            adapter.addTyping("OK, it's nice text, thanks!")
+            binding.consoleList
+                .scrollToPosition(adapter.itemCount - 1)
             incNoise(1)
         }, 300)
     }
@@ -92,7 +89,9 @@ class TerminalActivity : AppCompatActivity() {
     private fun incNoise(delta: Int) {
         noise = (noise + delta).coerceAtMost(7)
         updateNoise(noise)
-        if (noise == 5) { showGlitchEvent() }
+        if (noise == 5) {
+            showGlitchEvent()
+        }
     }
 
     private fun showGlitchEvent() {
@@ -102,18 +101,26 @@ class TerminalActivity : AppCompatActivity() {
     fun updateNoise(n: Int) {
         levelViews.forEachIndexed { idx, v ->
             v.setBackgroundColor(
-                ContextCompat.getColor(this,
-                    if (idx < n) colors[idx] else R.color.noiseOff)
+                ContextCompat.getColor(
+                    this,
+                    if (idx < n) colors[idx] else R.color.noiseOff
+                )
             )
         }
 
         when (n) {
-            0,1   -> binding.scanOverlay.visibility = View.GONE
-            2,3   -> showScanlines(n)
-            4     -> { showScanlines(n); applyGlitch(n) }
-            5     -> { showScanlines(n); applyGlitch(n); vibrator() }
-            6     -> showRedScrim()
-            7     -> demonJumpScare()
+            0, 1 -> binding.noiseOverlay.visibility = View.GONE
+            2, 3 -> showNoise(n)
+            4 -> {
+                showNoise(n); applyGlitch(n)
+            }
+
+            5 -> {
+                showNoise(n); applyGlitch(n); vibrator()
+            }
+
+            6 -> showRedScrim()
+            7 -> demonJumpScare()
         }
     }
 
@@ -144,29 +151,38 @@ class TerminalActivity : AppCompatActivity() {
 
         /* красивый фон у выпадашки */
         binding.prompt.editCommand.setDropDownBackgroundResource(
-            R.drawable.bg_dropdown_dark)
-
+            R.drawable.bg_dropdown_dark
+        )
 
 
     }
 
-    private fun showScanlines(level: Int) {
-        binding.scanOverlay.apply {
-            if (visibility != View.VISIBLE) visibility = View.VISIBLE
-            alpha = 0.12f * level          // S = 2-3 даёт 24-36 % непрозрачности
+    private fun showNoise(level: Int) {
+        if (binding.noiseOverlay.visibility != View.VISIBLE) binding.noiseOverlay.visibility = View.VISIBLE
+        binding.noiseOverlay.alpha = 0.08f * level
+        // ImageView с @drawable/noise
+        val anim = ValueAnimator.ofFloat(0f, 16f, -16f, 0f).apply {
+            duration = 4000                    // 4 сек / цикл
+            repeatCount = ValueAnimator.INFINITE
+            addUpdateListener {
+                val shift = it.animatedValue as Float
+                binding.noiseOverlay .translationX = shift
+                binding.noiseOverlay .translationY = -shift / 2     // диагональный дрейф
+            }
         }
+        anim.start()
     }
 
     fun applyGlitch(level: Int) {
         // shake once
-        ObjectAnimator.ofFloat(binding.root,"translationX",0f,8f,-8f,0f).apply {
+        ObjectAnimator.ofFloat(binding.root, "translationX", 0f, 8f, -8f, 0f).apply {
             duration = 200
             start()
         }
 
         // purple tint matrix
         val matrix = ColorMatrix().apply {
-            setScale(1f, 1f - 0.1f*level, 1f, 1f)
+            setScale(1f, 1f - 0.1f * level, 1f, 1f)
         }
         binding.root.foreground = ColorDrawable(Color.TRANSPARENT).also {
             it.colorFilter = ColorMatrixColorFilter(matrix)
@@ -177,9 +193,11 @@ class TerminalActivity : AppCompatActivity() {
         View(this).apply {
             setBackgroundColor(0x55e74c3c)
             alpha = 0f
-            binding.root.addView(this,
+            binding.root.addView(
+                this,
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT)
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
         }
     }
 
@@ -193,9 +211,11 @@ class TerminalActivity : AppCompatActivity() {
             scaleX = 1.1f; scaleY = 1.1f
             alpha = 0f
         }
-        binding.root.addView(demon,
+        binding.root.addView(
+            demon,
             ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT)
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
 
         demon.animate()
             .alpha(1f).scaleX(1f).scaleY(1f)

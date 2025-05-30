@@ -20,10 +20,10 @@
 
     <!-- в activity_terminal.xml сразу под topBar -->
     <ImageView
-        android:id="@+id/scanOverlay"
+        android:id="@+id/noiseOverlay"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:src="@drawable/scanlines"
+        android:src="@drawable/noise"
         android:scaleType="fitXY"
         android:alpha="0"
         android:visibility="gone"

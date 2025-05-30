@@ -1,5 +1,7 @@
 package bas.app.shift.ui.terminal
 
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
@@ -10,7 +12,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 data class Line(val text: String, val type: Type) {
-    enum class Type { CMD, RSP, ERR, SYS }
+    enum class Type { CMD, RSP, ERR, SYS, TYPING }
 }
 
 class ConsoleAdapter(
@@ -41,9 +43,32 @@ class ConsoleAdapter(
                     Line.Type.RSP -> R.color.rspGray     //   ‟
                     Line.Type.ERR -> R.color.errRed
                     Line.Type.SYS -> R.color.sysBlue
+                    Line.Type.TYPING -> R.color.rspGray
                 }
             )
         )
+    }
+
+    fun addTyping(text: String) {
+        data += Line("", Line.Type.TYPING)        // пустая
+        notifyItemInserted(data.lastIndex)
+        graduallyFill(text, data.lastIndex)
+    }
+
+    private fun graduallyFill(full: String, pos: Int) {
+        var i = 0
+        val h = Handler(Looper.getMainLooper())
+        val step = object : Runnable {
+            override fun run() {
+                if (i <= full.length) {
+                    data[pos] = Line(full.take(i), Line.Type.RSP)
+                    notifyItemChanged(pos)
+                    i++
+                    h.postDelayed(this, 25)       // 40 симв/сек
+                }
+            }
+        }
+        h.post(step)
     }
 
     /** публичный метод для терминала */
