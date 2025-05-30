@@ -54,4 +54,32 @@
         android:text="Открыть карту"
         android:enabled="false"/>
 
+    <Button
+        android:id="@+id/startGameButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Начать игру"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/stopGameButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Закончить игру"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/openTerminalButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Открыть терминал"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/openPointManagementButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Управление точками"
+        android:layout_marginBottom="8dp"/>
+
 </LinearLayout> 

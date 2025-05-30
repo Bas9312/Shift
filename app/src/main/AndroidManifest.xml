@@ -39,6 +39,10 @@
             android:name=".ui.terminal.TerminalActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".ui.PointManagementActivity"
+            android:exported="false" />
+
         <service
             android:name=".services.LocationService"
             android:exported="false" />

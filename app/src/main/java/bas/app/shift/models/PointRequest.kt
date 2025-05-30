@@ -3,6 +3,9 @@ package bas.app.shift.models
 data class PointRequest(
     val lat: Double,
     val lng: Double,
-    val show: Boolean,
-    val id: Int
+    val pointId: String,
+    val type: String,
+    val radius: Double,
+    val description: String
+    //val ownerId: String = ""
 )

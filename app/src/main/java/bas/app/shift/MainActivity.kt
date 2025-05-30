@@ -10,6 +10,8 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import bas.app.shift.databinding.ActivityMainBinding
 import bas.app.shift.ui.terminal.TerminalActivity
+import bas.app.shift.ui.PointManagementActivity
+
 
 class MainActivity : ComponentActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -45,6 +47,14 @@ class MainActivity : ComponentActivity() {
 
         binding.btnNeoHacking.setOnClickListener{
             startActivity(Intent(this, TerminalActivity::class.java))
+        }
+
+        binding.openTerminalButton.setOnClickListener {
+            startActivity(Intent(this, TerminalActivity::class.java))
+        }
+
+        binding.openPointManagementButton.setOnClickListener {
+            startActivity(Intent(this, PointManagementActivity::class.java))
         }
     }
 

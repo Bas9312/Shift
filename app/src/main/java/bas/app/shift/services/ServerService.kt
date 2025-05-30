@@ -5,6 +5,7 @@ import android.widget.Toast
 import bas.app.shift.ShiftApplication
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.Point
+import bas.app.shift.models.PointRequest
 import bas.app.shift.models.UserLocation
 import com.example.shift.data.api.RetrofitClient
 import com.google.android.gms.maps.model.LatLng
@@ -12,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import retrofit2.Response
 
 object ServerService {
     private const val TAG = "ServerService"
@@ -63,6 +65,26 @@ object ServerService {
                 LogHelper.e("Ошибка при получении точек: ${e.message}")
                 emptyList()
             }
+        }
+    }
+
+    suspend fun createPoint(pointRequest: PointRequest): Response<Point> {
+        LogHelper.d("Создание новой точки: $pointRequest")
+        return try {
+            api.createPoint(pointRequest)
+        } catch (e: Exception) {
+            LogHelper.e("Ошибка при создании точки: ${e.message}")
+            throw e
+        }
+    }
+
+    suspend fun deletePoint(pointId: String): Response<Unit> {
+        LogHelper.d("Удаление точки с ID: $pointId")
+        return try {
+            api.deletePoint(pointId)
+        } catch (e: Exception) {
+            LogHelper.e("Ошибка при удалении точки: ${e.message}")
+            throw e
         }
     }
 }
