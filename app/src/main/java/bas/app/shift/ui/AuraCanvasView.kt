@@ -90,10 +90,10 @@ class AuraCanvasView @JvmOverloads constructor(
         val centerX = width / 2f
         val centerY = height / 2f
         val humanBitmap = humanBitmap
-        val humanWidth = humanBitmap?.width?.toFloat() ?: 0f
-        val humanHeight = humanBitmap?.height?.toFloat() ?: 0f
+        val humanWidth = (humanBitmap?.width?.toFloat() ?: 0f) * 0.6f
+        val humanHeight = (humanBitmap?.height?.toFloat() ?: 0f) * 0.6f
         val humanRadius = max(humanWidth, humanHeight) / 2f
-        val auraRadius = humanRadius * 2.2f
+        val auraRadius = humanRadius * 1.7f
 
         // Аура (круг)
         val paintAura = Paint().apply {
@@ -101,67 +101,77 @@ class AuraCanvasView @JvmOverloads constructor(
             style = Paint.Style.FILL
             alpha = if (aura.auraHidden) 80 else 180
         }
-        canvas.drawCircle(centerX, centerY, auraRadius, paintAura)
+        canvas.drawOval(centerX, centerY, auraRadius, paintAura)
 
-        aura.auraProblems?.let {
-            // Проблемы (10 мест, полукруг внутри ауры вокруг человека)
-            val problemRadius = humanRadius * 0.35f
-            val problemAngleStart = 200f
-            val problemAngleSweep = 140f
-            val problems = aura.auraProblems.take(10)
-            for ((i, problem) in problems.withIndex()) {
-                val angle = Math.toRadians((problemAngleStart + i * problemAngleSweep / 9.0)).toFloat()
-                val px = centerX + cos(angle) * (humanRadius + problemRadius)
-                val py = centerY + sin(angle) * (humanRadius + problemRadius)
+        // 10 слотов для проблем по кругу вокруг человека
+        val slotsCount = 10
+        val problemRadius = humanRadius * 0.13f
+        val slotAngles = List(slotsCount) { i -> Math.toRadians((360.0 / slotsCount * i - 90.0)).toFloat() }
+        val problemsBySlot = aura.auraProblems.orEmpty().associateBy { it.slot }
+        for (slot in 0 until slotsCount) {
+            val angle = slotAngles[slot]
+            val px = centerX + cos(angle) * (humanRadius + problemRadius + 6f)
+            val py = centerY + sin(angle) * (humanRadius + problemRadius + 6f)
+            val problem = problemsBySlot[slot]
+            if (problem != null) {
                 drawProblem(canvas, px, py, problem, problemRadius)
+            } else {
+                // Пустой слот — рисуем полупрозрачную рамку
+                val paint = Paint().apply {
+                    color = Color.argb(40, 255, 255, 255)
+                    style = Paint.Style.STROKE
+                    strokeWidth = 2f
+                }
+                canvas.drawCircle(px, py, problemRadius, paint)
             }
         }
 
-
-        // Человек (в оригинальном размере, по центру)
+        // Человек (в уменьшенном размере, по центру)
         humanBitmap?.let {
             val left = centerX - humanWidth / 2f
             val top = centerY - humanHeight / 2f
-            canvas.drawBitmap(it, left, top, null)
+            canvas.drawBitmap(it, null, RectF(left, top, left + humanWidth, top + humanHeight), null)
         }
 
-        aura.marks.let {
-            // Внутренние метки — столбцом слева от человека
-            val internalMarks = it!!.filter { it.external == 0 }.sortedBy { it.markId }
-            val markSize = humanRadius * 0.35f
-            val markGap = markSize * 0.18f
-            for ((i, mark) in internalMarks.withIndex()) {
-                val mx = centerX - humanRadius - markSize - 40f
-                val my = centerY - (internalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
-                drawMark(canvas, mx, my, mark, markSize)
-            }
-
-            // Внешние метки — столбцом справа от ауры
-            val externalMarks = it.filter { it.external == 1 }.sortedBy { it.markId }
-            for ((i, mark) in externalMarks.withIndex()) {
-                val mx = centerX + auraRadius + 40f
-                val my = centerY - (externalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
-                drawMark(canvas, mx, my, mark, markSize)
-            }
+        // Внутренние метки — столбцом слева от человека
+        val internalMarks = aura.marks.orEmpty().filter { it.external == 0 }.sortedBy { it.markId }
+        val markSize = humanRadius * 0.18f
+        val markGap = markSize * 0.13f
+        for ((i, mark) in internalMarks.withIndex()) {
+            val mx = centerX - humanRadius - markSize - 20f
+            val my = centerY - (internalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
+            drawMark(canvas, mx, my, mark, markSize)
         }
 
+        // Внешние метки — столбцом справа от ауры
+        val externalMarks = aura.marks.orEmpty().filter { it.external == 1 }.sortedBy { it.markId }
+        for ((i, mark) in externalMarks.withIndex()) {
+            val mx = centerX + auraRadius + 20f
+            val my = centerY - (externalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
+            drawMark(canvas, mx, my, mark, markSize)
+        }
         canvas.restore()
     }
 
     private fun drawProblem(canvas: Canvas, x: Float, y: Float, problem: AuraProblem, radius: Float) {
-        val paint = Paint().apply {
-            color = Color.RED
-            style = Paint.Style.FILL
-            alpha = 180
+        val resId = when (problem.problemType) {
+            AuraProblemType.HOLE -> R.drawable.aura_problem_holl
+            AuraProblemType.TEAR -> R.drawable.aura_problem_rift
+            AuraProblemType.SCAR -> R.drawable.aura_problem_scar
+            AuraProblemType.PARASITE -> R.drawable.aura_problem_parasite
+            AuraProblemType.OTHER -> R.drawable.aura_problem_other
         }
-        canvas.drawCircle(x, y, radius, paint)
-        val textPaint = Paint().apply {
-            color = Color.WHITE
-            textSize = radius * 0.5f
-            textAlign = Paint.Align.CENTER
-            isFakeBoldText = true
+        val bmp = try { BitmapFactory.decodeResource(resources, resId) } catch (e: Exception) { null }
+        if (bmp != null) {
+            canvas.drawBitmap(bmp, null, RectF(x - radius, y - radius, x + radius, y + radius), null)
+        } else {
+            val paint = Paint().apply {
+                color = Color.RED
+                style = Paint.Style.FILL
+                alpha = 180
+            }
+            canvas.drawCircle(x, y, radius, paint)
         }
-        canvas.drawText(problem.problemType.name, x, y + textPaint.textSize / 3, textPaint)
     }
 
     private fun drawMark(canvas: Canvas, x: Float, y: Float, mark: AuraMark, size: Float) {
