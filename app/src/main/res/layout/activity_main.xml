@@ -82,4 +82,11 @@
         android:text="Управление точками"
         android:layout_marginBottom="8dp"/>
 
+    <Button
+        android:id="@+id/openAuraButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Аура персонажа"
+        android:layout_marginBottom="8dp"/>
+
 </LinearLayout> 

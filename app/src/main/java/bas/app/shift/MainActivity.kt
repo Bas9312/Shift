@@ -56,6 +56,10 @@ class MainActivity : ComponentActivity() {
         binding.openPointManagementButton.setOnClickListener {
             startActivity(Intent(this, PointManagementActivity::class.java))
         }
+
+        binding.openAuraButton.setOnClickListener {
+            startActivity(Intent(this, bas.app.shift.ui.AuraActivity::class.java))
+        }
     }
 
     private fun updateUI() {

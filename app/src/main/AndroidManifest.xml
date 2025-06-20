@@ -47,6 +47,10 @@
             android:name=".services.LocationService"
             android:exported="false" />
 
+        <activity
+            android:name=".ui.AuraActivity"
+            android:exported="false" />
+
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyBYT1_bCtl4Cqqv6m6kRh0aqlPnhE4TEnE" />
