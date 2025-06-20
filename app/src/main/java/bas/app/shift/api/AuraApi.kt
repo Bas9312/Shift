@@ -5,10 +5,10 @@ import retrofit2.Response
 import retrofit2.http.*
 
 interface AuraApi {
-    @GET("/aura/{entity_id}")
+    @GET("/aura_api/aura/{entity_id}")
     suspend fun getAura(@Path("entity_id") entityId: String): Response<Aura>
 
-    @GET("/aura/{entity_id}/marks")
+    @GET("/aura_api/aura/{entity_id}/marks")
     suspend fun getAuraMarks(@Path("entity_id") entityId: String): Response<List<AuraMark>>
 
     @PUT("/aura/{entity_id}/marks/{mark_id}")

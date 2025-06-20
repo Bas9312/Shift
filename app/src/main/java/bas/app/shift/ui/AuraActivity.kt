@@ -15,7 +15,7 @@ import kotlinx.coroutines.withContext
 class AuraActivity : AppCompatActivity() {
     private lateinit var auraApi: AuraApi
     private lateinit var auraCanvas: AuraCanvasView
-    private var entityId: String = "test_entity" // заменить на реальный id
+    private var entityId: String = "user-123" // заменить на реальный id
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,7 +30,12 @@ class AuraActivity : AppCompatActivity() {
             val response = auraApi.getAura(entityId)
             withContext(Dispatchers.Main) {
                 if (response.isSuccessful) {
-                    auraCanvas.setAura(response.body())
+                    val aura = response.body()
+                    if (aura != null) {
+                        auraCanvas.setAura(aura)
+                    } else {
+                        Toast.makeText(this@AuraActivity, "Ошибка: пустая аура", Toast.LENGTH_SHORT).show()
+                    }
                 } else {
                     Toast.makeText(this@AuraActivity, "Ошибка загрузки ауры", Toast.LENGTH_SHORT).show()
                 }

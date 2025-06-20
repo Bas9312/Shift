@@ -29,8 +29,8 @@ class AuraCanvasView @JvmOverloads constructor(
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     // Zoom/drag state
-    private var scaleFactor = 1f
-    private var lastScaleFactor = 1f
+    private var scaleFactor = 0.7f
+    private var lastScaleFactor = 0.7f
     private var focusX = 0f
     private var focusY = 0f
     private var lastTouchX = 0f
@@ -50,7 +50,13 @@ class AuraCanvasView @JvmOverloads constructor(
         // Кешируем картинки меток
         aura?.marks?.forEach { mark ->
             if (!markBitmaps.containsKey(mark.imageUrl)) {
-                scope.launch { markBitmaps[mark.imageUrl] = loadBitmap(mark.imageUrl); invalidate() }
+                scope.launch {
+                    val bmp = loadBitmap(mark.imageUrl)
+                    if (bmp != null) {
+                        markBitmaps[mark.imageUrl] = bmp
+                    }
+                    invalidate()
+                }
             }
         }
         invalidate()
@@ -71,6 +77,7 @@ class AuraCanvasView @JvmOverloads constructor(
     }
 
     override fun onDraw(canvas: Canvas) {
+        markTouchAreas.clear()
         super.onDraw(canvas)
         aura?.let { drawAura(canvas, it) }
     }
@@ -82,8 +89,11 @@ class AuraCanvasView @JvmOverloads constructor(
 
         val centerX = width / 2f
         val centerY = height / 2f
-        val humanRadius = min(width, height) * 0.13f
-        val auraRadius = min(width, height) * 0.32f
+        val humanBitmap = humanBitmap
+        val humanWidth = humanBitmap?.width?.toFloat() ?: 0f
+        val humanHeight = humanBitmap?.height?.toFloat() ?: 0f
+        val humanRadius = max(humanWidth, humanHeight) / 2f
+        val auraRadius = humanRadius * 2.2f
 
         // Аура (круг)
         val paintAura = Paint().apply {
@@ -93,43 +103,46 @@ class AuraCanvasView @JvmOverloads constructor(
         }
         canvas.drawCircle(centerX, centerY, auraRadius, paintAura)
 
-        // Проблемы (10 мест, полукруг внутри ауры вокруг человека)
-        val problemRadius = humanRadius * 0.6f
-        val problemAngleStart = 200f
-        val problemAngleSweep = 140f
-        val problems = aura.auraProblems.take(10)
-        for ((i, problem) in problems.withIndex()) {
-            val angle = Math.toRadians((problemAngleStart + i * problemAngleSweep / 9.0)).toFloat()
-            val px = centerX + cos(angle) * (humanRadius + problemRadius)
-            val py = centerY + sin(angle) * (humanRadius + problemRadius)
-            drawProblem(canvas, px, py, problem, problemRadius)
+        aura.auraProblems?.let {
+            // Проблемы (10 мест, полукруг внутри ауры вокруг человека)
+            val problemRadius = humanRadius * 0.35f
+            val problemAngleStart = 200f
+            val problemAngleSweep = 140f
+            val problems = aura.auraProblems.take(10)
+            for ((i, problem) in problems.withIndex()) {
+                val angle = Math.toRadians((problemAngleStart + i * problemAngleSweep / 9.0)).toFloat()
+                val px = centerX + cos(angle) * (humanRadius + problemRadius)
+                val py = centerY + sin(angle) * (humanRadius + problemRadius)
+                drawProblem(canvas, px, py, problem, problemRadius)
+            }
         }
 
-        // Человек
+
+        // Человек (в оригинальном размере, по центру)
         humanBitmap?.let {
-            val left = centerX - humanRadius
-            val top = centerY - humanRadius
-            val right = centerX + humanRadius
-            val bottom = centerY + humanRadius
-            canvas.drawBitmap(it, null, RectF(left, top, right, bottom), null)
+            val left = centerX - humanWidth / 2f
+            val top = centerY - humanHeight / 2f
+            canvas.drawBitmap(it, left, top, null)
         }
 
-        // Внутренние метки — столбцом слева от человека
-        val internalMarks = aura.marks.filter { !it.external }.sortedBy { it.markId }
-        val markSize = humanRadius * 0.7f
-        val markGap = markSize * 0.2f
-        for ((i, mark) in internalMarks.withIndex()) {
-            val mx = centerX - humanRadius - markSize - 20f
-            val my = centerY - (internalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
-            drawMark(canvas, mx, my, mark, markSize)
-        }
+        aura.marks.let {
+            // Внутренние метки — столбцом слева от человека
+            val internalMarks = it!!.filter { it.external == 0 }.sortedBy { it.markId }
+            val markSize = humanRadius * 0.35f
+            val markGap = markSize * 0.18f
+            for ((i, mark) in internalMarks.withIndex()) {
+                val mx = centerX - humanRadius - markSize - 40f
+                val my = centerY - (internalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
+                drawMark(canvas, mx, my, mark, markSize)
+            }
 
-        // Внешние метки — столбцом справа от ауры
-        val externalMarks = aura.marks.filter { it.external }.sortedBy { it.markId }
-        for ((i, mark) in externalMarks.withIndex()) {
-            val mx = centerX + auraRadius + 20f
-            val my = centerY - (externalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
-            drawMark(canvas, mx, my, mark, markSize)
+            // Внешние метки — столбцом справа от ауры
+            val externalMarks = it.filter { it.external == 1 }.sortedBy { it.markId }
+            for ((i, mark) in externalMarks.withIndex()) {
+                val mx = centerX + auraRadius + 40f
+                val my = centerY - (externalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
+                drawMark(canvas, mx, my, mark, markSize)
+            }
         }
 
         canvas.restore()
@@ -241,10 +254,5 @@ class AuraCanvasView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         scope.cancel()
-    }
-
-    override fun dispatchDraw(canvas: Canvas) {
-        markTouchAreas.clear()
-        super.dispatchDraw(canvas)
     }
 } 
