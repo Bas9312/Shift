@@ -6,6 +6,6 @@ import retrofit2.http.GET
 import retrofit2.http.Path
 
 interface UserProfileApi {
-    @GET("/api/v1/users/{id}")
+    @GET("/mage_profile_api/api/v1/users/{id}")
     fun getUserProfile(@Path("id") userId: String): Call<User>
 } 

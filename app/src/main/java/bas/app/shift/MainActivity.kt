@@ -27,17 +27,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupButtons() {
-        binding.btnInGame.setOnClickListener {
-            ShiftApplication.instance.setIsInGame(true)
-            updateUI()
-            ShiftApplication.instance.startLocationService()
-        }
-
-        binding.btnOutOfGame.setOnClickListener {
-            ShiftApplication.instance.setIsInGame(false)
-            updateUI()
-            ShiftApplication.instance.stopLocationService()
-        }
+        binding.inGameSelector.addOnButtonCheckedListener{ _, checkedId, isChecked -> if (isChecked) onCheckChanged(checkedId) }
+        binding.inGameSelector.check( if (ShiftApplication.instance.isInGame()) R.id.inGame else R.id.outGame)
 
         binding.btnOpenMap.setOnClickListener {
             if (ShiftApplication.instance.isInGame() && hasNotificationPermission()) {
@@ -66,10 +57,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun onCheckChanged(checkedId: Int) {
+        if (checkedId == R.id.inGame) {
+            ShiftApplication.instance.setIsInGame(true)
+            updateUI()
+            ShiftApplication.instance.startLocationService()
+        } else {
+
+            ShiftApplication.instance.setIsInGame(false)
+            updateUI()
+            ShiftApplication.instance.stopLocationService()
+        }
+    }
+
     private fun updateUI() {
-        binding.btnInGame.isSelected = ShiftApplication.instance.isInGame()
-        binding.btnOutOfGame.isSelected = !ShiftApplication.instance.isInGame()
         binding.btnOpenMap.isEnabled = ShiftApplication.instance.isInGame() && hasNotificationPermission()
+        binding.btnNeoHacking.isEnabled = ShiftApplication.instance.isInGame()
+        binding.openTerminalButton.isEnabled = ShiftApplication.instance.isInGame()
+        binding.openPointManagementButton.isEnabled = ShiftApplication.instance.isInGame()
+        binding.openAuraButton.isEnabled = ShiftApplication.instance.isInGame()
+        binding.btnOpenProfile.isEnabled = ShiftApplication.instance.isInGame()
     }
 
     private fun checkNotificationPermission() {

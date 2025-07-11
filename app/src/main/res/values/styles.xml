@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
+    <style name="selector_style" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="cornerRadius">14dp</item>
+        <item name="android:textColor">#1D1B20</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:paddingStart">4dp</item>
+        <item name="android:paddingEnd">4dp</item>
+        <item name="strokeColor">#7C7C7C</item>
+        <item name="backgroundTint">@drawable/selector_style_background_tint</item>
+        <item name="rippleColor">@color/ripple_material_dark</item>
+        <item name="iconTint">@null</item>
+    </style>
 </resources>

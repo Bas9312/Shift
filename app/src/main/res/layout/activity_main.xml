@@ -14,58 +14,45 @@
         android:textStyle="bold"
         android:layout_marginBottom="16dp"/>
 
-    <LinearLayout
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/inGameSelector"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center"
-        android:layout_marginBottom="32dp">
+        android:layout_marginBottom="32dp"
+        android:weightSum="2"
+        app:selectionRequired="true"
+        app:singleSelection="true">
 
-        <Button
-            android:id="@+id/btnInGame"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="В игре"
-            android:layout_marginEnd="8dp"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-
-        <Button
-            android:id="@+id/btnOutOfGame"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Не в игре"
-            android:layout_marginStart="8dp"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-
-        <Button
-            android:id="@+id/btnNeoHacking"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Хакинг"
-            android:layout_marginStart="8dp"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-
-    </LinearLayout>
-
-    <Button
-        android:id="@+id/btnOpenMap"
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/inGame"
+        style="@style/selector_style"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Открыть карту"
-        android:enabled="false"/>
+        android:text="В игре" />
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/outGame"
+        style="@style/selector_style"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Не в игре" />
+    </com.google.android.material.button.MaterialButtonToggleGroup>
     <Button
-        android:id="@+id/startGameButton"
+        android:id="@+id/btnOpenMap"
+        android:text="Открыть карту"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Начать игру"
         android:layout_marginBottom="8dp"/>
 
     <Button
-        android:id="@+id/stopGameButton"
+        android:id="@+id/btnNeoHacking"
+        android:text="Хакинг"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Закончить игру"
         android:layout_marginBottom="8dp"/>
 
     <Button
