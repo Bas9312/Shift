@@ -5,6 +5,7 @@ import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityProfileBinding
 import bas.app.shift.helpers.LogHelper
@@ -20,6 +21,15 @@ class ProfileActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityProfileBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Настройка тулбара
+        setSupportActionBar(binding.toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.title = "Профиль"
+
+        binding.toolbar.setNavigationOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
+        }
 
         val userId = UserPrefsHelper.getUserId(this)
         fetchProfile(userId)
@@ -89,7 +99,7 @@ class ProfileActivity : AppCompatActivity() {
             abilitiesLayout.addView(tv)
         }
         // Артефакты (только если есть Артефактология)
-        val hasArtifactology = user.disciplines.any { it.name == "Артефактология" }
+        val hasArtifactology = user.disciplines.any { it.name == "Артефактология" || it.id == 1 }
         val artifactsSection = binding.profileArtifactsSection
         if (hasArtifactology) {
             artifactsSection.visibility = View.VISIBLE
@@ -108,7 +118,6 @@ class ProfileActivity : AppCompatActivity() {
             }
         } else {
             artifactsSection.visibility = View.GONE
-            // TODO: в будущем проверять по id дисциплины
         }
         // Инструмент
         binding.profileInstrument.text = user.instrument ?: "Инструмент не указан"

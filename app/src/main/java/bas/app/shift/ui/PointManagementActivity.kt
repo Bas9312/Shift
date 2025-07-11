@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import bas.app.shift.databinding.ActivityPointManagementBinding
 import bas.app.shift.models.Point
 import bas.app.shift.models.PointRequest
@@ -20,7 +21,12 @@ class PointManagementActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityPointManagementBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
+        setSupportActionBar(binding.toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.title = "Управление точками"
+        binding.toolbar.setNavigationOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
+        }
         setupTypeDropdown()
         setupButtons()
     }

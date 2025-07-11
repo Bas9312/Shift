@@ -6,6 +6,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import bas.app.shift.MainActivity
 import bas.app.shift.R
 import bas.app.shift.helpers.UserPrefsHelper
@@ -21,10 +22,14 @@ class AuthActivity : AppCompatActivity() {
             return
         }
         setContentView(R.layout.activity_auth)
-
+        setSupportActionBar(findViewById(R.id.toolbar))
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.title = "Авторизация"
+        findViewById<Toolbar>(R.id.toolbar).setNavigationOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
+        }
         val editTextUserId = findViewById<EditText>(R.id.editTextUserId)
         val buttonLogin = findViewById<Button>(R.id.buttonLogin)
-
         buttonLogin.setOnClickListener {
             val userId = editTextUserId.text.toString().trim()
             if (userId.isEmpty()) {

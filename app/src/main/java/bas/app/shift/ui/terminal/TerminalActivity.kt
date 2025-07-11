@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.getSystemService
 import bas.app.shift.R
 import bas.app.shift.databinding.ActivityTerminalBinding
+import androidx.appcompat.widget.Toolbar
 
 class TerminalActivity : AppCompatActivity() {
 
@@ -50,6 +51,9 @@ class TerminalActivity : AppCompatActivity() {
         setContentView(binding.root)
         initAutocomplete()
         setSupportActionBar(binding.topBar)
+        binding.topBar.setNavigationOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
+        }
 
         adapter = ConsoleAdapter(mutableListOf())
         binding.consoleList.layoutManager =

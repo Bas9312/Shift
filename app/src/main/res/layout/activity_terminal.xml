@@ -16,7 +16,9 @@
         app:titleTextColor="#C8E1FF"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:navigationIcon="@drawable/ic_arrow_back_24"
+        app:navigationIconTint="#C8E1FF" />
 
     <!-- в activity_terminal.xml сразу под topBar -->
     <ImageView

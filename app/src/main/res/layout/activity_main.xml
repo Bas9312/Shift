@@ -1,86 +1,94 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:gravity="center">
+    android:orientation="vertical">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Состояние персонажа"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp"/>
-
-    <com.google.android.material.button.MaterialButtonToggleGroup
-        xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:app="http://schemas.android.com/apk/res-auto"
-        android:id="@+id/inGameSelector"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_marginBottom="32dp"
-        android:weightSum="2"
-        app:selectionRequired="true"
-        app:singleSelection="true">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:gravity="center">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/inGame"
-        style="@style/selector_style"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="В игре" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Состояние персонажа"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/outGame"
-        style="@style/selector_style"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Не в игре" />
-    </com.google.android.material.button.MaterialButtonToggleGroup>
-    <Button
-        android:id="@+id/btnOpenMap"
-        android:text="Открыть карту"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"/>
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:id="@+id/inGameSelector"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="32dp"
+            android:weightSum="2"
+            app:selectionRequired="true"
+            app:singleSelection="true">
 
-    <Button
-        android:id="@+id/btnNeoHacking"
-        android:text="Хакинг"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"/>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/inGame"
+                style="@style/selector_style"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="В игре" />
 
-    <Button
-        android:id="@+id/openTerminalButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Открыть терминал"
-        android:layout_marginBottom="8dp"/>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/outGame"
+                style="@style/selector_style"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Не в игре" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+        <Button
+            android:id="@+id/btnOpenMap"
+            android:text="Открыть карту"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"/>
 
-    <Button
-        android:id="@+id/openPointManagementButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Управление точками"
-        android:layout_marginBottom="8dp"/>
+        <Button
+            android:id="@+id/btnNeoHacking"
+            android:text="Хакинг"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"/>
 
-    <Button
-        android:id="@+id/openAuraButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Аура персонажа"
-        android:layout_marginBottom="8dp"/>
+        <Button
+            android:id="@+id/openTerminalButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Открыть терминал"
+            android:layout_marginBottom="8dp"/>
 
-    <Button
-        android:id="@+id/btnOpenProfile"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Профиль"
-        android:layout_marginBottom="8dp"/>
+        <Button
+            android:id="@+id/openPointManagementButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Управление точками"
+            android:layout_marginBottom="8dp"/>
 
+        <Button
+            android:id="@+id/openAuraButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Аура персонажа"
+            android:layout_marginBottom="8dp"/>
+
+        <Button
+            android:id="@+id/btnOpenProfile"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Профиль"
+            android:layout_marginBottom="8dp"/>
+
+    </LinearLayout>
 </LinearLayout> 

@@ -11,16 +11,19 @@ import androidx.core.content.ContextCompat
 import bas.app.shift.databinding.ActivityMainBinding
 import bas.app.shift.ui.terminal.TerminalActivity
 import bas.app.shift.ui.PointManagementActivity
+import androidx.appcompat.widget.Toolbar
+import androidx.appcompat.app.AppCompatActivity
 
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.title = "Главная"
         setupButtons()
         updateUI()
         checkNotificationPermission()
