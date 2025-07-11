@@ -43,6 +43,10 @@
             android:name=".ui.PointManagementActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".ui.ProfileActivity"
+            android:exported="false" />
+
         <service
             android:name=".services.LocationService"
             android:exported="false" />

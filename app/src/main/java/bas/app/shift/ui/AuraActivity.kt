@@ -5,8 +5,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import bas.app.shift.R
 import bas.app.shift.api.AuraApi
-import bas.app.shift.models.*
-import com.example.shift.data.api.RetrofitClient
+import bas.app.shift.api.RetrofitClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

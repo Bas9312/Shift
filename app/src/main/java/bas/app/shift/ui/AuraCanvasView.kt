@@ -101,7 +101,7 @@ class AuraCanvasView @JvmOverloads constructor(
             style = Paint.Style.FILL
             alpha = if (aura.auraHidden) 80 else 180
         }
-        canvas.drawOval(centerX, centerY, auraRadius, paintAura)
+        canvas.drawCircle(centerX, centerY, auraRadius, paintAura)
 
         // 10 слотов для проблем по кругу вокруг человека
         val slotsCount = 10

@@ -60,6 +60,10 @@ class MainActivity : ComponentActivity() {
         binding.openAuraButton.setOnClickListener {
             startActivity(Intent(this, bas.app.shift.ui.AuraActivity::class.java))
         }
+
+        binding.btnOpenProfile.setOnClickListener {
+            startActivity(Intent(this, bas.app.shift.ui.ProfileActivity::class.java))
+        }
     }
 
     private fun updateUI() {

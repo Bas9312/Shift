@@ -1,7 +1,5 @@
-package com.example.shift.data.api
+package bas.app.shift.api
 
-import bas.app.shift.api.AuraApi
-import bas.app.shift.api.ShiftApi
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -36,4 +34,5 @@ object RetrofitClient {
 
     val shiftApi: ShiftApi = retrofit.create(ShiftApi::class.java)
     val auraApi: AuraApi = retrofit.create(AuraApi::class.java)
+    val userProfileApi: UserProfileApi = retrofit.create(UserProfileApi::class.java)
 }

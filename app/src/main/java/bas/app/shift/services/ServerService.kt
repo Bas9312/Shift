@@ -7,7 +7,7 @@ import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.Point
 import bas.app.shift.models.PointRequest
 import bas.app.shift.models.UserLocation
-import com.example.shift.data.api.RetrofitClient
+import bas.app.shift.api.RetrofitClient
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
