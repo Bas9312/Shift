@@ -31,7 +31,6 @@ import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.Task
 import io.reactivex.disposables.Disposable
-import androidx.appcompat.widget.Toolbar
 
 class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
@@ -61,12 +60,6 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
         binding = ActivityEkatMapsBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "Карта"
-        binding.toolbar.setNavigationOnClickListener {
-            onBackPressedDispatcher.onBackPressed()
-        }
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
     }

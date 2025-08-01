@@ -35,4 +35,5 @@ object RetrofitClient {
     val shiftApi: ShiftApi = retrofit.create(ShiftApi::class.java)
     val auraApi: AuraApi = retrofit.create(AuraApi::class.java)
     val userProfileApi: UserProfileApi = retrofit.create(UserProfileApi::class.java)
+    val artifactApi: ArtifactApi = retrofit.create(ArtifactApi::class.java)
 }

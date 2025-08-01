@@ -21,9 +21,9 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.getSystemService
+import com.google.android.material.appbar.MaterialToolbar
 import bas.app.shift.R
 import bas.app.shift.databinding.ActivityTerminalBinding
-import androidx.appcompat.widget.Toolbar
 
 class TerminalActivity : AppCompatActivity() {
 
@@ -50,10 +50,7 @@ class TerminalActivity : AppCompatActivity() {
         binding = ActivityTerminalBinding.inflate(layoutInflater)
         setContentView(binding.root)
         initAutocomplete()
-        setSupportActionBar(binding.topBar)
-        binding.topBar.setNavigationOnClickListener {
-            onBackPressedDispatcher.onBackPressed()
-        }
+        // TerminalActivity уже имеет title в layout, поэтому не нужно устанавливать его программно
 
         adapter = ConsoleAdapter(mutableListOf())
         binding.consoleList.layoutManager =

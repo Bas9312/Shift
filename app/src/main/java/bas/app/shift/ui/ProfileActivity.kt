@@ -1,11 +1,12 @@
 package bas.app.shift.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
+import com.google.android.material.appbar.MaterialToolbar
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityProfileBinding
 import bas.app.shift.helpers.LogHelper
@@ -23,12 +24,11 @@ class ProfileActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         // Настройка тулбара
-        setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "Профиль"
-
+        binding.toolbar.title = "Профиль"
+        binding.toolbar.setTitleTextColor(getColor(android.R.color.white))
+        binding.toolbar.setNavigationIconTint(getColor(android.R.color.white))
         binding.toolbar.setNavigationOnClickListener {
-            onBackPressedDispatcher.onBackPressed()
+            finish()
         }
 
         val userId = UserPrefsHelper.getUserId(this)
@@ -40,7 +40,10 @@ class ProfileActivity : AppCompatActivity() {
             .enqueue(object : Callback<User> {
                 override fun onResponse(call: Call<User>, response: Response<User>) {
                     if (response.isSuccessful && response.body() != null) {
-                        showProfile(response.body()!!)
+                        val user = response.body()!!
+                        showProfile(user)
+                        // Сохраняем актуальные данные пользователя
+                        UserPrefsHelper.saveUserData(this@ProfileActivity, user)
                     } else {
                         showError("Ошибка загрузки профиля: ${response.code()}")
                     }
@@ -106,9 +109,15 @@ class ProfileActivity : AppCompatActivity() {
             val artifactsLayout = binding.profileArtifactsList
             artifactsLayout.removeAllViews()
             if (user.artifacts.isNotEmpty()) {
-                user.artifacts.forEach {
+                user.artifacts.forEach { artifact ->
                     val tv = TextView(this)
-                    tv.text = it.name
+                    tv.text = artifact.name
+                    tv.isClickable = true
+                    tv.setOnClickListener {
+                        val intent = Intent(this, ArtifactActivity::class.java)
+                        intent.putExtra("artifact_id", artifact.id)
+                        startActivity(intent)
+                    }
                     artifactsLayout.addView(tv)
                 }
             } else {

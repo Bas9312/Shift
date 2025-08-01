@@ -3,7 +3,7 @@ package bas.app.shift.ui
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
+import com.google.android.material.appbar.MaterialToolbar
 import bas.app.shift.R
 import bas.app.shift.api.AuraApi
 import bas.app.shift.api.RetrofitClient
@@ -20,11 +20,12 @@ class AuraActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_aura)
-        setSupportActionBar(findViewById(R.id.toolbar))
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "Аура"
-        findViewById<Toolbar>(R.id.toolbar).setNavigationOnClickListener {
-            onBackPressedDispatcher.onBackPressed()
+        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+        toolbar.title = "Аура"
+        toolbar.setTitleTextColor(getColor(android.R.color.white))
+        toolbar.setNavigationIconTint(getColor(android.R.color.white))
+        toolbar.setNavigationOnClickListener {
+            finish()
         }
         auraApi = RetrofitClient.auraApi
         auraCanvas = findViewById(R.id.auraCanvas)

@@ -8,8 +8,8 @@ data class NamedEntity(
     val name: String
 )
 
-// Артефакт
-data class Artifact(
+// Артефакт (базовая модель для списка)
+data class ShortArtifact(
     val id: Int,
     val name: String
 )
@@ -22,7 +22,7 @@ data class User(
     @SerializedName("disciplines") val disciplines: List<NamedEntity> = emptyList(),
     @SerializedName("modules") val modules: List<NamedEntity> = emptyList(),
     @SerializedName("abilities") val abilities: List<String> = emptyList(),
-    @SerializedName("artifacts") val artifacts: List<Artifact> = emptyList(),
+    @SerializedName("artifacts") val artifacts: List<ShortArtifact> = emptyList(),
     @SerializedName("instrument") val instrument: String?,
     @SerializedName("familiar") val familiar: String?,
     @SerializedName("misc") val misc: List<String> = emptyList()

@@ -4,6 +4,7 @@ import android.location.Location
 import android.widget.Toast
 import bas.app.shift.ShiftApplication
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.Point
 import bas.app.shift.models.PointRequest
 import bas.app.shift.models.UserLocation
@@ -24,9 +25,12 @@ object ServerService {
         LogHelper.d("Отправка геолокации на сервер: ${location.latitude}, ${location.longitude}")
         scope.launch {
             try {
+                val userId = UserPrefsHelper.getUserId(ShiftApplication.instance)
+                val userName = UserPrefsHelper.getUserName(ShiftApplication.instance)
+                
                 val userLocation = UserLocation(
-                    id = "9312",
-                    name = "TestUser",
+                    id = userId,
+                    name = userName,
                     lat = location.latitude,
                     lng = location.longitude,
                     show = true
