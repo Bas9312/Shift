@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
         setContentView(binding.root)
 
         setupButtons()
-        checkArtifactKnowledgeModule()
+        checkUserDisciplines()
         updateUI()
         checkNotificationPermission()
     }
@@ -45,10 +45,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        binding.btnNeoHacking.setOnClickListener{
-            startActivity(Intent(this, TerminalActivity::class.java))
-        }
-
         binding.openTerminalButton.setOnClickListener {
             startActivity(Intent(this, TerminalActivity::class.java))
         }
@@ -58,7 +54,7 @@ class MainActivity : ComponentActivity() {
         }
 
         binding.openAuraButton.setOnClickListener {
-            startActivity(Intent(this, bas.app.shift.ui.AuraActivity::class.java))
+            startActivity(Intent(this, bas.app.shift.ui.AuraScannerActivity::class.java))
         }
 
         binding.btnOpenProfile.setOnClickListener {
@@ -85,7 +81,6 @@ class MainActivity : ComponentActivity() {
 
     private fun updateUI() {
         binding.btnOpenMap.isEnabled = ShiftApplication.instance.isInGame() && hasNotificationPermission()
-        binding.btnNeoHacking.isEnabled = ShiftApplication.instance.isInGame()
         binding.openTerminalButton.isEnabled = ShiftApplication.instance.isInGame()
         binding.openPointManagementButton.isEnabled = ShiftApplication.instance.isInGame()
         binding.openAuraButton.isEnabled = ShiftApplication.instance.isInGame()
@@ -93,30 +88,48 @@ class MainActivity : ComponentActivity() {
         binding.btnScanArtifact.isEnabled = ShiftApplication.instance.isInGame()
     }
 
-    private fun checkArtifactKnowledgeModule() {
+    private fun checkUserDisciplines() {
         val userId = UserPrefsHelper.getUserId(this)
         RetrofitClient.userProfileApi.getUserProfile(userId)
             .enqueue(object : Callback<User> {
                 override fun onResponse(call: Call<User>, response: Response<User>) {
                     if (response.isSuccessful && response.body() != null) {
                         val user = response.body()!!
+                        
+                        // Проверяем модуль "познание артефактов"
                         val hasArtifactKnowledge = user.modules.any { 
                             it.name.equals("познание артефактов", ignoreCase = true) 
                         }
-                        
                         binding.btnScanArtifact.visibility = if (hasArtifactKnowledge) View.VISIBLE else View.GONE
-                        LogHelper.d("MainActivity: Модуль 'познание артефактов' ${if (hasArtifactKnowledge) "найден" else "не найден"}")
+                        
+                        // Проверяем дисциплину "Экстрасенсорика"
+                        val hasExtrasensory = user.disciplines.any { 
+                            it.name.equals("Экстрасенсорика", ignoreCase = true) 
+                        }
+                        binding.openAuraButton.visibility = if (hasExtrasensory) View.VISIBLE else View.GONE
+                        
+                        // Проверяем дисциплину "Шумомантия"
+                        val hasNoisemancy = user.disciplines.any {
+                            it.id == 9
+                        }
+                        binding.openTerminalButton.visibility = if (hasNoisemancy) View.VISIBLE else View.GONE
+                        
+                        LogHelper.d("MainActivity: Проверка дисциплин - Артефакты: $hasArtifactKnowledge, Экстрасенсорика: $hasExtrasensory, Шумомантия: $hasNoisemancy")
                         
                         // Сохраняем актуальные данные пользователя
                         UserPrefsHelper.saveUserData(this@MainActivity, user)
                     } else {
                         binding.btnScanArtifact.visibility = View.GONE
+                        binding.openAuraButton.visibility = View.GONE
+                        binding.openTerminalButton.visibility = View.GONE
                         LogHelper.e("MainActivity: Ошибка загрузки профиля: ${response.code()}")
                     }
                 }
                 
                 override fun onFailure(call: Call<User>, t: Throwable) {
                     binding.btnScanArtifact.visibility = View.GONE
+                    binding.openAuraButton.visibility = View.GONE
+                    binding.openTerminalButton.visibility = View.GONE
                     LogHelper.e("MainActivity: Ошибка сети при загрузке профиля: ${t.localizedMessage}")
                 }
             })

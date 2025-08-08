@@ -138,7 +138,7 @@ class AuraCanvasView @JvmOverloads constructor(
         val markSize = humanRadius * 0.18f
         val markGap = markSize * 0.13f
         for ((i, mark) in internalMarks.withIndex()) {
-            val mx = centerX - humanRadius - markSize - 20f
+            val mx = centerX - humanRadius - markSize + 250f
             val my = centerY - (internalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
             drawMark(canvas, mx, my, mark, markSize)
         }

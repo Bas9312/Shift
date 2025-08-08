@@ -22,8 +22,6 @@ class PointManagementActivity : AppCompatActivity() {
         binding = ActivityPointManagementBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.toolbar.title = "Управление точками"
-        binding.toolbar.setTitleTextColor(getColor(android.R.color.white))
-        binding.toolbar.setNavigationIconTint(getColor(android.R.color.white))
         binding.toolbar.setNavigationOnClickListener {
             finish()
         }

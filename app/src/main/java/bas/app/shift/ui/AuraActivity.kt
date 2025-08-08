@@ -22,19 +22,25 @@ class AuraActivity : AppCompatActivity() {
         setContentView(R.layout.activity_aura)
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         toolbar.title = "Аура"
-        toolbar.setTitleTextColor(getColor(android.R.color.white))
-        toolbar.setNavigationIconTint(getColor(android.R.color.white))
         toolbar.setNavigationOnClickListener {
             finish()
         }
         auraApi = RetrofitClient.auraApi
         auraCanvas = findViewById(R.id.auraCanvas)
-        loadAura()
+        
+        // Получаем ID ауры из intent
+        val auraId = intent.getStringExtra("aura_id")
+        if (auraId != null) {
+            loadAura(auraId)
+        } else {
+            Toast.makeText(this, "Не указан ID ауры", Toast.LENGTH_SHORT).show()
+            finish()
+        }
     }
 
-    private fun loadAura() {
+    private fun loadAura(auraId: String) {
         CoroutineScope(Dispatchers.IO).launch {
-            val response = auraApi.getAura(entityId)
+            val response = auraApi.getAura(auraId)
             withContext(Dispatchers.Main) {
                 if (response.isSuccessful) {
                     val aura = response.body()

@@ -21,7 +21,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:theme="@style/Theme.Shift">
+        android:theme="@style/Theme.Shift"
+        android:forceDarkAllowed="false">
 
         <activity
             android:name=".ui.AuthActivity"
@@ -58,6 +59,11 @@
 
         <activity
             android:name=".ui.ArtifactScannerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.AuraScannerActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 

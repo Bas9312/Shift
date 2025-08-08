@@ -22,8 +22,6 @@ class ArtifactActivity : AppCompatActivity() {
 
         // Настройка тулбара
         binding.toolbar.title = "Артефакт"
-        binding.toolbar.setTitleTextColor(getColor(android.R.color.white))
-        binding.toolbar.setNavigationIconTint(getColor(android.R.color.white))
         binding.toolbar.setNavigationOnClickListener {
             finish()
         }

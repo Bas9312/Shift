@@ -14,6 +14,12 @@ data class ShortArtifact(
     val name: String
 )
 
+// Способность
+data class Ability(
+    val type: String,
+    val description: String
+)
+
 // Основной профиль пользователя
 data class User(
     @SerializedName("userId") val userId: String,
@@ -21,7 +27,7 @@ data class User(
     @SerializedName("name") val characterName: String?,
     @SerializedName("disciplines") val disciplines: List<NamedEntity> = emptyList(),
     @SerializedName("modules") val modules: List<NamedEntity> = emptyList(),
-    @SerializedName("abilities") val abilities: List<String> = emptyList(),
+    @SerializedName("abilities") val abilities: List<Ability> = emptyList(),
     @SerializedName("artifacts") val artifacts: List<ShortArtifact> = emptyList(),
     @SerializedName("instrument") val instrument: String?,
     @SerializedName("familiar") val familiar: String?,

@@ -25,8 +25,6 @@ class ProfileActivity : AppCompatActivity() {
 
         // Настройка тулбара
         binding.toolbar.title = "Профиль"
-        binding.toolbar.setTitleTextColor(getColor(android.R.color.white))
-        binding.toolbar.setNavigationIconTint(getColor(android.R.color.white))
         binding.toolbar.setNavigationOnClickListener {
             finish()
         }
@@ -91,9 +89,9 @@ class ProfileActivity : AppCompatActivity() {
         val abilitiesLayout = binding.profileAbilitiesList
         abilitiesLayout.removeAllViews()
         if (user.abilities.isNotEmpty()) {
-            user.abilities.forEach {
+            user.abilities.forEach { ability ->
                 val tv = TextView(this)
-                tv.text = it
+                tv.text = "Тип: ${ability.type}\nОписание: ${ability.description}"
                 abilitiesLayout.addView(tv)
             }
         } else {

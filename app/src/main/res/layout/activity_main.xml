@@ -41,49 +41,43 @@
         android:layout_height="wrap_content"
         android:text="Не в игре" />
     </com.google.android.material.button.MaterialButtonToggleGroup>
-    <Button
+
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnOpenMap"
         android:text="Открыть карту"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="8dp"/>
 
-    <Button
-        android:id="@+id/btnNeoHacking"
-        android:text="Хакинг"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"/>
-
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/openTerminalButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Открыть терминал"
         android:layout_marginBottom="8dp"/>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/openPointManagementButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Управление точками"
         android:layout_marginBottom="8dp"/>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/openAuraButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Аура персонажа"
+        android:text="Просмотр ауры"
         android:layout_marginBottom="8dp"/>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnOpenProfile"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Профиль"
         android:layout_marginBottom="8dp"/>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnScanArtifact"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
