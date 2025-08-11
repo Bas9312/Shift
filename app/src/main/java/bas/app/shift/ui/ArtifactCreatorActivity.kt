@@ -18,6 +18,7 @@ import retrofit2.Response
 class ArtifactCreatorActivity : AppCompatActivity() {
     private lateinit var binding: ActivityArtifactCreatorBinding
     private var users: List<User> = emptyList()
+    private var filteredUsers: List<User> = emptyList() // Добавляем переменную для отфильтрованных пользователей
     private var selectedUser: User? = null
 
     // Список типов артефактов
@@ -80,23 +81,25 @@ class ArtifactCreatorActivity : AppCompatActivity() {
     }
 
     private fun setupCreatorSpinner() {
-        // Сортируем пользователей по алфавиту
-        val sortedUsers = users.sortedBy { user ->
-            val displayName = if (user.playerName.isNullOrEmpty()) {
-                user.characterName ?: ""
-            } else if (user.characterName.isNullOrEmpty()) {
-                user.playerName
-            } else {
-                "${user.playerName} / ${user.characterName}"
+        // Сортируем пользователей по алфавиту и фильтруем MG пользователей
+        filteredUsers = users
+            .filter { user -> !user.userId.startsWith("MG") } // Исключаем MG пользователей
+            .sortedBy { user ->
+                val displayName = if (user.playerName.isNullOrEmpty()) {
+                    user.characterName ?: ""
+                } else if (user.characterName.isNullOrEmpty()) {
+                    user.playerName
+                } else {
+                    "${user.playerName} / ${user.characterName}"
+                }
+                displayName.lowercase()
             }
-            displayName.lowercase()
-        }
 
         // Создаем список для селектора
         val creatorItems = mutableListOf<String>()
         creatorItems.add("Выберите создателя...") // Заголовок
         
-        sortedUsers.forEach { user ->
+        filteredUsers.forEach { user ->
             val displayName = if (user.playerName.isNullOrEmpty()) {
                 user.characterName ?: "Без имени"
             } else if (user.characterName.isNullOrEmpty()) {
@@ -112,8 +115,8 @@ class ArtifactCreatorActivity : AppCompatActivity() {
 
         // Обработчик выбора создателя
         binding.creatorAutoComplete.setOnItemClickListener { _, _, position, _ ->
-            if (position > 0 && position <= sortedUsers.size) {
-                selectedUser = sortedUsers[position - 1]
+            if (position > 0 && position <= filteredUsers.size) {
+                selectedUser = filteredUsers[position - 1]
             } else {
                 selectedUser = null
             }

@@ -17,6 +17,7 @@ import retrofit2.Response
 class MgProfileViewActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMgProfileViewBinding
     private var users: List<User> = emptyList()
+    private var filteredUsers: List<User> = emptyList() // Добавляем переменную для отфильтрованных пользователей
     private lateinit var profileFragment: ProfileFragment
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,8 +37,8 @@ class MgProfileViewActivity : AppCompatActivity() {
         // Настройка спиннера
         binding.userSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (position > 0 && position <= users.size) { // Позиция 0 - это заголовок
-                    val selectedUser = users[position - 1]
+                if (position > 0 && position <= filteredUsers.size) { // Используем отфильтрованный список
+                    val selectedUser = filteredUsers[position - 1]
                     loadUserProfile(selectedUser.userId)
                 }
             }
@@ -73,23 +74,25 @@ class MgProfileViewActivity : AppCompatActivity() {
     }
 
     private fun setupUserSpinner() {
-        // Сортируем пользователей по алфавиту (player_name / name)
-        val sortedUsers = users.sortedBy { user ->
-            val displayName = if (user.playerName.isNullOrEmpty()) {
-                user.characterName ?: ""
-            } else if (user.characterName.isNullOrEmpty()) {
-                user.playerName
-            } else {
-                "${user.playerName} / ${user.characterName}"
+        // Сортируем пользователей по алфавиту и фильтруем MG пользователей
+        filteredUsers = users
+            .filter { user -> !user.userId.startsWith("MG") } // Исключаем MG пользователей
+            .sortedBy { user ->
+                val displayName = if (user.playerName.isNullOrEmpty()) {
+                    user.characterName ?: ""
+                } else if (user.characterName.isNullOrEmpty()) {
+                    user.playerName
+                } else {
+                    "${user.playerName} / ${user.characterName}"
+                }
+                displayName.lowercase()
             }
-            displayName.lowercase()
-        }
 
         // Создаем список для спиннера
         val spinnerItems = mutableListOf<String>()
         spinnerItems.add("Выберите пользователя...") // Заголовок
         
-        sortedUsers.forEach { user ->
+        filteredUsers.forEach { user ->
             val displayName = if (user.playerName.isNullOrEmpty()) {
                 user.characterName ?: "Без имени"
             } else if (user.characterName.isNullOrEmpty()) {

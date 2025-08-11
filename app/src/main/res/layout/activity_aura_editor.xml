@@ -10,30 +10,39 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?attr/colorPrimary"
-        android:theme="@style/ThemeOverlay.Material3.Dark.ActionBar"
-        app:title="Аура"
+        android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar"
+        app:title="Редактор Ауры"
         app:navigationIcon="@drawable/ic_arrow_back_24" />
 
-    <ScrollView
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
         android:padding="16dp">
 
-        <LinearLayout
+        <!-- Выбор пользователя -->
+        <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:layout_marginBottom="16dp"
+            android:hint="Выберите пользователя для редактирования ауры"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
 
-            <TextView
-                android:id="@+id/contentText"
+            <AutoCompleteTextView
+                android:id="@+id/userAutoComplete"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Редактор Ауры для МГ"
-                android:textSize="16sp"
-                android:lineSpacingExtra="4dp" />
+                android:inputType="none" />
 
-        </LinearLayout>
+        </com.google.android.material.textfield.TextInputLayout>
 
-    </ScrollView>
+    </LinearLayout>
+
+    <!-- Контейнер для фрагмента ауры -->
+    <FrameLayout
+        android:id="@+id/auraContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 
 </LinearLayout>
