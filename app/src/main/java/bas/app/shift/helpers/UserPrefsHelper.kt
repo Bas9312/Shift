@@ -61,7 +61,8 @@ object UserPrefsHelper {
 
     fun clearUserData(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit {
+        prefs.edit(commit = true) {
+            remove(KEY_USER_ID)
             remove(KEY_USER_DATA)
             remove(KEY_USER_NAME)
         }

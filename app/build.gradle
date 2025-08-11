@@ -44,6 +44,7 @@ dependencies {
     implementation libs.play.services.maps
     implementation libs.androidx.constraintlayout
     implementation ("com.google.android.gms:play-services-location:21.3.0")
+    implementation 'androidx.fragment:fragment-ktx:1.6.2'
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
     androidTestImplementation libs.androidx.espresso.core
@@ -54,7 +55,6 @@ dependencies {
     implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
     implementation 'com.squareup.okhttp3:logging-interceptor:4.9.0'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4'
-    implementation("io.coil-kt.coil3:coil-compose:3.2.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.2.0")
     implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
 }

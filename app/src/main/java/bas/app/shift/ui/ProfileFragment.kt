@@ -1,0 +1,131 @@
+package bas.app.shift.ui
+
+import android.content.Intent
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import android.widget.Toast
+import androidx.fragment.app.Fragment
+import bas.app.shift.databinding.FragmentProfileBinding
+import bas.app.shift.helpers.LogHelper
+import bas.app.shift.models.User
+
+class ProfileFragment : Fragment() {
+    private var _binding: FragmentProfileBinding? = null
+    private val binding get() = _binding!!
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentProfileBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+
+    fun showProfile(user: User) {
+        // Имя персонажа
+        binding.profileCharacterName.text = user.characterName ?: "Имя персонажа не указано"
+        // Имя игрока
+        binding.profilePlayerName.text = user.playerName ?: "Имя игрока не указано"
+        // Дисциплины
+        val disciplinesLayout = binding.profileDisciplinesList
+        disciplinesLayout.removeAllViews()
+        if (user.disciplines.isNotEmpty()) {
+            user.disciplines.forEach {
+                val tv = TextView(requireContext())
+                tv.text = it.name
+                disciplinesLayout.addView(tv)
+            }
+        } else {
+            val tv = TextView(requireContext())
+            tv.text = "Нет дисциплин"
+            disciplinesLayout.addView(tv)
+        }
+        // Модули
+        val modulesLayout = binding.profileModulesList
+        modulesLayout.removeAllViews()
+        if (user.modules.isNotEmpty()) {
+            user.modules.forEach {
+                val tv = TextView(requireContext())
+                tv.text = it.name
+                modulesLayout.addView(tv)
+            }
+        } else {
+            val tv = TextView(requireContext())
+            tv.text = "Нет модулей"
+            modulesLayout.addView(tv)
+        }
+        // Способности
+        val abilitiesLayout = binding.profileAbilitiesList
+        abilitiesLayout.removeAllViews()
+        if (user.abilities.isNotEmpty()) {
+            user.abilities.forEach { ability ->
+                val tv = TextView(requireContext())
+                tv.text = "Тип: ${ability.type}\nОписание: ${ability.description}"
+                abilitiesLayout.addView(tv)
+            }
+        } else {
+            val tv = TextView(requireContext())
+            tv.text = "Нет способностей"
+            abilitiesLayout.addView(tv)
+        }
+        // Артефакты (только если есть Артефактология)
+        val hasArtifactology = user.disciplines.any { it.name == "Артефактология" || it.id == 1 }
+        val artifactsSection = binding.profileArtifactsSection
+        if (hasArtifactology) {
+            artifactsSection.visibility = View.VISIBLE
+            val artifactsLayout = binding.profileArtifactsList
+            artifactsLayout.removeAllViews()
+            if (user.artifacts.isNotEmpty()) {
+                user.artifacts.forEach { artifact ->
+                    val tv = TextView(requireContext())
+                    tv.text = artifact.name
+                    tv.isClickable = true
+                    tv.setOnClickListener {
+                        val intent = Intent(requireContext(), ArtifactActivity::class.java)
+                        intent.putExtra("artifact_id", artifact.id)
+                        startActivity(intent)
+                    }
+                    artifactsLayout.addView(tv)
+                }
+            } else {
+                val tv = TextView(requireContext())
+                tv.text = "Нет артефактов"
+                artifactsLayout.addView(tv)
+            }
+        } else {
+            artifactsSection.visibility = View.GONE
+        }
+        // Инструмент
+        binding.profileInstrument.text = user.instrument ?: "Инструмент не указан"
+        // Фамильяр
+        binding.profileFamiliar.text = user.familiar ?: "Фамильяр не указан"
+        // Прочее
+        val miscLayout = binding.profileMiscList
+        miscLayout.removeAllViews()
+        if (user.misc.isNotEmpty()) {
+            user.misc.forEach {
+                val tv = TextView(requireContext())
+                tv.text = it
+                miscLayout.addView(tv)
+            }
+        } else {
+            val tv = TextView(requireContext())
+            tv.text = "Нет особенностей"
+            miscLayout.addView(tv)
+        }
+    }
+
+    fun showError(msg: String) {
+        Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show()
+        LogHelper.e("ProfileFragment $msg")
+    }
+}

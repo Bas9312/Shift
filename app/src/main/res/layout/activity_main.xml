@@ -1,10 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:gravity="center">
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        android:theme="@style/ThemeOverlay.Material3.Dark.ActionBar"
+        app:title="Shift"
+        app:menu="@menu/main_menu" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:gravity="center">
 
     <TextView
         android:layout_width="wrap_content"
@@ -56,12 +71,14 @@
         android:text="Открыть терминал"
         android:layout_marginBottom="8dp"/>
 
+    <!-- Кнопка управления точками скрыта для всех пользователей -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/openPointManagementButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Управление точками"
-        android:layout_marginBottom="8dp"/>
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"/>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/openAuraButton"
@@ -83,5 +100,32 @@
         android:layout_height="wrap_content"
         android:text="Познать артефакт"
         android:layout_marginBottom="8dp"/>
+
+    <!-- Кнопки для МГ пользователей -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnAuraEditor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Редактор Ауры"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"/>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCreateArtifact"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Создать артефакт"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"/>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnMgProfileView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Просмотр профиля"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"/>
+
+    </LinearLayout>
 
 </LinearLayout> 

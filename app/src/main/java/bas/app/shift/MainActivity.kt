@@ -4,11 +4,14 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.ContextCompat.startActivity
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityMainBinding
 import bas.app.shift.helpers.LogHelper
@@ -16,23 +19,35 @@ import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.User
 import bas.app.shift.ui.terminal.TerminalActivity
 import bas.app.shift.ui.PointManagementActivity
+import bas.app.shift.ui.AuraEditorActivity
+import bas.app.shift.ui.ArtifactCreatorActivity
+import bas.app.shift.ui.MgProfileViewActivity
+import bas.app.shift.ui.AuthActivity
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
+    private var isMgUser = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        setupToolbar()
         setupButtons()
         checkUserDisciplines()
+        checkIfMgUser()
         updateUI()
         checkNotificationPermission()
+    }
+
+    private fun setupToolbar() {
+        setSupportActionBar(binding.toolbar)
+        binding.toolbar.title = "Shift"
     }
 
     private fun setupButtons() {
@@ -64,6 +79,19 @@ class MainActivity : ComponentActivity() {
         binding.btnScanArtifact.setOnClickListener {
             startActivity(Intent(this, bas.app.shift.ui.ArtifactScannerActivity::class.java))
         }
+
+        // Кнопки для МГ пользователей
+        binding.btnAuraEditor.setOnClickListener {
+            startActivity(Intent(this, AuraEditorActivity::class.java))
+        }
+
+        binding.btnCreateArtifact.setOnClickListener {
+            startActivity(Intent(this, ArtifactCreatorActivity::class.java))
+        }
+
+        binding.btnMgProfileView.setOnClickListener {
+            startActivity(Intent(this, MgProfileViewActivity::class.java))
+        }
     }
 
     private fun onCheckChanged(checkedId: Int) {
@@ -81,11 +109,62 @@ class MainActivity : ComponentActivity() {
 
     private fun updateUI() {
         binding.btnOpenMap.isEnabled = ShiftApplication.instance.isInGame() && hasNotificationPermission()
-        binding.openTerminalButton.isEnabled = ShiftApplication.instance.isInGame()
-        binding.openPointManagementButton.isEnabled = ShiftApplication.instance.isInGame()
-        binding.openAuraButton.isEnabled = ShiftApplication.instance.isInGame()
-        binding.btnOpenProfile.isEnabled = ShiftApplication.instance.isInGame()
-        binding.btnScanArtifact.isEnabled = ShiftApplication.instance.isInGame()
+        
+        // Для МГ пользователей скрываем терминал и профиль
+        if (isMgUser) {
+            binding.openTerminalButton.visibility = View.GONE
+            binding.btnOpenProfile.visibility = View.GONE
+            binding.openAuraButton.visibility = View.GONE
+            binding.btnScanArtifact.visibility = View.GONE
+            
+            // Показываем кнопки для МГ
+            binding.btnAuraEditor.visibility = View.VISIBLE
+            binding.btnCreateArtifact.visibility = View.VISIBLE
+            binding.btnMgProfileView.visibility = View.VISIBLE
+        } else {
+            // Для обычных пользователей показываем стандартные кнопки в зависимости от дисциплин
+            val user = UserPrefsHelper.getUserData(this)
+            if (user != null) {
+                // Проверяем модуль "познание артефактов"
+                val hasArtifactKnowledge = user.modules.any { 
+                    it.name.equals("познание артефактов", ignoreCase = true) 
+                }
+                binding.btnScanArtifact.visibility = if (hasArtifactKnowledge) View.VISIBLE else View.GONE
+                
+                // Проверяем дисциплину "Экстрасенсорика"
+                val hasExtrasensory = user.disciplines.any { 
+                    it.name.equals("Экстрасенсорика", ignoreCase = true) 
+                }
+                binding.openAuraButton.visibility = if (hasExtrasensory) View.VISIBLE else View.GONE
+                
+                // Проверяем дисциплину "Шумомантия"
+                val hasNoisemancy = user.disciplines.any {
+                    it.id == 9
+                }
+                binding.openTerminalButton.visibility = if (hasNoisemancy) View.VISIBLE else View.GONE
+            } else {
+                // Если профиль не загружен, скрываем все кнопки
+                binding.openTerminalButton.visibility = View.GONE
+                binding.openAuraButton.visibility = View.GONE
+                binding.btnScanArtifact.visibility = View.GONE
+            }
+            
+            binding.btnOpenProfile.visibility = View.VISIBLE
+            
+            // Скрываем кнопки для МГ
+            binding.btnAuraEditor.visibility = View.GONE
+            binding.btnCreateArtifact.visibility = View.GONE
+            binding.btnMgProfileView.visibility = View.GONE
+            
+            // Включаем/выключаем кнопки в зависимости от состояния игры
+            binding.openTerminalButton.isEnabled = ShiftApplication.instance.isInGame()
+            binding.openAuraButton.isEnabled = ShiftApplication.instance.isInGame()
+            binding.btnOpenProfile.isEnabled = ShiftApplication.instance.isInGame()
+            binding.btnScanArtifact.isEnabled = ShiftApplication.instance.isInGame()
+        }
+        
+        // Кнопка управления точками скрыта для всех
+        binding.openPointManagementButton.visibility = View.GONE
     }
 
     private fun checkUserDisciplines() {
@@ -100,28 +179,25 @@ class MainActivity : ComponentActivity() {
                         val hasArtifactKnowledge = user.modules.any { 
                             it.name.equals("познание артефактов", ignoreCase = true) 
                         }
-                        binding.btnScanArtifact.visibility = if (hasArtifactKnowledge) View.VISIBLE else View.GONE
                         
                         // Проверяем дисциплину "Экстрасенсорика"
                         val hasExtrasensory = user.disciplines.any { 
                             it.name.equals("Экстрасенсорика", ignoreCase = true) 
                         }
-                        binding.openAuraButton.visibility = if (hasExtrasensory) View.VISIBLE else View.GONE
                         
                         // Проверяем дисциплину "Шумомантия"
                         val hasNoisemancy = user.disciplines.any {
                             it.id == 9
                         }
-                        binding.openTerminalButton.visibility = if (hasNoisemancy) View.VISIBLE else View.GONE
                         
                         LogHelper.d("MainActivity: Проверка дисциплин - Артефакты: $hasArtifactKnowledge, Экстрасенсорика: $hasExtrasensory, Шумомантия: $hasNoisemancy")
                         
                         // Сохраняем актуальные данные пользователя
                         UserPrefsHelper.saveUserData(this@MainActivity, user)
+                        
+                        // Обновляем UI после загрузки профиля
+                        updateUI()
                     } else {
-                        binding.btnScanArtifact.visibility = View.GONE
-                        binding.openAuraButton.visibility = View.GONE
-                        binding.openTerminalButton.visibility = View.GONE
                         LogHelper.e("MainActivity: Ошибка загрузки профиля: ${response.code()}")
                     }
                 }
@@ -133,6 +209,44 @@ class MainActivity : ComponentActivity() {
                     LogHelper.e("MainActivity: Ошибка сети при загрузке профиля: ${t.localizedMessage}")
                 }
             })
+    }
+
+    private fun checkIfMgUser() {
+        val userName = UserPrefsHelper.getUserId(this)
+        isMgUser = userName.startsWith("MG", ignoreCase = true)
+        LogHelper.d("MainActivity: Пользователь ${if (isMgUser) "является" else "не является"} МГ")
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_logout -> {
+                performLogout()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun performLogout() {
+        // Очищаем все данные пользователя
+        UserPrefsHelper.clearUserData(this)
+        
+        // Останавливаем сервис локации
+        ShiftApplication.instance.stopLocationService()
+        
+        // Сбрасываем состояние игры
+        ShiftApplication.instance.setIsInGame(false)
+        
+        // Возвращаемся на экран авторизации
+        val intent = Intent(this, AuthActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
     }
 
     private fun checkNotificationPermission() {

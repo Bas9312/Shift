@@ -61,6 +61,10 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         binding = ActivityEkatMapsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+
+        binding.toolbar.setNavigationOnClickListener {
+            finish()
+        }
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
     }
 
