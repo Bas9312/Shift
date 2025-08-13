@@ -3,6 +3,7 @@ package bas.app.shift.ui
 import android.content.Context
 import android.graphics.*
 import android.graphics.drawable.BitmapDrawable
+import android.os.CountDownTimer
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -10,6 +11,7 @@ import android.widget.Toast
 import androidx.core.content.ContextCompat
 import bas.app.shift.R
 import bas.app.shift.models.*
+import bas.app.shift.ui.AuraMarkCallback
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.ImageLoader
@@ -27,6 +29,9 @@ class AuraCanvasView @JvmOverloads constructor(
     private val markBitmaps = ConcurrentHashMap<String, Bitmap?>() // url -> bitmap
     private val imageLoader = ImageLoader(context)
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    
+    // Callback для long tap по меткам
+    var markCallback: AuraMarkCallback? = null
 
     // Zoom/drag state
     private var scaleFactor = 0.7f
@@ -39,6 +44,11 @@ class AuraCanvasView @JvmOverloads constructor(
     private var offsetY = 0f
     private var isDragging = false
     private var pointerCount = 0
+    
+    // Long tap state
+    private var longTapTimer: CountDownTimer? = null
+    private var longTapMark: AuraMark? = null
+    private val LONG_TAP_DURATION = 500L // 500ms для long tap
 
     init {
         humanBitmap = BitmapFactory.decodeResource(resources, R.drawable.human)
@@ -210,17 +220,6 @@ class AuraCanvasView @JvmOverloads constructor(
             1 -> handleDrag(event)
             2 -> handleZoom(event)
         }
-        if (event.action == MotionEvent.ACTION_UP && event.pointerCount == 1) {
-            // Проверяем клик по метке
-            val x = (event.x - offsetX - width / 2f) / scaleFactor + width / 2f
-            val y = (event.y - offsetY - height / 2f) / scaleFactor + height / 2f
-            markTouchAreas.forEach {
-                if (it.rect.contains(x, y)) {
-                    Toast.makeText(context, it.mark.name, Toast.LENGTH_SHORT).show()
-                    return true
-                }
-            }
-        }
         return true
     }
 
@@ -230,9 +229,23 @@ class AuraCanvasView @JvmOverloads constructor(
                 isDragging = true
                 lastTouchX = event.x
                 lastTouchY = event.y
+                
+                // Проверяем, есть ли метка под пальцем
+                val x = (event.x - offsetX - width / 2f) / scaleFactor + width / 2f
+                val y = (event.y - offsetY - height / 2f) / scaleFactor + height / 2f
+                
+                longTapMark = markTouchAreas.find { it.rect.contains(x, y) }?.mark
+                
+                // Запускаем таймер для long tap
+                if (longTapMark != null) {
+                    startLongTapTimer()
+                }
             }
             MotionEvent.ACTION_MOVE -> {
                 if (isDragging) {
+                    // Если двигаем палец, отменяем long tap
+                    cancelLongTapTimer()
+                    
                     offsetX += event.x - lastTouchX
                     offsetY += event.y - lastTouchY
                     lastTouchX = event.x
@@ -242,6 +255,7 @@ class AuraCanvasView @JvmOverloads constructor(
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isDragging = false
+                cancelLongTapTimer()
             }
         }
     }
@@ -261,8 +275,26 @@ class AuraCanvasView @JvmOverloads constructor(
         }
     }
 
+    private fun startLongTapTimer() {
+        cancelLongTapTimer()
+        longTapTimer = object : CountDownTimer(LONG_TAP_DURATION, LONG_TAP_DURATION) {
+            override fun onTick(millisUntilFinished: Long) {}
+            override fun onFinish() {
+                longTapMark?.let { mark ->
+                    markCallback?.onMarkLongTap(mark)
+                }
+            }
+        }.start()
+    }
+    
+    private fun cancelLongTapTimer() {
+        longTapTimer?.cancel()
+        longTapTimer = null
+    }
+    
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         scope.cancel()
+        cancelLongTapTimer()
     }
 } 

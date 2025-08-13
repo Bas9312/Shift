@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import bas.app.shift.R
 import bas.app.shift.api.AuraApi
+import bas.app.shift.ui.AuraMarkCallback
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.FragmentAuraBinding
 import bas.app.shift.models.Aura
@@ -22,6 +23,7 @@ class AuraFragment : Fragment() {
     
     private lateinit var auraApi: AuraApi
     private var currentUserId: String? = null
+    private var markCallback: AuraMarkCallback? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -37,6 +39,9 @@ class AuraFragment : Fragment() {
         
         auraApi = RetrofitClient.auraApi
         setupUI()
+        
+        // Если callback уже установлен, применяем его к canvas
+        applyCallbackIfReady()
     }
 
     private fun setupUI() {
@@ -45,7 +50,21 @@ class AuraFragment : Fragment() {
 
     fun loadUserAura(userId: String) {
         currentUserId = userId
+        // Убеждаемся, что callback установлен
+        applyCallbackIfReady()
         loadAura(userId)
+    }
+    
+    fun setMarkCallback(callback: AuraMarkCallback) {
+        this.markCallback = callback
+        // Проверяем, что binding готов и применяем callback
+        applyCallbackIfReady()
+    }
+    
+    private fun applyCallbackIfReady() {
+        if (_binding != null && markCallback != null) {
+            binding.auraCanvas.markCallback = markCallback
+        }
     }
 
     private fun loadAura(userId: String) {
@@ -78,6 +97,8 @@ class AuraFragment : Fragment() {
     fun clearAura() {
         binding.auraCanvas.setAura(null)
         currentUserId = null
+        // Убеждаемся, что callback установлен
+        applyCallbackIfReady()
     }
 
     override fun onDestroyView() {

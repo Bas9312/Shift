@@ -3,6 +3,7 @@ package bas.app.shift.models
 import com.google.gson.annotations.SerializedName
 
 data class AuraMark(
+    @SerializedName("mark_id")
     val markId: Int,
 
     @SerializedName("mark_type")

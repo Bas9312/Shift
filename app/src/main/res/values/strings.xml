@@ -20,6 +20,14 @@
     <string name="select_mark_type">Выберите тип метки</string>
     <string name="enter_mark_name">Введите название метки</string>
     <string name="mark_not_added">Ошибка: метка не была добавлена</string>
+    <string name="edit_aura_mark_title">Редактировать метку</string>
+    <string name="delete">Удалить</string>
+    <string name="mark_updated_success">Метка успешно изменена!</string>
+    <string name="mark_deleted_success">Метка успешно удалена!</string>
+    <string name="mark_update_error">Ошибка при изменении метки: %1$s</string>
+    <string name="mark_delete_error">Ошибка при удалении метки: %1$s</string>
+    <string name="mark_not_updated">Ошибка: метка не была изменена</string>
+    <string name="mark_not_deleted">Ошибка: метка не была удалена</string>
     <string name="magic_discipline">Магическая дисциплина</string>
     <string name="blessing">Благословение</string>
     <string name="curse">Проклятие</string>
