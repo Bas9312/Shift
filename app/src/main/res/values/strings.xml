@@ -1,4 +1,9 @@
 <resources>
     <string name="app_name">Shift</string>
     <string name="title_activity_ekat_maps">EkatMaps</string>
+    <string name="artifact_passport_title">Паспорт артефактов</string>
+    <string name="select_artifact">Выберите артефакт:</string>
+    <string name="select_artifact_hint">Выберите артефакт</string>
+    <string name="artifact_passport_button">Паспорт артефактов</string>
+    <string name="artifact_title">Артефакт</string>
 </resources>

@@ -12,6 +12,9 @@ interface ArtifactApi {
     @GET("/artifacts_api/api/v1/artifacts/{id}")
     fun getArtifact(@Path("id") artifactId: Int): Call<Artifact>
     
+    @GET("/artifacts_api/api/v1/artifacts")
+    fun getAllArtifacts(): Call<List<Artifact>>
+    
     @POST("/artifacts_api/api/v1/artifacts")
     fun createArtifact(@Body artifact: ArtifactRequest): Call<Artifact>
 } 

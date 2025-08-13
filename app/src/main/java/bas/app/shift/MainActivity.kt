@@ -22,6 +22,7 @@ import bas.app.shift.ui.PointManagementActivity
 import bas.app.shift.ui.AuraEditorActivity
 import bas.app.shift.ui.ArtifactCreatorActivity
 import bas.app.shift.ui.MgProfileViewActivity
+import bas.app.shift.ui.ArtifactPassportActivity
 import bas.app.shift.ui.AuthActivity
 import retrofit2.Call
 import retrofit2.Callback
@@ -92,6 +93,10 @@ class MainActivity : AppCompatActivity() {
         binding.btnMgProfileView.setOnClickListener {
             startActivity(Intent(this, MgProfileViewActivity::class.java))
         }
+
+        binding.btnArtifactPassport.setOnClickListener {
+            startActivity(Intent(this, bas.app.shift.ui.ArtifactPassportActivity::class.java))
+        }
     }
 
     private fun onCheckChanged(checkedId: Int) {
@@ -121,6 +126,7 @@ class MainActivity : AppCompatActivity() {
             binding.btnAuraEditor.visibility = View.VISIBLE
             binding.btnCreateArtifact.visibility = View.VISIBLE
             binding.btnMgProfileView.visibility = View.VISIBLE
+            binding.btnArtifactPassport.visibility = View.VISIBLE
         } else {
             // Для обычных пользователей показываем стандартные кнопки в зависимости от дисциплин
             val user = UserPrefsHelper.getUserData(this)
@@ -155,6 +161,7 @@ class MainActivity : AppCompatActivity() {
             binding.btnAuraEditor.visibility = View.GONE
             binding.btnCreateArtifact.visibility = View.GONE
             binding.btnMgProfileView.visibility = View.GONE
+            binding.btnArtifactPassport.visibility = View.GONE
             
             // Включаем/выключаем кнопки в зависимости от состояния игры
             binding.openTerminalButton.isEnabled = ShiftApplication.instance.isInGame()

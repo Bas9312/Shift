@@ -92,6 +92,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.ArtifactPassportActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.MgProfileViewActivity"
             android:exported="false" />
 

@@ -1,6 +1,7 @@
 package bas.app.shift.models
 
 import com.google.gson.annotations.SerializedName
+import java.io.Serializable
 
 data class Artifact(
     val id: Int,
@@ -11,7 +12,7 @@ data class Artifact(
     @SerializedName("creator_name") val creatorName: String,
     val material: String,
     val properties: String
-)
+) : Serializable
 
 data class ArtifactRequest(
     val name: String,

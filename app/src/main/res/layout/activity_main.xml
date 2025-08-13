@@ -118,6 +118,14 @@
         android:layout_marginBottom="8dp"
         android:visibility="gone"/>
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnArtifactPassport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/artifact_passport_button"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone"/>
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnMgProfileView"
         android:layout_width="match_parent"
