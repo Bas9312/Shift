@@ -11,22 +11,28 @@ interface AuraApi {
     @GET("/aura_api/aura/{entity_id}/marks")
     suspend fun getAuraMarks(@Path("entity_id") entityId: String): Response<List<AuraMark>>
 
-    @PUT("/aura/{entity_id}/marks/{mark_id}")
+    @PUT("/aura_api/aura/{entity_id}/marks/{mark_id}")
     suspend fun updateAuraMark(
         @Path("entity_id") entityId: String,
         @Path("mark_id") markId: Int,
         @Body mark: AuraMarkRequest
     ): Response<Unit>
 
-    @DELETE("/aura/{entity_id}/marks/{mark_id}")
+    @DELETE("/aura_api/aura/{entity_id}/marks/{mark_id}")
     suspend fun deleteAuraMark(
         @Path("entity_id") entityId: String,
         @Path("mark_id") markId: Int
     ): Response<Unit>
 
-    @DELETE("/aura/{entity_id}/problems/{slot}")
+    @DELETE("/aura_api/aura/{entity_id}/problems/{slot}")
     suspend fun deleteAuraProblem(
         @Path("entity_id") entityId: String,
         @Path("slot") slot: Int
     ): Response<Unit>
+
+    @POST("/aura_api/aura/{entity_id}/marks")
+    suspend fun addAuraMark(
+        @Path("entity_id") entityId: String,
+        @Body mark: AuraMarkRequest
+    ): Response<AuraMarkResponse>
 } 
