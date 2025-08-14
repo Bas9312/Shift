@@ -115,35 +115,40 @@ class AuraCanvasView @JvmOverloads constructor(
         val paintAura = Paint().apply {
             color = auraColor(aura.type, aura.percentOfHumanism)
             style = Paint.Style.FILL
-            alpha = if (aura.auraHidden) 80 else 180
+            alpha = if (aura.auraHidden) 40 else 180  // Уменьшили альфу в 2 раза для скрытой ауры
         }
         canvas.drawCircle(centerX, centerY, auraRadius, paintAura)
 
-        // 10 слотов для проблем по кругу вокруг человека
-        val slotsCount = 10
-        val problemRadius = humanRadius * 0.13f
-        val slotAngles = List(slotsCount) { i -> Math.toRadians((360.0 / slotsCount * i - 90.0)).toFloat() }
-        val problemsBySlot = aura.auraProblems.orEmpty().associateBy { it.slot }
-        for (slot in 0 until slotsCount) {
-            val angle = slotAngles[slot]
-            val px = centerX + cos(angle) * (humanRadius + problemRadius + 6f)
-            val py = centerY + sin(angle) * (humanRadius + problemRadius + 6f)
-            val problem = problemsBySlot[slot]
-            if (problem != null) {
-                drawProblem(canvas, px, py, problem, problemRadius)
-            } else {
-                // Пустой слот — рисуем полупрозрачную рамку
-                val paint = Paint().apply {
-                    color = Color.argb(40, 255, 255, 255)
-                    style = Paint.Style.STROKE
-                    strokeWidth = 2f
+        // 10 слотов для проблем по кругу вокруг человека (показываем только если аура не скрыта)
+        if (!aura.auraHidden) {
+            val slotsCount = 10
+            val problemRadius = humanRadius * 0.13f
+            val slotAngles = List(slotsCount) { i -> Math.toRadians((360.0 / slotsCount * i - 90.0)).toFloat() }
+            val problemsBySlot = aura.auraProblems.orEmpty().associateBy { it.slot }
+            for (slot in 0 until slotsCount) {
+                val angle = slotAngles[slot]
+                val px = centerX + cos(angle) * (humanRadius + problemRadius + 6f)
+                val py = centerY + sin(angle) * (humanRadius + problemRadius + 6f)
+                val problem = problemsBySlot[slot]
+                if (problem != null) {
+                    drawProblem(canvas, px, py, problem, problemRadius)
+                } else {
+                    // Пустой слот — рисуем более заметную рамку
+                    val paint = Paint().apply {
+                        color = Color.argb(80, 255, 255, 255)  // Увеличили альфу для лучшей видимости
+                        style = Paint.Style.STROKE
+                        strokeWidth = 3f  // Увеличили толщину линии
+                    }
+                    canvas.drawCircle(px, py, problemRadius, paint)
                 }
-                canvas.drawCircle(px, py, problemRadius, paint)
+                
+                // Сохраняем область касания для проблем
+                val touchRect = RectF(px - problemRadius, py - problemRadius, px + problemRadius, py + problemRadius)
+                problemTouchAreas.add(ProblemTouchArea(touchRect, slot, problem))
             }
-            
-            // Сохраняем область касания для проблем
-            val touchRect = RectF(px - problemRadius, py - problemRadius, px + problemRadius, py + problemRadius)
-            problemTouchAreas.add(ProblemTouchArea(touchRect, slot, problem))
+        } else {
+            // Если аура скрыта, очищаем области касаний для проблем
+            problemTouchAreas.clear()
         }
 
         // Человек (в уменьшенном размере, по центру)
@@ -153,22 +158,27 @@ class AuraCanvasView @JvmOverloads constructor(
             canvas.drawBitmap(it, null, RectF(left, top, left + humanWidth, top + humanHeight), null)
         }
 
-        // Внутренние метки — столбцом слева от человека
-        val internalMarks = aura.marks.orEmpty().filter { it.external == 0 }.sortedBy { it.markId }
-        val markSize = humanRadius * 0.18f
-        val markGap = markSize * 0.13f
-        for ((i, mark) in internalMarks.withIndex()) {
-            val mx = centerX - humanRadius - markSize + 250f
-            val my = centerY - (internalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
-            drawMark(canvas, mx, my, mark, markSize)
-        }
+        // Внутренние метки — столбцом слева от человека (показываем только если аура не скрыта)
+        if (!aura.auraHidden) {
+            val internalMarks = aura.marks.orEmpty().filter { it.external == 0 }.sortedBy { it.markId }
+            val markSize = humanRadius * 0.18f
+            val markGap = markSize * 0.13f
+            for ((i, mark) in internalMarks.withIndex()) {
+                val mx = centerX - humanRadius - markSize + 250f
+                val my = centerY - (internalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
+                drawMark(canvas, mx, my, mark, markSize)
+            }
 
-        // Внешние метки — столбцом справа от ауры
-        val externalMarks = aura.marks.orEmpty().filter { it.external == 1 }.sortedBy { it.markId }
-        for ((i, mark) in externalMarks.withIndex()) {
-            val mx = centerX + auraRadius + 20f
-            val my = centerY - (externalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
-            drawMark(canvas, mx, my, mark, markSize)
+            // Внешние метки — столбцом справа от ауры
+            val externalMarks = aura.marks.orEmpty().filter { it.external == 1 }.sortedBy { it.markId }
+            for ((i, mark) in externalMarks.withIndex()) {
+                val mx = centerX + auraRadius + 20f
+                val my = centerY - (externalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
+                drawMark(canvas, mx, my, mark, markSize)
+            }
+        } else {
+            // Если аура скрыта, очищаем области касаний для меток
+            markTouchAreas.clear()
         }
         canvas.restore()
     }
@@ -212,13 +222,46 @@ class AuraCanvasView @JvmOverloads constructor(
             AuraType.DEMON -> Color.BLACK
             AuraType.ANGEL -> Color.WHITE
             AuraType.HUMAN -> Color.parseColor("#B0C4DE")
-            AuraType.MAGE -> Color.parseColor("#4169E1")
+            AuraType.MAGE -> {
+                // Для мага цвет зависит от процента гуманизма
+                if (percentOfHumanism == 100) {
+                    // 100% гуманизм - стандартный цвет мага
+                    Color.parseColor("#4169E1")
+                } else if (percentOfHumanism == 0) {
+                    // 0% гуманизм - цвет как у духовного существа
+                    Color.parseColor("#228B22")
+                } else {
+                    // Промежуточные значения - интерполяция между цветами
+                    interpolateColor(
+                        Color.parseColor("#228B22"), // Духовное существо (0% гуманизм)
+                        Color.parseColor("#4169E1"), // Маг (100% гуманизм)
+                        percentOfHumanism / 100f
+                    )
+                }
+            }
             AuraType.CREATURE_OF_SPIRIT_WORLD -> Color.parseColor("#228B22")
             AuraType.CREATURE_OF_MYTH -> Color.parseColor("#FFD700")
             AuraType.CREATURE_OF_ABYSS -> Color.parseColor("#B22222")
             AuraType.CREATURE_OF_REALITY -> Color.parseColor("#8A2BE2")
             else -> Color.GRAY
         }
+    }
+    
+    // Функция интерполяции между двумя цветами
+    private fun interpolateColor(color1: Int, color2: Int, ratio: Float): Int {
+        val r1 = Color.red(color1)
+        val g1 = Color.green(color1)
+        val b1 = Color.blue(color1)
+        
+        val r2 = Color.red(color2)
+        val g2 = Color.green(color2)
+        val b2 = Color.blue(color2)
+        
+        val r = (r1 + (r2 - r1) * ratio).toInt()
+        val g = (g1 + (g2 - g1) * ratio).toInt()
+        val b = (b1 + (b2 - b1) * ratio).toInt()
+        
+        return Color.rgb(r, g, b)
     }
 
     // Для обработки нажатий по меткам
