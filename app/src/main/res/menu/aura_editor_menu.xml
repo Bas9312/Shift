@@ -8,4 +8,10 @@
         android:title="@string/add_aura_mark"
         app:showAsAction="always" />
 
+    <item
+        android:id="@+id/action_toggle_aura_visibility"
+        android:icon="@drawable/ic_eye"
+        android:title="@string/toggle_aura_visibility"
+        app:showAsAction="always" />
+
 </menu>

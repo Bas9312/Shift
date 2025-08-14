@@ -17,6 +17,7 @@ import bas.app.shift.databinding.DialogAddAuraMarkBinding
 import bas.app.shift.databinding.DialogEditAuraMarkBinding
 import bas.app.shift.databinding.DialogEditAuraProblemBinding
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraMark
 import bas.app.shift.ui.AuraMarkCallback
 import bas.app.shift.models.AuraMarkRequest
@@ -34,12 +35,13 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
-class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback {
+class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCallback {
     private lateinit var binding: ActivityAuraEditorBinding
     private var users: List<User> = emptyList()
     private var filteredUsers: List<User> = emptyList() // Добавляем переменную для отфильтрованных пользователей
     private var selectedUser: User? = null
     private lateinit var auraFragment: AuraFragment
+    private var isAuraVisible = true // Флаг видимости ауры для редактирования
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,6 +65,19 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback {
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         val addMarkItem = menu.findItem(R.id.action_add_mark)
         addMarkItem.isEnabled = selectedUser != null
+        
+        // Обновляем иконку кнопки показа/скрытия ауры
+        val toggleVisibilityItem = menu.findItem(R.id.action_toggle_aura_visibility)
+        if (toggleVisibilityItem != null) {
+            if (isAuraVisible) {
+                toggleVisibilityItem.setIcon(R.drawable.ic_eye_off)
+                toggleVisibilityItem.title = getString(R.string.hide_aura)
+            } else {
+                toggleVisibilityItem.setIcon(R.drawable.ic_eye)
+                toggleVisibilityItem.title = getString(R.string.show_aura)
+            }
+        }
+        
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -72,6 +87,10 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback {
                 if (selectedUser != null) {
                     showAddMarkDialog()
                 }
+                true
+            }
+            R.id.action_toggle_aura_visibility -> {
+                toggleAuraVisibility()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -84,6 +103,18 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback {
     
     override fun onProblemLongTap(slot: Int, problem: AuraProblem?) {
         showEditProblemDialog(slot, problem)
+    }
+    
+    override fun onAuraLoaded(aura: Aura) {
+        // Устанавливаем начальное состояние видимости в зависимости от загруженной ауры
+        isAuraVisible = !aura.auraHidden
+        // Обновляем меню
+        invalidateOptionsMenu()
+        
+        // Передаём состояние в canvas (null = использовать серверное значение)
+        auraFragment.setAuraVisibility(null)
+        
+        LogHelper.d("AuraEditorActivity: onAuraLoaded - auraHidden=${aura.auraHidden}, isAuraVisible=$isAuraVisible")
     }
 
     private fun setupUI() {
@@ -101,6 +132,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback {
         // Устанавливаем callback с небольшой задержкой, чтобы фрагмент успел создаться
         binding.auraContainer.post {
             auraFragment.setMarkCallback(this)
+            auraFragment.setAuraEditorCallback(this)
         }
     }
 
@@ -172,6 +204,9 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback {
     private fun loadUserAura(userId: String) {
         // Загружаем ауру пользователя через фрагмент
         auraFragment.loadUserAura(userId)
+        
+        // Обновляем состояние видимости ауры в зависимости от загруженной ауры
+        // Это будет вызвано после загрузки ауры
     }
 
     private fun clearAura() {
@@ -585,5 +620,26 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback {
                 }
             }
         }
+    }
+    
+    private fun toggleAuraVisibility() {
+        isAuraVisible = !isAuraVisible
+        
+        LogHelper.d("AuraEditorActivity: toggleAuraVisibility - isAuraVisible=$isAuraVisible")
+        
+        // Обновляем меню
+        invalidateOptionsMenu()
+        
+        // Передаём состояние в фрагмент ауры
+        // true = принудительно показать, false = принудительно скрыть
+        auraFragment.setAuraVisibility(isAuraVisible)
+        
+        // Показываем уведомление
+        val message = if (isAuraVisible) {
+            getString(R.string.aura_shown)
+        } else {
+            getString(R.string.aura_hidden)
+        }
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 }

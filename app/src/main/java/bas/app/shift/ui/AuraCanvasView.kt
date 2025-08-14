@@ -3,6 +3,7 @@ package bas.app.shift.ui
 import android.content.Context
 import android.graphics.*
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.Path
 import android.os.CountDownTimer
 import android.util.AttributeSet
 import android.view.MotionEvent
@@ -10,6 +11,7 @@ import android.view.View
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import bas.app.shift.R
+import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.*
 import bas.app.shift.ui.AuraMarkCallback
 import coil3.request.ImageRequest
@@ -32,6 +34,10 @@ class AuraCanvasView @JvmOverloads constructor(
     
     // Callback для long tap по меткам
     var markCallback: AuraMarkCallback? = null
+    
+    // Флаг для принудительного показа ауры (для МГ)
+    // null = используем состояние с сервера, true = принудительно показать, false = принудительно скрыть
+    private var forceAuraVisible: Boolean? = null
 
     // Zoom/drag state
     private var scaleFactor = 0.7f
@@ -71,6 +77,12 @@ class AuraCanvasView @JvmOverloads constructor(
                 }
             }
         }
+        invalidate()
+    }
+    
+    fun setAuraVisibility(visible: Boolean?) {
+        forceAuraVisible = visible
+        LogHelper.d("AuraCanvasView: setAuraVisibility: $visible, forceAuraVisible: $forceAuraVisible")
         invalidate()
     }
 
@@ -115,12 +127,26 @@ class AuraCanvasView @JvmOverloads constructor(
         val paintAura = Paint().apply {
             color = auraColor(aura.type, aura.percentOfHumanism)
             style = Paint.Style.FILL
-            alpha = if (aura.auraHidden) 40 else 180  // Уменьшили альфу в 2 раза для скрытой ауры
+            // Определяем видимость: если forceAuraVisible не null, используем его, иначе серверное значение
+            val isHidden = when (forceAuraVisible) {
+                null -> aura.auraHidden      // Используем состояние с сервера
+                true -> false                // Принудительно показать
+                false -> true                // Принудительно скрыть
+            }
+            alpha = if (isHidden) 40 else 180  // Уменьшили альфу в 2 раза для скрытой ауры
         }
+        LogHelper.d(
+            "Drawing aura: forceAuraVisible=$forceAuraVisible, auraHidden=${aura.auraHidden}, alpha=${paintAura.alpha}"
+        )
         canvas.drawCircle(centerX, centerY, auraRadius, paintAura)
 
         // 10 слотов для проблем по кругу вокруг человека (показываем только если аура не скрыта)
-        if (!aura.auraHidden) {
+        val shouldShowElements = when (forceAuraVisible) {
+            null -> !aura.auraHidden        // Используем состояние с сервера
+            true -> true                    // Принудительно показать
+            false -> false                  // Принудительно скрыть
+        }
+        if (shouldShowElements) {
             val slotsCount = 10
             val problemRadius = humanRadius * 0.13f
             val slotAngles = List(slotsCount) { i -> Math.toRadians((360.0 / slotsCount * i - 90.0)).toFloat() }
@@ -150,6 +176,11 @@ class AuraCanvasView @JvmOverloads constructor(
             // Если аура скрыта, очищаем области касаний для проблем
             problemTouchAreas.clear()
         }
+        
+        // Очищаем области касаний для меток если элементы скрыты
+        if (!shouldShowElements) {
+            markTouchAreas.clear()
+        }
 
         // Человек (в уменьшенном размере, по центру)
         humanBitmap?.let {
@@ -159,7 +190,7 @@ class AuraCanvasView @JvmOverloads constructor(
         }
 
         // Внутренние метки — столбцом слева от человека (показываем только если аура не скрыта)
-        if (!aura.auraHidden) {
+        if (shouldShowElements) {
             val internalMarks = aura.marks.orEmpty().filter { it.external == 0 }.sortedBy { it.markId }
             val markSize = humanRadius * 0.18f
             val markGap = markSize * 0.13f
@@ -212,6 +243,14 @@ class AuraCanvasView @JvmOverloads constructor(
             val paint = Paint().apply { color = Color.LTGRAY; style = Paint.Style.FILL }
             canvas.drawRect(x, y, x + size, y + size, paint)
         }
+        
+        // Отрисовываем звёздочки над меткой
+        mark.numberOfStars?.let { stars ->
+            if (stars > 0 && stars <= 5) {
+                drawStarsAboveMark(canvas, x, y, size, stars)
+            }
+        }
+        
         // Для клика — сохраняем область
         markTouchAreas.add(MarkTouchArea(RectF(x, y, x + size, y + size), mark))
     }
@@ -375,5 +414,73 @@ class AuraCanvasView @JvmOverloads constructor(
         super.onDetachedFromWindow()
         scope.cancel()
         cancelLongTapTimer()
+    }
+    
+    // Отрисовка звёздочек над меткой
+    private fun drawStarsAboveMark(canvas: Canvas, markX: Float, markY: Float, markSize: Float, numberOfStars: Int) {
+        val starSize = markSize * 0.15f  // Размер звёздочки относительно метки
+        val starSpacing = starSize * 0.8f  // Расстояние между звёздочками
+        val totalWidth = (numberOfStars - 1) * starSpacing  // Общая ширина всех звёздочек
+        val startX = markX + markSize / 2 - totalWidth / 2  // Начальная позиция по X
+        val starY = markY - starSize * 1.2f  // Позиция по Y (над меткой)
+        
+        // Рисуем каждую звёздочку
+        for (i in 0 until numberOfStars) {
+            val starX = startX + i * starSpacing
+            drawStar(canvas, starX, starY, starSize)
+        }
+    }
+    
+    // Отрисовка одной звёздочки
+    private fun drawStar(canvas: Canvas, centerX: Float, centerY: Float, size: Float) {
+        val outerRadius = size
+        val innerRadius = size * 0.4f
+        val points = 5  // 5-конечная звезда
+        
+        val path = Path()
+        val angleStep = (2 * Math.PI) / points
+        
+        for (i in 0 until points * 2) {
+            val angle = i * angleStep / 2
+            val radius = if (i % 2 == 0) outerRadius else innerRadius
+            val x = centerX + cos(angle).toFloat() * radius
+            val y = centerY + sin(angle).toFloat() * radius
+            
+            if (i == 0) {
+                path.moveTo(x, y)
+            } else {
+                path.lineTo(x, y)
+            }
+        }
+        path.close()
+        
+        // Рисуем тень звёздочки (смещена вниз и вправо)
+        val shadowPath = Path()
+        shadowPath.offset(size * 0.1f, size * 0.1f)
+        shadowPath.addPath(path)
+        
+        val shadowPaint = Paint().apply {
+            color = Color.BLACK
+            style = Paint.Style.FILL
+            alpha = 80
+        }
+        canvas.drawPath(shadowPath, shadowPaint)
+        
+        // Рисуем основную звёздочку
+        val starPaint = Paint().apply {
+            color = Color.YELLOW
+            style = Paint.Style.FILL
+            alpha = 255
+        }
+        canvas.drawPath(path, starPaint)
+        
+        // Добавляем блик (белая линия по краю)
+        val highlightPaint = Paint().apply {
+            color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = size * 0.1f
+            alpha = 180
+        }
+        canvas.drawPath(path, highlightPaint)
     }
 } 

@@ -24,6 +24,7 @@ class AuraFragment : Fragment() {
     private lateinit var auraApi: AuraApi
     private var currentUserId: String? = null
     private var markCallback: AuraMarkCallback? = null
+    private var auraEditorCallback: AuraEditorCallback? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -61,6 +62,10 @@ class AuraFragment : Fragment() {
         applyCallbackIfReady()
     }
     
+    fun setAuraEditorCallback(callback: AuraEditorCallback) {
+        this.auraEditorCallback = callback
+    }
+    
     private fun applyCallbackIfReady() {
         if (_binding != null && markCallback != null) {
             binding.auraCanvas.markCallback = markCallback
@@ -76,6 +81,8 @@ class AuraFragment : Fragment() {
                     if (aura != null) {
                         binding.auraCanvas.setAura(aura)
                         showAuraLoaded()
+                        // Уведомляем о загрузке ауры
+                        auraEditorCallback?.onAuraLoaded(aura)
                     } else {
                         showError("Ошибка: пустая аура")
                     }
@@ -99,6 +106,10 @@ class AuraFragment : Fragment() {
         currentUserId = null
         // Убеждаемся, что callback установлен
         applyCallbackIfReady()
+    }
+    
+    fun setAuraVisibility(visible: Boolean?) {
+        binding.auraCanvas.setAuraVisibility(visible)
     }
 
     override fun onDestroyView() {
