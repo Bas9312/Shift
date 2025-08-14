@@ -40,4 +40,22 @@
     <string name="magic_link">Магическая связь</string>
     <string name="artifact_link">Связь с артефактом</string>
     <string name="foreign_plane_influence">Влияние чужого плана</string>
+    <string name="edit_aura_problem_title">Редактировать проблему</string>
+    <string name="add_aura_problem_title">Добавить проблему</string>
+    <string name="problem_type">Тип проблемы</string>
+    <string name="problem_name">Название проблемы</string>
+    <string name="problem_description">Описание проблемы</string>
+    <string name="problem_added_success">Проблема успешно добавлена!</string>
+    <string name="problem_updated_success">Проблема успешно изменена!</string>
+    <string name="problem_deleted_success">Проблема успешно удалена!</string>
+    <string name="problem_add_error">Ошибка при добавлении проблемы: %1$s</string>
+    <string name="problem_update_error">Ошибка при изменении проблемы: %1$s</string>
+    <string name="problem_delete_error">Ошибка при удалении проблемы: %1$s</string>
+    <string name="select_problem_type">Выберите тип проблемы</string>
+    <string name="enter_problem_name">Введите название проблемы</string>
+    <string name="hole">Дыра</string>
+    <string name="tear">Разрыв</string>
+    <string name="scar">Шрам</string>
+    <string name="parasite">Паразит</string>
+    <string name="other">Другое</string>
 </resources>

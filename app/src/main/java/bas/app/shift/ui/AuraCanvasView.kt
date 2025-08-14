@@ -48,6 +48,8 @@ class AuraCanvasView @JvmOverloads constructor(
     // Long tap state
     private var longTapTimer: CountDownTimer? = null
     private var longTapMark: AuraMark? = null
+    private var longTapProblemSlot: Int? = null
+    private var longTapProblem: AuraProblem? = null
     private val LONG_TAP_DURATION = 500L // 500ms для long tap
 
     init {
@@ -88,8 +90,12 @@ class AuraCanvasView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         markTouchAreas.clear()
+        problemTouchAreas.clear()
         super.onDraw(canvas)
         aura?.let { drawAura(canvas, it) }
+        
+        // Логируем количество областей касаний для отладки
+        android.util.Log.d("AuraCanvasView", "Touch areas - Marks: ${markTouchAreas.size}, Problems: ${problemTouchAreas.size}")
     }
 
     private fun drawAura(canvas: Canvas, aura: Aura) {
@@ -134,6 +140,10 @@ class AuraCanvasView @JvmOverloads constructor(
                 }
                 canvas.drawCircle(px, py, problemRadius, paint)
             }
+            
+            // Сохраняем область касания для проблем
+            val touchRect = RectF(px - problemRadius, py - problemRadius, px + problemRadius, py + problemRadius)
+            problemTouchAreas.add(ProblemTouchArea(touchRect, slot, problem))
         }
 
         // Человек (в уменьшенном размере, по центру)
@@ -214,6 +224,10 @@ class AuraCanvasView @JvmOverloads constructor(
     // Для обработки нажатий по меткам
     private data class MarkTouchArea(val rect: RectF, val mark: AuraMark)
     private val markTouchAreas = mutableListOf<MarkTouchArea>()
+    
+    // Для обработки нажатий по проблемам
+    private data class ProblemTouchArea(val rect: RectF, val slot: Int, val problem: AuraProblem?)
+    private val problemTouchAreas = mutableListOf<ProblemTouchArea>()
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.pointerCount) {
@@ -236,14 +250,23 @@ class AuraCanvasView @JvmOverloads constructor(
                 
                 longTapMark = markTouchAreas.find { it.rect.contains(x, y) }?.mark
                 
+                // Проверяем, есть ли проблема под пальцем
+                val problemTouchArea = problemTouchAreas.find { it.rect.contains(x, y) }
+                if (problemTouchArea != null) {
+                    longTapProblemSlot = problemTouchArea.slot
+                    longTapProblem = problemTouchArea.problem
+                }
+                
                 // Запускаем таймер для long tap
-                if (longTapMark != null) {
+                if (longTapMark != null || longTapProblemSlot != null) {
                     startLongTapTimer()
+                    android.util.Log.d("AuraCanvasView", "Long tap timer started for mark: ${longTapMark != null}, problem: ${longTapProblemSlot != null}")
                 }
             }
             MotionEvent.ACTION_MOVE -> {
                 if (isDragging) {
                     // Если двигаем палец, отменяем long tap
+                    android.util.Log.d("AuraCanvasView", "Finger moved, canceling long tap timer")
                     cancelLongTapTimer()
                     
                     offsetX += event.x - lastTouchX
@@ -256,6 +279,10 @@ class AuraCanvasView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isDragging = false
                 cancelLongTapTimer()
+                // Сбрасываем переменные long tap при отпускании пальца
+                longTapMark = null
+                longTapProblemSlot = null
+                longTapProblem = null
             }
         }
     }
@@ -277,11 +304,18 @@ class AuraCanvasView @JvmOverloads constructor(
 
     private fun startLongTapTimer() {
         cancelLongTapTimer()
+        android.util.Log.d("AuraCanvasView", "Starting long tap timer")
         longTapTimer = object : CountDownTimer(LONG_TAP_DURATION, LONG_TAP_DURATION) {
             override fun onTick(millisUntilFinished: Long) {}
             override fun onFinish() {
+                android.util.Log.d("AuraCanvasView", "Long tap timer finished, mark: ${longTapMark != null}, problem: ${longTapProblemSlot != null}")
                 longTapMark?.let { mark ->
+                    android.util.Log.d("AuraCanvasView", "Calling onMarkLongTap for mark: ${mark.markId}")
                     markCallback?.onMarkLongTap(mark)
+                }
+                longTapProblemSlot?.let { slot ->
+                    android.util.Log.d("AuraCanvasView", "Calling onProblemLongTap for slot: $slot")
+                    markCallback?.onProblemLongTap(slot, longTapProblem)
                 }
             }
         }.start()
@@ -290,6 +324,8 @@ class AuraCanvasView @JvmOverloads constructor(
     private fun cancelLongTapTimer() {
         longTapTimer?.cancel()
         longTapTimer = null
+        // НЕ сбрасываем longTapMark и longTapProblem здесь, 
+        // они должны сохраняться до ACTION_UP
     }
     
     override fun onDetachedFromWindow() {

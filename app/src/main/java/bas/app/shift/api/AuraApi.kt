@@ -8,9 +8,6 @@ interface AuraApi {
     @GET("/aura_api/aura/{entity_id}")
     suspend fun getAura(@Path("entity_id") entityId: String): Response<Aura>
 
-    @GET("/aura_api/aura/{entity_id}/marks")
-    suspend fun getAuraMarks(@Path("entity_id") entityId: String): Response<List<AuraMark>>
-
     @PUT("/aura_api/aura/{entity_id}/marks/{mark_id}")
     suspend fun updateAuraMark(
         @Path("entity_id") entityId: String,
@@ -28,6 +25,19 @@ interface AuraApi {
     suspend fun deleteAuraProblem(
         @Path("entity_id") entityId: String,
         @Path("slot") slot: Int
+    ): Response<Unit>
+
+    @POST("/aura_api/aura/{entity_id}/problems")
+    suspend fun addAuraProblem(
+        @Path("entity_id") entityId: String,
+        @Body problem: AuraProblemRequest
+    ): Response<Unit>
+
+    @PUT("/aura_api/aura/{entity_id}/problems/{slot}")
+    suspend fun updateAuraProblem(
+        @Path("entity_id") entityId: String,
+        @Path("slot") slot: Int,
+        @Body problem: AuraProblemRequest
     ): Response<Unit>
 
     @POST("/aura_api/aura/{entity_id}/marks")
