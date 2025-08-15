@@ -439,18 +439,26 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         )
 
         // Сохраняем точку, круг и null для маркера (он будет добавлен позже)
+        // Маркеры создаются только в updateForLocation() для избежания дублирования
+        // Для MG пользователей: показываем все точки, кроме своей USER точки
+        // Для обычных пользователей: показываем только точки в кругах, кроме USER точек
         pointsOfInterest[point.pointId] = Triple(point, circle, null)
-        Log.d("EkatMaps", "Точка добавлена в список: ${point.pointId}")
+        Log.d("EkatMaps", "Точка добавлена в список: ${point.pointId} (маркер будет создан позже)")
     }
 
     private fun updateForLocation() {
         Log.d("EkatMaps", "Обновление карты для местоположения: ${currentLocation.latitude}, ${currentLocation.longitude}")
         val latLng = LatLng(currentLocation.latitude, currentLocation.longitude)
         
+        // Получаем ID текущего пользователя для проверки дублирования USER точек
+        val currentUserId = UserPrefsHelper.getUserId(this)
+        Log.d("EkatMaps", "Текущий пользователь: $currentUserId, тип: ${if (isMgUser) "MG" else "обычный"}")
+        
         // Удаляем предыдущий маркер, если он существует
         currentLocationMarker?.remove()
         
         // Создаем новый маркер для текущего местоположения (синий)
+        // Этот маркер показывает реальное местоположение пользователя
         currentLocationMarker = mMap.addMarker(
             MarkerOptions()
                 .position(latLng)
@@ -458,13 +466,16 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
         )
 
+        // Обрабатываем точки интереса
+        // Для MG пользователей: показываем все точки, кроме своей собственной USER точки (чтобы не дублировать маркер геолокации)
+        // Для обычных пользователей: показываем только точки в кругах, кроме USER точек (чтобы не дублировать маркер геолокации)
         // Для MG пользователей показываем все точки всегда
         if (isMgUser) {
             Log.d("EkatMaps", "MG пользователь: показываем все точки на карте (расстояние не учитывается)")
             pointsOfInterest.forEach { (id, pointData) ->
                 val (point, circle, currentMarker) = pointData
-                // Если маркера еще нет - создаем его
-                if (currentMarker == null) {
+                // Если маркера еще нет - создаем его (кроме точек типа USER, которые принадлежат текущему пользователю)
+                if (currentMarker == null && (point.type != "USER" || point.pointId != UserPrefsHelper.getUserId(this))) {
                     val newMarker = mMap.addMarker(
                         PointVisualizer.getMarkerOptions(
                             LatLng(point.lat, point.lng),
@@ -474,7 +485,11 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         )
                     )
                     pointsOfInterest[id] = Triple(point, circle, newMarker)
-                    Log.d("EkatMaps", "MG пользователь: добавлен маркер для точки: $id (все точки видны)")
+                    if (point.type == "USER") {
+                        Log.d("EkatMaps", "MG пользователь: добавлен маркер для точки другого пользователя: $id")
+                    } else {
+                        Log.d("EkatMaps", "MG пользователь: добавлен маркер для точки: $id (все точки видны, кроме своей USER)")
+                    }
                 }
             }
         } else {
@@ -486,8 +501,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 val distance = calculateDistance(latLng, virtualCenter)
                 
                 if (distance <= point.radius) {
-                    // Если пользователь в круге и маркера еще нет - создаем его
-                    if (currentMarker == null) {
+                    // Если пользователь в круге и маркера еще нет - создаем его (кроме точек типа USER)
+                    if (currentMarker == null && point.type != "USER") {
                         val newMarker = mMap.addMarker(
                             PointVisualizer.getMarkerOptions(
                                 LatLng(point.lat, point.lng),
@@ -497,7 +512,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                             )
                         )
                         pointsOfInterest[id] = Triple(point, circle, newMarker)
-                        Log.d("EkatMaps", "Обычный пользователь: в круге (${distance.toInt()}м), добавлен маркер для точки: $id")
+                        Log.d("EkatMaps", "Обычный пользователь: в круге (${distance.toInt()}м), добавлен маркер для точки: $id (кроме USER)")
                     }
                 } else {
                     // Если пользователь вне круга и маркер существует - удаляем его
