@@ -6,6 +6,7 @@ data class PointRequest(
     val pointId: String,
     val type: String,
     val radius: Double,
-    val description: String
-    //val ownerId: String = ""
+    val description: String,
+    val ownerId: String = "",
+    val expireAt: String? = null
 )

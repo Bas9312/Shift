@@ -5,5 +5,5 @@ data class UserLocation(
     val name: String,
     val lat: Double,
     val lng: Double,
-    val show: Boolean
+    val show: Boolean,
 )

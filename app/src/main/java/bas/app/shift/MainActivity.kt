@@ -44,6 +44,64 @@ class MainActivity : AppCompatActivity() {
         checkIfMgUser()
         updateUI()
         checkNotificationPermission()
+        checkLocationPermission()
+        
+        // Проверяем состояние игры и запускаем сервис если нужно
+        checkAndStartLocationService()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Проверяем состояние сервиса при запуске активности
+        if (!isFinishing && !isDestroyed) {
+            checkAndStartLocationService()
+            // Логируем текущее состояние
+            if (ShiftApplication.instance.isInGame() && ShiftApplication.instance.isLocationServiceRunning()) {
+                LogHelper.d("MainActivity: Activity запущена, LocationService активен")
+            } else if (ShiftApplication.instance.isInGame() && !ShiftApplication.instance.isLocationServiceRunning()) {
+                LogHelper.w("MainActivity: Activity запущена, но LocationService не запущен")
+            } else {
+                LogHelper.d("MainActivity: Activity запущена, режим 'в игре' выключен")
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Проверяем состояние сервиса при возвращении в приложение
+        if (!isFinishing && !isDestroyed) {
+            checkAndStartLocationService()
+            // Логируем текущее состояние
+            if (ShiftApplication.instance.isInGame() && ShiftApplication.instance.isLocationServiceRunning()) {
+                LogHelper.d("MainActivity: Приложение вернулось из фона, LocationService активен")
+            } else if (ShiftApplication.instance.isInGame() && !ShiftApplication.instance.isLocationServiceRunning()) {
+                LogHelper.w("MainActivity: Приложение вернулось из фона, но LocationService не запущен")
+            } else {
+                LogHelper.d("MainActivity: Приложение вернулось из фона, режим 'в игре' выключен")
+            }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (ShiftApplication.instance.isInGame() && ShiftApplication.instance.isLocationServiceRunning()) {
+            LogHelper.d("MainActivity: Приложение уходит в фон, LocationService продолжает работать")
+        } else if (ShiftApplication.instance.isInGame() && !ShiftApplication.instance.isLocationServiceRunning()) {
+            LogHelper.w("MainActivity: Приложение уходит в фон, но LocationService не запущен")
+        } else {
+            LogHelper.d("MainActivity: Приложение уходит в фон, режим 'в игре' выключен")
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (ShiftApplication.instance.isInGame() && ShiftApplication.instance.isLocationServiceRunning()) {
+            LogHelper.d("MainActivity: Activity уничтожается, LocationService продолжает работать в фоне")
+        } else if (ShiftApplication.instance.isInGame() && !ShiftApplication.instance.isLocationServiceRunning()) {
+            LogHelper.w("MainActivity: Activity уничтожается, но LocationService не запущен")
+        } else {
+            LogHelper.d("MainActivity: Activity уничтожается, режим 'в игре' выключен")
+        }
     }
 
     private fun setupToolbar() {
@@ -103,12 +161,22 @@ class MainActivity : AppCompatActivity() {
         if (checkedId == R.id.inGame) {
             ShiftApplication.instance.setIsInGame(true)
             updateUI()
-            ShiftApplication.instance.startLocationService()
+            // Запускаем сервис с небольшой задержкой, чтобы UI обновился
+            binding.root.post {
+                if (hasLocationPermission()) {
+                    ShiftApplication.instance.startLocationService()
+                    LogHelper.d("MainActivity: LocationService запущен через переключатель")
+                } else {
+                    LogHelper.w("MainActivity: Нет разрешений на геолокацию для запуска LocationService")
+                    // Запрашиваем разрешения
+                    requestLocationPermission()
+                }
+            }
         } else {
-
             ShiftApplication.instance.setIsInGame(false)
             updateUI()
             ShiftApplication.instance.stopLocationService()
+            LogHelper.d("MainActivity: LocationService остановлен через переключатель")
         }
     }
 
@@ -277,6 +345,31 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private fun checkLocationPermission() {
+        if (!hasLocationPermission()) {
+            requestLocationPermission()
+        }
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestLocationPermission() {
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+            REQUEST_LOCATION_PERMISSION
+        )
+    }
+
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -291,6 +384,32 @@ class MainActivity : AppCompatActivity() {
             } else {
                 Toast.makeText(this, "Для полноценной работы приложения требуется разрешение на уведомления", Toast.LENGTH_LONG).show()
             }
+        } else if (requestCode == REQUEST_LOCATION_PERMISSION) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                updateUI()
+                Toast.makeText(this, "Разрешение на геолокацию получено", Toast.LENGTH_SHORT).show()
+                // Проверяем, нужно ли запустить LocationService
+                checkAndStartLocationService()
+            } else {
+                Toast.makeText(this, "Для полноценной работы приложения требуется разрешение на геолокацию", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun checkAndStartLocationService() {
+        if (ShiftApplication.instance.isInGame() && !ShiftApplication.instance.isLocationServiceRunning()) {
+            // Проверяем разрешения на геолокацию
+            if (hasLocationPermission()) {
+                // Проверяем, что приложение активно
+                if (!isFinishing && !isDestroyed) {
+                    ShiftApplication.instance.startLocationService()
+                    LogHelper.d("MainActivity: Запуск LocationService")
+                } else {
+                    LogHelper.w("MainActivity: Activity не активна, LocationService не запускается")
+                }
+            } else {
+                LogHelper.w("MainActivity: Нет разрешений на геолокацию для запуска LocationService")
+            }
         }
     }
 
@@ -298,5 +417,6 @@ class MainActivity : AppCompatActivity() {
         const val PREFS_NAME = "game_state"
         const val KEY_IN_GAME = "is_in_game"
         private const val REQUEST_NOTIFICATION_PERMISSION = 100
+        private const val REQUEST_LOCATION_PERMISSION = 101
     }
 } 

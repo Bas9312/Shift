@@ -8,8 +8,9 @@
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
-
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
     <application
         android:name=".ShiftApplication"
@@ -77,7 +78,8 @@
 
         <service
             android:name=".services.LocationService"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <activity
             android:name=".ui.AuraActivity"
