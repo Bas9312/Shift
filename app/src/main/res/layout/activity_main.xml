@@ -71,15 +71,6 @@
         android:text="Открыть терминал"
         android:layout_marginBottom="8dp"/>
 
-    <!-- Кнопка управления точками скрыта для всех пользователей -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/openPointManagementButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Управление точками"
-        android:layout_marginBottom="8dp"
-        android:visibility="gone"/>
-
     <com.google.android.material.button.MaterialButton
         android:id="@+id/openAuraButton"
         android:layout_width="match_parent"

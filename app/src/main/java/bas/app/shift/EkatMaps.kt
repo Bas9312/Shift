@@ -57,7 +57,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var binding: ActivityEkatMapsBinding
     private var cancellationTokenSource = CancellationTokenSource()
     private var currentLocationMarker: Marker? = null
-    private val pointsOfInterest = mutableMapOf<String, Triple<Point, Circle, Marker?>>()
+    private val pointsOfInterest = mutableMapOf<String, Triple<Point, Circle?, Marker?>>()
     private val handler = Handler(Looper.getMainLooper())
     private val pointsUpdateInterval = 10000L // 1 минута
     private var lastPointsUpdate = 0L
@@ -207,6 +207,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         dialogBinding.tvPointRadius.text = "Радиус: ${point.radius}м"
         dialogBinding.tvPointCoordinates.text = "Координаты: ${String.format("%.6f", point.lat)}, ${String.format("%.6f", point.lng)}"
         dialogBinding.tvPointDescription.text = "Описание: ${point.description ?: "Нет описания"}"
+        dialogBinding.tvPointTextToShowOnEnter.text = "Текст при входе: ${point.textToShowOnEnter ?: "Не задан"}"
 
         // Создаем диалог
         val dialog = AlertDialog.Builder(this)
@@ -285,11 +286,18 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         dialogBinding.btnCreatePoint.setOnClickListener {
             val selectedType = dialogBinding.spinnerPointType.selectedItem as String
             val description = dialogBinding.etDescription.text.toString()
+            val textToShowOnEnter = dialogBinding.etTextToShowOnEnter.text.toString()
             
-            Log.d("EkatMaps", "Создание точки: тип=$selectedType, описание=$description")
+            Log.d("EkatMaps", "Создание точки: тип=$selectedType, описание=$description, текст при входе=$textToShowOnEnter")
             
             if (description.isBlank()) {
                 Toast.makeText(this, "Введите описание точки", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            
+            // Для точек типа POINT_WITH_TEXT поле textToShowOnEnter обязательно
+            if (selectedType == "POINT_WITH_TEXT" && textToShowOnEnter.isBlank()) {
+                Toast.makeText(this, "Для точек типа 'Точка с текстом' обязательно заполните поле 'Текст при входе'", Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
             
@@ -320,7 +328,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         radius = 0.0, // Сервер сам рассчитывает радиус
                         description = description,
                         ownerId = userId,
-                        expireAt = expireAt
+                        expireAt = expireAt,
+                        textToShowOnEnter = textToShowOnEnter.takeIf { it.isNotEmpty() }
                     )
                     
                     Log.d("EkatMaps", "Отправка запроса на создание точки: $pointRequest")
@@ -385,7 +394,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             Log.d("EkatMaps", "Получено ${serverPoints.size} точек с сервера")
             // Удаляем все существующие точки
             pointsOfInterest.values.forEach { (_, circle, marker) ->
-                circle.remove()
+                circle?.remove() // Круг может быть null для USER точек
                 marker?.remove()
             }
             pointsOfInterest.clear()
@@ -421,29 +430,40 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     private fun addPoint(point: Point) {
         Log.d("EkatMaps", "Добавление точки: ID=${point.pointId}, тип=${point.type}, координаты=(${point.lat}, ${point.lng})")
         
+        // Для обычных пользователей: не показываем точки типа POINT_WITH_TEXT
+        if (!isMgUser && point.type == "POINT_WITH_TEXT") {
+            Log.d("EkatMaps", "Обычный пользователь: пропускаем точку POINT_WITH_TEXT: ${point.pointId}")
+            return
+        }
+        
         // Удаляем старую точку, если она существует
         pointsOfInterest[point.pointId]?.let { (_, circle, marker) ->
-            circle.remove()
+            circle?.remove() // Круг может быть null для USER точек
             marker?.remove()
             Log.d("EkatMaps", "Удалена старая точка: ${point.pointId}")
         }
         pointsOfInterest.remove(point.pointId)
 
-        // Создаем круг с виртуальным центром
-        val circle = mMap.addCircle(
-            PointVisualizer.getCircleOptions(
-                LatLng(point.vLat, point.vLng),
-                point.radius.toFloat(),
-                PointType.fromServerValue(point.type)
+        // Для точек типа USER не создаем круги
+        val circle = if (point.type == "USER") {
+            null
+        } else {
+            mMap.addCircle(
+                PointVisualizer.getCircleOptions(
+                    LatLng(point.vLat, point.vLng),
+                    point.radius.toFloat(),
+                    PointType.fromServerValue(point.type)
+                )
             )
-        )
+        }
 
         // Сохраняем точку, круг и null для маркера (он будет добавлен позже)
         // Маркеры создаются только в updateForLocation() для избежания дублирования
         // Для MG пользователей: показываем все точки, кроме своей USER точки
-        // Для обычных пользователей: показываем только точки в кругах, кроме USER точек
+        // Для обычных пользователей: показываем только точки в кругах, кроме USER точек и POINT_WITH_TEXT
+        // Для точек типа USER круг = null
         pointsOfInterest[point.pointId] = Triple(point, circle, null)
-        Log.d("EkatMaps", "Точка добавлена в список: ${point.pointId} (маркер будет создан позже)")
+        Log.d("EkatMaps", "Точка добавлена в список: ${point.pointId} (маркер будет создан позже, круг: ${if (circle != null) "создан" else "не создан для USER"})")
     }
 
     private fun updateForLocation() {
@@ -474,8 +494,15 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             Log.d("EkatMaps", "MG пользователь: показываем все точки на карте (расстояние не учитывается)")
             pointsOfInterest.forEach { (id, pointData) ->
                 val (point, circle, currentMarker) = pointData
-                // Если маркера еще нет - создаем его (кроме точек типа USER, которые принадлежат текущему пользователю)
-                if (currentMarker == null && (point.type != "USER" || point.pointId != UserPrefsHelper.getUserId(this))) {
+                
+                // Пропускаем точки типа USER (у них нет кругов и они не нужны на карте)
+                if (point.type == "USER") {
+                    Log.d("EkatMaps", "MG пользователь: пропускаем точку USER: $id (нет круга)")
+                    return@forEach
+                }
+                
+                // Если маркера еще нет - создаем его
+                if (currentMarker == null) {
                     val newMarker = mMap.addMarker(
                         PointVisualizer.getMarkerOptions(
                             LatLng(point.lat, point.lng),
@@ -485,11 +512,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         )
                     )
                     pointsOfInterest[id] = Triple(point, circle, newMarker)
-                    if (point.type == "USER") {
-                        Log.d("EkatMaps", "MG пользователь: добавлен маркер для точки другого пользователя: $id")
-                    } else {
-                        Log.d("EkatMaps", "MG пользователь: добавлен маркер для точки: $id (все точки видны, кроме своей USER)")
-                    }
+                    Log.d("EkatMaps", "MG пользователь: добавлен маркер для точки: $id")
                 }
             }
         } else {
@@ -497,12 +520,25 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             Log.d("EkatMaps", "Обычный пользователь: проверяем расстояние до точек для отображения маркеров (только в кругах)")
             pointsOfInterest.forEach { (id, pointData) ->
                 val (point, circle, currentMarker) = pointData
+                
+                // Пропускаем точки типа USER (у них нет кругов)
+                if (point.type == "USER") {
+                    Log.d("EkatMaps", "Обычный пользователь: пропускаем точку USER: $id (нет круга)")
+                    return@forEach
+                }
+                
+                // Пропускаем точки без кругов
+                if (circle == null) {
+                    Log.d("EkatMaps", "Обычный пользователь: пропускаем точку без круга: $id")
+                    return@forEach
+                }
+                
                 val virtualCenter = LatLng(point.vLat, point.vLng)
                 val distance = calculateDistance(latLng, virtualCenter)
                 
                 if (distance <= point.radius) {
-                    // Если пользователь в круге и маркера еще нет - создаем его (кроме точек типа USER)
-                    if (currentMarker == null && point.type != "USER") {
+                    // Если пользователь в круге и маркера еще нет - создаем его
+                    if (currentMarker == null) {
                         val newMarker = mMap.addMarker(
                             PointVisualizer.getMarkerOptions(
                                 LatLng(point.lat, point.lng),
@@ -512,7 +548,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                             )
                         )
                         pointsOfInterest[id] = Triple(point, circle, newMarker)
-                        Log.d("EkatMaps", "Обычный пользователь: в круге (${distance.toInt()}м), добавлен маркер для точки: $id (кроме USER)")
+                        Log.d("EkatMaps", "Обычный пользователь: в круге (${distance.toInt()}м), добавлен маркер для точки: $id")
                     }
                 } else {
                     // Если пользователь вне круга и маркер существует - удаляем его
@@ -540,6 +576,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             PointType.DEMON_BLACK_CIRCLE -> "Демон Черный Круг"
             PointType.APPROACHING_VIRTUAL -> "Приближающийся Виртуальный"
             PointType.HIDDEN_AR_POINT -> "Скрытая AR точка"
+            PointType.POINT_WITH_TEXT -> "Точка с текстом"
         }
         Log.d("EkatMaps", "Заголовок для типа ${type.serverValue}: $title")
         return title

@@ -10,7 +10,8 @@ enum class PointType(val serverValue: String) {
     SHRINKING_CIRCLE("SHRINKING_CIRCLE"),
     DEMON_BLACK_CIRCLE("DEMON_BLACK_CIRCLE"),
     APPROACHING_VIRTUAL("APPROACHING_VIRTUAL"),
-    HIDDEN_AR_POINT("HIDDEN_AR_POINT");
+    HIDDEN_AR_POINT("HIDDEN_AR_POINT"),
+    POINT_WITH_TEXT("POINT_WITH_TEXT");
 
     companion object {
         fun fromServerValue(value: String): PointType {

@@ -18,7 +18,7 @@ import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.User
 import bas.app.shift.ui.terminal.TerminalActivity
-import bas.app.shift.ui.PointManagementActivity
+
 import bas.app.shift.ui.AuraEditorActivity
 import bas.app.shift.ui.ArtifactCreatorActivity
 import bas.app.shift.ui.MgProfileViewActivity
@@ -123,9 +123,7 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, TerminalActivity::class.java))
         }
 
-        binding.openPointManagementButton.setOnClickListener {
-            startActivity(Intent(this, PointManagementActivity::class.java))
-        }
+
 
         binding.openAuraButton.setOnClickListener {
             startActivity(Intent(this, bas.app.shift.ui.AuraScannerActivity::class.java))
@@ -239,7 +237,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         // Кнопка управления точками скрыта для всех
-        binding.openPointManagementButton.visibility = View.GONE
+        
     }
 
     private fun checkUserDisciplines() {

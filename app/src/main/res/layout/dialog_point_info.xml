@@ -44,6 +44,14 @@
         android:layout_height="wrap_content"
         android:text="Описание: "
         android:textSize="16sp"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/tvPointTextToShowOnEnter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Текст при входе: "
+        android:textSize="16sp"
         android:layout_marginBottom="16dp" />
 
     <Button

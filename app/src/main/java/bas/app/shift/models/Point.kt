@@ -8,5 +8,6 @@ data class Point(
     val vLat: Double,
     val vLng: Double,
     val radius: Double,
-    val description: String? = null
+    val description: String? = null,
+    val textToShowOnEnter: String? = null
 )

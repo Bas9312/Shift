@@ -52,6 +52,23 @@
         android:layout_marginBottom="16dp" />
 
     <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Текст при входе в точку:"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp" />
+
+    <EditText
+        android:id="@+id/etTextToShowOnEnter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Введите текст для показа при входе в точку (обязательно для 'Точка с текстом')"
+        android:inputType="textMultiLine"
+        android:minLines="2"
+        android:maxLines="4"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
         android:id="@+id/tvExpireLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

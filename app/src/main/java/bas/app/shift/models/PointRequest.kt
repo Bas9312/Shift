@@ -8,5 +8,6 @@ data class PointRequest(
     val radius: Double,
     val description: String,
     val ownerId: String = "",
-    val expireAt: String? = null
+    val expireAt: String? = null,
+    val textToShowOnEnter: String? = null
 )
