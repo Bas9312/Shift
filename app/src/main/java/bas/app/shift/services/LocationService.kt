@@ -43,8 +43,12 @@ class LocationService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val pointsCheckRunnable = object : Runnable {
         override fun run() {
-            checkPointsInRange()
-            handler.postDelayed(this, pointsCheckInterval)
+            if (isActive) {
+                checkPointsInRange()
+                handler.postDelayed(this, pointsCheckInterval)
+            } else {
+                LogHelper.d("LocationService: Проверка точек остановлена, не планируем следующую")
+            }
         }
     }
 
@@ -53,7 +57,7 @@ class LocationService : Service() {
             locationResult.lastLocation?.let { location ->
                 val currentTime = System.currentTimeMillis()
                 currentLocation = location
-                LogHelper.d("LocationService update location $location")
+                LogHelper.d("LocationService: Обновление локации: ${location.latitude}, ${location.longitude}")
                 if (currentTime - lastLocationUpdate >= locationUpdateInterval) {
                     ServerService.sendLocation(location)
                     lastLocationUpdate = currentTime
@@ -73,16 +77,33 @@ class LocationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        LogHelper.d("LocationService: Получена команда: ${intent?.action}")
+        
         when (intent?.action) {
-            ACTION_START -> startLocationUpdates()
-            ACTION_STOP -> stopLocationUpdates()
+            ACTION_START -> {
+                LogHelper.d("LocationService: Запуск обновлений локации")
+                startLocationUpdates()
+            }
+            ACTION_STOP -> {
+                LogHelper.d("LocationService: Остановка обновлений локации")
+                stopLocationUpdates()
+            }
+            else -> {
+                LogHelper.d("LocationService: Неизвестная команда, запускаем обновления")
+                startLocationUpdates()
+            }
         }
         return START_STICKY
     }
 
     @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
-        if (isActive) return
+        if (isActive) {
+            LogHelper.d("LocationService: Обновления локации уже активны, пропускаем")
+            return
+        }
+        
+        LogHelper.d("LocationService: Начинаем запуск обновлений локации")
         
         // Проверяем разрешения на геолокацию
         if (!hasLocationPermission()) {
@@ -124,7 +145,12 @@ class LocationService : Service() {
     }
 
     private fun stopLocationUpdates() {
-        if (!isActive) return
+        if (!isActive) {
+            LogHelper.d("LocationService: Обновления локации уже остановлены, пропускаем")
+            return
+        }
+        
+        LogHelper.d("LocationService: Останавливаем обновления локации")
         
         fusedLocationProviderClient.removeLocationUpdates(locationCallback)
         handler.removeCallbacks(pointsCheckRunnable)
@@ -135,7 +161,7 @@ class LocationService : Service() {
             stopForeground(true)
         }
         
-        LogHelper.d("Обновление геолокации и проверка точек остановлены")
+        LogHelper.d("LocationService: Обновление геолокации и проверка точек остановлены")
     }
 
     private fun checkPointsInRange() {
@@ -144,6 +170,8 @@ class LocationService : Service() {
         
         if (currentTime - lastPointsCheck < pointsCheckInterval) return
         lastPointsCheck = currentTime
+        
+        LogHelper.d("LocationService: Проверяем точки в радиусе, текущая локация: ${location.latitude}, ${location.longitude}")
         
         try {
             val points = ServerService.getPoints()
@@ -157,7 +185,10 @@ class LocationService : Service() {
                     point.lat, point.lng
                 )
                 
-                if (distance <= point.radius) {
+                // Для фамильяров используем расстояние 10 метров вместо радиуса точки
+                val checkDistance = if (point.type == "FAMILIAR") 50.0 else point.radius //TODO RETURN AFTER TEST
+                
+                if (distance <= checkDistance) {
                     newPointsInRange.add(point.pointId)
                     
                     // Если мы только что вошли в точку
@@ -191,6 +222,10 @@ class LocationService : Service() {
                     point.pointId.hashCode()
                 )
             }
+            "FAMILIAR" -> {
+                // Для фамильяров показываем специальное уведомление
+                showFamiliarNotification(point)
+            }
             "POINT_WITH_TEXT" -> {
                 // Для точек с текстом используем специальный заголовок
                 point.textToShowOnEnter?.let { text ->
@@ -217,6 +252,50 @@ class LocationService : Service() {
                 }
             }
         }
+    }
+    
+    private fun showFamiliarNotification(point: Point) {
+        // Создаем специальное уведомление для фамильяра
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        
+        // Создаем Intent для открытия AR экрана
+        val intent = Intent(this, bas.app.shift.ui.FamiliarARActivity::class.java).apply {
+            putExtra(bas.app.shift.ui.FamiliarARActivity.EXTRA_FAMILIAR_ID, point.pointId)
+            putExtra(bas.app.shift.ui.FamiliarARActivity.EXTRA_FAMILIAR_LAT, point.lat)
+            putExtra(bas.app.shift.ui.FamiliarARActivity.EXTRA_FAMILIAR_LNG, point.lng)
+            putExtra(bas.app.shift.ui.FamiliarARActivity.EXTRA_FAMILIAR_DESCRIPTION, point.description ?: "Фамильяр")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        
+        val pendingIntent = PendingIntent.getActivity(
+            this, 
+            point.pointId.hashCode(), 
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        
+        // Формируем детальное описание
+        val familiarDescription = point.description ?: "Фамильяр"
+        val notificationText = "Вы чувствуете здесь присутствие $familiarDescription. " +
+                "Это существо готово к общению в дополненной реальности. " +
+                "Нажмите на уведомление, чтобы открыть AR экран и пообщаться с ним!"
+        
+        val notification = NotificationCompat.Builder(this, POINTS_CHANNEL_ID)
+            .setContentTitle(getString(R.string.familiar_notification_title))
+            .setContentText("Вы чувствуете здесь $familiarDescription. Нажмите для общения в AR!")
+            .setStyle(NotificationCompat.BigTextStyle()
+                .bigText(notificationText)
+                .setBigContentTitle(getString(R.string.familiar_notification_title)))
+            .setSmallIcon(R.drawable.ic_notification_icon)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setVibrate(longArrayOf(0, 500, 200, 500)) // Специальная вибрация для фамильяра
+            .build()
+        
+        notificationManager.notify(point.pointId.hashCode(), notification)
+        LogHelper.d("LocationService: Показано уведомление о фамильяре для точки ${point.pointId}: $familiarDescription")
     }
     
     private fun onExitPoint(pointId: String) {

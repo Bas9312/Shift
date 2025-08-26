@@ -6,13 +6,17 @@ import android.content.Context.MODE_PRIVATE
 import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.ViewModelProvider.NewInstanceFactory.Companion.instance
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleObserver
+import androidx.lifecycle.OnLifecycleEvent
 import bas.app.shift.MainActivity.Companion.KEY_IN_GAME
 import bas.app.shift.MainActivity.Companion.PREFS_NAME
 import bas.app.shift.helpers.AndroidStandardLogger
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.services.LocationService
 
-class ShiftApplication : Application() {
+class ShiftApplication : Application(), LifecycleObserver {
 
     fun isInGame(): Boolean = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         .getBoolean(KEY_IN_GAME, true)
@@ -35,24 +39,29 @@ class ShiftApplication : Application() {
     }
 
     fun startLocationService() {
-        // Проверяем, не запущен ли уже сервис
-        if (!isLocationServiceRunning()) {
-            // Проверяем, что приложение не в фоне
-            if (isAppInForeground()) {
-                startService(Intent(this, LocationService::class.java).apply {
-                    action = LocationService.ACTION_START
-                })
-            } else {
-                LogHelper.w("ShiftApplication: Не удается запустить LocationService - приложение в фоне")
-            }
+        try {
+            // Всегда отправляем команду START сервису
+            // Сервис сам проверит, нужно ли ему активироваться
+            startService(Intent(this, LocationService::class.java).apply {
+                action = LocationService.ACTION_START
+            })
+            LogHelper.d("ShiftApplication: LocationService запущен успешно")
+        } catch (e: Exception) {
+            LogHelper.e("ShiftApplication: Ошибка при запуске LocationService: ${e.message}")
+            // На Android 15+ сервис может не запуститься автоматически
+            // Это нормально, он запустится позже при активации приложения
         }
     }
 
     fun stopLocationService() {
-        if (isLocationServiceRunning()) {
+        try {
+            // Отправляем команду STOP сервису
             startService(Intent(this, LocationService::class.java).apply {
                 action = LocationService.ACTION_STOP
             })
+            LogHelper.d("ShiftApplication: LocationService остановлен")
+        } catch (e: Exception) {
+            LogHelper.e("ShiftApplication: Ошибка при остановке LocationService: ${e.message}")
         }
     }
 
@@ -87,8 +96,29 @@ class ShiftApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         LogHelper.addLogger(AndroidStandardLogger())
-        LogHelper.d("onCreate - LocationService не запускается автоматически")
-        // Убираем автоматический запуск LocationService
-        // Сервис будет запускаться только когда пользователь явно включит режим "в игре"
+        LogHelper.d("onCreate - настройка жизненного цикла приложения")
+        
+        // Регистрируем наблюдатель жизненного цикла
+        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+        
+        // НЕ запускаем LocationService автоматически на Android 15+
+        // Сервис будет запускаться только при активации приложения
+    }
+    
+    @OnLifecycleEvent(Lifecycle.Event.ON_START)
+    fun onAppForegrounded() {
+        LogHelper.d("ShiftApplication: Приложение перешло в передний план")
+        // Приложение активировано, можно попробовать запустить сервис
+        if (isInGame()) {
+            LogHelper.d("ShiftApplication: Персонаж в игре, пытаемся запустить LocationService")
+            startLocationService()
+        }
+    }
+    
+    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
+    fun onAppBackgrounded() {
+        LogHelper.d("ShiftApplication: Приложение перешло в фон")
+        // Приложение ушло в фон, но сервис продолжает работать
+        // так как он Foreground Service
     }
 }

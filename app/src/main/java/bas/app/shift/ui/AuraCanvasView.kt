@@ -125,15 +125,23 @@ class AuraCanvasView @JvmOverloads constructor(
 
         // Аура (круг)
         val paintAura = Paint().apply {
-            color = auraColor(aura.type, aura.percentOfHumanism)
-            style = Paint.Style.FILL
             // Определяем видимость: если forceAuraVisible не null, используем его, иначе серверное значение
             val isHidden = when (forceAuraVisible) {
                 null -> aura.auraHidden      // Используем состояние с сервера
                 true -> false                // Принудительно показать
                 false -> true                // Принудительно скрыть
             }
-            alpha = if (isHidden) 40 else 180  // Уменьшили альфу в 2 раза для скрытой ауры
+            
+            if (isHidden) {
+                // Для скрытой ауры - однотонный серый цвет
+                color = Color.GRAY
+                alpha = 180
+            } else {
+                // Для видимой ауры - обычный цвет
+                color = auraColor(aura.type, aura.percentOfHumanism)
+                alpha = 180
+            }
+            style = Paint.Style.FILL
         }
         LogHelper.d(
             "Drawing aura: forceAuraVisible=$forceAuraVisible, auraHidden=${aura.auraHidden}, alpha=${paintAura.alpha}"
@@ -182,11 +190,13 @@ class AuraCanvasView @JvmOverloads constructor(
             markTouchAreas.clear()
         }
 
-        // Человек (в уменьшенном размере, по центру)
-        humanBitmap?.let {
-            val left = centerX - humanWidth / 2f
-            val top = centerY - humanHeight / 2f
-            canvas.drawBitmap(it, null, RectF(left, top, left + humanWidth, top + humanHeight), null)
+        // Человек (в уменьшенном размере, по центру) - показываем только если аура не скрыта
+        if (shouldShowElements) {
+            humanBitmap?.let {
+                val left = centerX - humanWidth / 2f
+                val top = centerY - humanHeight / 2f
+                canvas.drawBitmap(it, null, RectF(left, top, left + humanWidth, top + humanHeight), null)
+            }
         }
 
         // Внутренние метки — столбцом слева от человека (показываем только если аура не скрыта)

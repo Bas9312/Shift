@@ -50,7 +50,7 @@ import java.util.*
 
 class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
-    private lateinit var currentLocation: Location
+    private var currentLocation: Location? = null
     private var locationUpdateDisposable: Disposable? = null
     private lateinit var updatePointsRunnable: Runnable
     private lateinit var mMap: GoogleMap
@@ -59,7 +59,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     private var currentLocationMarker: Marker? = null
     private val pointsOfInterest = mutableMapOf<String, Triple<Point, Circle?, Marker?>>()
     private val handler = Handler(Looper.getMainLooper())
-    private val pointsUpdateInterval = 10000L // 1 минута
+    private val pointsUpdateInterval = 10000L // 10 секунд
     private var lastPointsUpdate = 0L
     private var isMgUser = false
     private val scope = CoroutineScope(Dispatchers.Main)
@@ -163,7 +163,9 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         // Запускаем периодическое обновление точек
         startPointsUpdate()
         
+        // Запрашиваем локацию и подписываемся на обновления
         requestForLocation()
+        
         Log.d("EkatMaps", "Инициализация карты завершена: ${if (isMgUser) "MG пользователь с полным функционалом" else "обычный пользователь с базовым функционалом"}")
     }
 
@@ -404,7 +406,12 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 addPoint(point)
             }
 
-            updateForLocation()
+            // Обновляем карту только если есть текущая локация
+            if (currentLocation != null) {
+                updateForLocation()
+            } else {
+                Log.d("EkatMaps", "Локация недоступна, маркеры будут добавлены позже")
+            }
         }
     }
 
@@ -467,8 +474,14 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun updateForLocation() {
-        Log.d("EkatMaps", "Обновление карты для местоположения: ${currentLocation.latitude}, ${currentLocation.longitude}")
-        val latLng = LatLng(currentLocation.latitude, currentLocation.longitude)
+        // Проверяем, есть ли текущая локация
+        if (currentLocation == null) {
+            Log.d("EkatMaps", "Текущая локация недоступна, пропускаем обновление карты")
+            return
+        }
+        
+        Log.d("EkatMaps", "Обновление карты для местоположения: ${currentLocation!!.latitude}, ${currentLocation!!.longitude}")
+        val latLng = LatLng(currentLocation!!.latitude, currentLocation!!.longitude)
         
         // Получаем ID текущего пользователя для проверки дублирования USER точек
         val currentUserId = UserPrefsHelper.getUserId(this)
@@ -646,22 +659,41 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         currentTask.addOnCompleteListener { task ->
             if (task.isSuccessful && task.result != null) {
                 currentLocation = task.result
-                val latLng = LatLng(currentLocation.latitude, currentLocation.longitude)
-                Log.d("EkatMaps", "Получено текущее местоположение: ${currentLocation.latitude}, ${currentLocation.longitude}")
+                val latLng = LatLng(currentLocation!!.latitude, currentLocation!!.longitude)
+                Log.d("EkatMaps", "Получено текущее местоположение: ${currentLocation!!.latitude}, ${currentLocation!!.longitude}")
+                
                 // Центрируем карту на текущем местоположении
                 mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
 
+                // Обновляем карту
                 updateForLocation()
             } else {
                 Log.e("EkatMaps", "Ошибка при получении местоположения: ${task.exception}")
+                // Локация не получена, но это не критично - она придет через LocationService
+                Log.d("EkatMaps", "Ожидаем локацию через LocationService")
             }
         }
 
-        locationUpdateDisposable = LocationService.locationSource.subscribe {
-            currentLocation = it
-            Log.d("EkatMaps", "Обновление местоположения через LocationService: ${it.latitude}, ${it.longitude}")
-            updateForLocation()
-        }
+        // Подписываемся на обновления локации через LocationService
+        locationUpdateDisposable = LocationService.locationSource.subscribe(
+            { location ->
+                currentLocation = location
+                Log.d("EkatMaps", "Обновление местоположения через LocationService: ${location.latitude}, ${location.longitude}")
+                
+                // Центрируем карту на текущем местоположении при первом получении
+                if (currentLocationMarker == null) {
+                    val latLng = LatLng(location.latitude, location.longitude)
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
+                }
+                
+                // Обновляем карту
+                updateForLocation()
+            },
+            { error ->
+                Log.e("EkatMaps", "Ошибка при получении локации: ${error.message}")
+                Toast.makeText(this, "Ошибка при получении локации", Toast.LENGTH_SHORT).show()
+            }
+        )
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
