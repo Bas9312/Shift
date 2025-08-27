@@ -13,8 +13,11 @@ import androidx.lifecycle.OnLifecycleEvent
 import bas.app.shift.MainActivity.Companion.KEY_IN_GAME
 import bas.app.shift.MainActivity.Companion.PREFS_NAME
 import bas.app.shift.helpers.AndroidStandardLogger
+import bas.app.shift.helpers.BugfenderLogger
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.services.LocationService
+import com.bugfender.sdk.Bugfender
 
 class ShiftApplication : Application(), LifecycleObserver {
 
@@ -95,7 +98,11 @@ class ShiftApplication : Application(), LifecycleObserver {
 
     override fun onCreate() {
         super.onCreate()
+        LogHelper.setLogLevel(LogHelper.LogLevel.DEBUG)
         LogHelper.addLogger(AndroidStandardLogger())
+        LogHelper.addLogger(BugfenderLogger())
+        Bugfender.init(this, "jrdTZKyAg4q91SOxfYvaUFszBhvNihH5", true, true)
+        Bugfender.setDeviceString("user id", UserPrefsHelper.getUserId(this))
         LogHelper.d("onCreate - настройка жизненного цикла приложения")
         
         // Регистрируем наблюдатель жизненного цикла
