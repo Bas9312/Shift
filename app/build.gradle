@@ -34,6 +34,31 @@ android {
     buildFeatures {
         viewBinding true
     }
+    
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/license.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/notice.txt'
+        exclude 'META-INF/ASL2.0'
+        pickFirst 'META-INF/core-1.15.0.kotlin_module'
+        pickFirst 'META-INF/core-1.17.1.kotlin_module'
+        
+        // Принудительно исключаем конфликтующие support классы
+        exclude '**/android/support/v4/app/INotificationSideChannel.class'
+        exclude '**/android/support/v4/app/INotificationSideChannel$Stub.class'
+        exclude '**/android/support/v4/app/INotificationSideChannel$Stub$Proxy.class'
+        exclude '**/android/support/v4/os/IResultReceiver.class'
+        exclude '**/android/support/v4/os/IResultReceiver$Stub.class'
+        exclude '**/android/support/v4/os/IResultReceiver$Stub$Proxy.class'
+        exclude '**/android/support/v4/os/ResultReceiver.class'
+        exclude '**/android/support/v4/os/ResultReceiver$1.class'
+        exclude '**/android/support/v4/os/ResultReceiver$MyResultReceiver.class'
+        exclude '**/android/support/v4/os/ResultReceiver$MyRunnable.class'
+    }
 }
 
 dependencies {
@@ -45,6 +70,8 @@ dependencies {
     implementation libs.androidx.constraintlayout
     implementation ("com.google.android.gms:play-services-location:21.3.0")
     implementation 'androidx.fragment:fragment-ktx:1.6.2'
+    implementation 'androidx.fragment:fragment:1.6.2'
+    implementation 'androidx.lifecycle:lifecycle-process:2.7.0'
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
     androidTestImplementation libs.androidx.espresso.core
@@ -56,5 +83,21 @@ dependencies {
     implementation 'com.squareup.okhttp3:logging-interceptor:4.9.0'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4'
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.2.0")
-    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+    
+    // ZXing для сканирования QR кодов (с исключением конфликтующих зависимостей)
+    implementation('com.journeyapps:zxing-android-embedded:4.3.0') {
+        exclude group: 'com.android.support'
+        exclude group: 'androidx.core'
+        exclude group: 'androidx.appcompat'
+    }
+    implementation 'com.google.zxing:core:3.5.2'
+}
+
+// Принудительно исключаем конфликтующие support библиотеки
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.core:core:1.12.0'
+        force 'androidx.core:core-ktx:1.12.0'
+        exclude group: 'com.android.support'
+    }
 }
