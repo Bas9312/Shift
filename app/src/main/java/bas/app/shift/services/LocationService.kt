@@ -18,6 +18,8 @@ import bas.app.shift.R
 import bas.app.shift.ShiftApplication
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.Point
+import bas.app.shift.models.FamiliarData
+import bas.app.shift.ui.FamiliarFoundActivity
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -27,6 +29,7 @@ import com.google.android.gms.location.Priority
 import io.reactivex.subjects.BehaviorSubject
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.session.PlaybackState.ACTION_STOP
 import androidx.core.content.ContextCompat
 import android.os.Handler
 import bas.app.shift.helpers.UserPrefsHelper
@@ -185,8 +188,8 @@ class LocationService : Service() {
                     point.lat, point.lng
                 )
                 
-                // Для фамильяров используем расстояние 10 метров вместо радиуса точки
-                val checkDistance = if (point.type == "FAMILIAR") 50.0 else point.radius //TODO RETURN AFTER TEST
+                // Для фамильяров используем расстояние 30 метров вместо радиуса точки
+                val checkDistance = if (point.type == "FAMILIAR") 30.0 else point.radius
                 
                 if (distance <= checkDistance) {
                     newPointsInRange.add(point.pointId)
@@ -258,34 +261,27 @@ class LocationService : Service() {
         // Создаем специальное уведомление для фамильяра
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
-        // Создаем Intent для открытия AR экрана
-        val intent = Intent(this, bas.app.shift.ui.FamiliarARActivity::class.java).apply {
-            putExtra(bas.app.shift.ui.FamiliarARActivity.EXTRA_FAMILIAR_ID, point.pointId)
-            putExtra(bas.app.shift.ui.FamiliarARActivity.EXTRA_FAMILIAR_LAT, point.lat)
-            putExtra(bas.app.shift.ui.FamiliarARActivity.EXTRA_FAMILIAR_LNG, point.lng)
-            putExtra(bas.app.shift.ui.FamiliarARActivity.EXTRA_FAMILIAR_DESCRIPTION, point.description ?: "Фамильяр")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        
-        val pendingIntent = PendingIntent.getActivity(
-            this, 
-            point.pointId.hashCode(), 
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        
         // Формируем детальное описание
-        val familiarDescription = point.description ?: "Фамильяр"
-        val notificationText = "Вы чувствуете здесь присутствие $familiarDescription. " +
-                "Это существо готово к общению в дополненной реальности. " +
-                "Нажмите на уведомление, чтобы открыть AR экран и пообщаться с ним!"
+        val familiarId = point.description ?: "familiar_malachite_lizard" // fallback на малахитовую ящерицу
+        
+        // Создаем Intent для открытия экрана найденного фамильяра
+        val intent = Intent(this, bas.app.shift.ui.FamiliarFoundActivity::class.java)
+        intent.putExtra("familiar_id", familiarId)
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, intent,
+            PendingIntent.FLAG_IMMUTABLE
+        )
+        val familiarName = FamiliarData.getNameById(familiarId)
+        val notificationText = "Вы чувствуете здесь присутствие $familiarName. " +
+                "Это существо готово к общению. " +
+                "Нажмите на уведомление, чтобы пообщаться с ним!"
         
         val notification = NotificationCompat.Builder(this, POINTS_CHANNEL_ID)
-            .setContentTitle(getString(R.string.familiar_notification_title))
-            .setContentText("Вы чувствуете здесь $familiarDescription. Нажмите для общения в AR!")
+            .setContentTitle("🐉 Фамильяр рядом!")
+            .setContentText("Вы чувствуете здесь $familiarName. Нажмите для общения!")
             .setStyle(NotificationCompat.BigTextStyle()
                 .bigText(notificationText)
-                .setBigContentTitle(getString(R.string.familiar_notification_title)))
+                .setBigContentTitle("🐉 Фамильяр рядом!"))
             .setSmallIcon(R.drawable.ic_notification_icon)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -295,7 +291,7 @@ class LocationService : Service() {
             .build()
         
         notificationManager.notify(point.pointId.hashCode(), notification)
-        LogHelper.d("LocationService: Показано уведомление о фамильяре для точки ${point.pointId}: $familiarDescription")
+        LogHelper.d("LocationService: Показано уведомление о фамильяре для точки ${point.pointId}: $familiarName")
     }
     
     private fun onExitPoint(pointId: String) {

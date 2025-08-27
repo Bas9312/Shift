@@ -97,6 +97,18 @@
             android:name=".ui.MgProfileViewActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".ui.FamiliarActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.FamiliarFoundActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.AuraQrActivity"
+            android:exported="false" />
+
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyBYT1_bCtl4Cqqv6m6kRh0aqlPnhE4TEnE" />

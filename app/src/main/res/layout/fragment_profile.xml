@@ -227,6 +227,32 @@
             android:layout_height="12dp"
             android:background="@android:color/transparent" />
 
+        <!-- Кнопка показа ауры экстрасенсу -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_profile_section"
+            android:orientation="vertical"
+            android:padding="16dp">
+            <TextView
+                android:text="Показать ауру экстрасенсу"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnShowAuraToExtrasensory"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/show_aura_to_extrasensory"
+                android:layout_marginTop="8dp"/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="12dp"
+            android:background="@android:color/transparent" />
+
         <!-- Прочее -->
         <LinearLayout
             android:layout_width="match_parent"

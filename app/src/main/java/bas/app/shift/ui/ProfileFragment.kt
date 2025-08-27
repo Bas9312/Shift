@@ -15,6 +15,7 @@ import bas.app.shift.models.User
 class ProfileFragment : Fragment() {
     private var _binding: FragmentProfileBinding? = null
     private val binding get() = _binding!!
+    private var currentUserId: String? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -22,6 +23,15 @@ class ProfileFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentProfileBinding.inflate(inflater, container, false)
+        
+        // Настраиваем кнопку показа ауры экстрасенсу
+        binding.btnShowAuraToExtrasensory.setOnClickListener {
+            val intent = Intent(requireContext(), AuraQrActivity::class.java)
+            // Передаем ID пользователя, чью ауру показываем
+            intent.putExtra("user_id", currentUserId)
+            startActivity(intent)
+        }
+        
         return binding.root
     }
 
@@ -31,6 +41,9 @@ class ProfileFragment : Fragment() {
     }
 
     fun showProfile(user: User) {
+        // Сохраняем ID текущего пользователя
+        currentUserId = user.userId
+        
         // Имя персонажа
         binding.profileCharacterName.text = user.characterName ?: "Имя персонажа не указано"
         // Имя игрока

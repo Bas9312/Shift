@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">Shift</string>
+    <string name="open_lottie_test">Lottie тест</string>
     <string name="title_activity_ekat_maps">EkatMaps</string>
     <string name="artifact_passport_title">Паспорт артефактов</string>
     <string name="select_artifact">Выберите артефакт:</string>
@@ -63,4 +64,14 @@
     <string name="hide_aura">Скрыть ауру</string>
     <string name="aura_shown">Аура показана</string>
     <string name="aura_hidden">Аура скрыта</string>
+    <string name="familiar_notification_title">🐉 Фамильяр рядом!</string>
+    <string name="familiar_button">Фамильяр</string>
+    <string name="familiar_your_familiar">Ваш фамильяр</string>
+    <string name="familiar_found_title">Фамильяр готовый к общению</string>
+    <string name="familiar_ready_to_talk">Фамильяр готов к общению</string>
+    <string name="familiar_talk_button">Поговорить</string>
+    <string name="familiar_listening">Фамильяр внимательно слушает вас...</string>
+    <string name="show_aura_to_extrasensory">Показать ауру экстрасенсу</string>
+    <string name="aura_qr_title">QR код ауры</string>
+    <string name="aura_qr_description">Покажите этот QR код экстрасенсу для анализа вашей ауры</string>
 </resources>

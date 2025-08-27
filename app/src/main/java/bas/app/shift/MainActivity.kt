@@ -24,6 +24,7 @@ import bas.app.shift.ui.ArtifactCreatorActivity
 import bas.app.shift.ui.MgProfileViewActivity
 import bas.app.shift.ui.ArtifactPassportActivity
 import bas.app.shift.ui.AuthActivity
+import bas.app.shift.ui.FamiliarActivity
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -137,6 +138,10 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, bas.app.shift.ui.ArtifactScannerActivity::class.java))
         }
 
+        binding.btnFamiliar.setOnClickListener {
+            startActivity(Intent(this, FamiliarActivity::class.java))
+        }
+
         // Кнопки для МГ пользователей
         binding.btnAuraEditor.setOnClickListener {
             startActivity(Intent(this, AuraEditorActivity::class.java))
@@ -179,10 +184,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateUI() {
+        LogHelper.d("MainActivity: updateUI - isMgUser: $isMgUser, isInGame: ${ShiftApplication.instance.isInGame()}")
         binding.btnOpenMap.isEnabled = ShiftApplication.instance.isInGame() && hasNotificationPermission()
         
         // Для МГ пользователей скрываем терминал и профиль
         if (isMgUser) {
+            LogHelper.d("MainActivity: Настройка UI для МГ пользователя")
             binding.openTerminalButton.visibility = View.GONE
             binding.btnOpenProfile.visibility = View.GONE
             binding.openAuraButton.visibility = View.GONE
@@ -193,6 +200,20 @@ class MainActivity : AppCompatActivity() {
             binding.btnCreateArtifact.visibility = View.VISIBLE
             binding.btnMgProfileView.visibility = View.VISIBLE
             binding.btnArtifactPassport.visibility = View.VISIBLE
+            
+            // МГ пользователи всегда имеют доступ к кнопкам, независимо от состояния игры
+            binding.btnAuraEditor.isEnabled = true
+            binding.btnCreateArtifact.isEnabled = true
+            binding.btnMgProfileView.isEnabled = true
+            binding.btnArtifactPassport.isEnabled = true
+            
+            LogHelper.d("MainActivity: Кнопки МГ установлены как активные")
+            
+            // Проверяем состояние кнопок после установки
+            LogHelper.d("MainActivity: Состояние кнопок МГ после установки - btnAuraEditor: ${binding.btnAuraEditor.isEnabled}, btnCreateArtifact: ${binding.btnCreateArtifact.isEnabled}, btnMgProfileView: ${binding.btnMgProfileView.isEnabled}, btnArtifactPassport: ${binding.btnArtifactPassport.isEnabled}")
+            
+            // Проверяем дополнительные свойства кнопок
+            LogHelper.d("MainActivity: Дополнительные свойства кнопок МГ - btnAuraEditor: enabled=${binding.btnAuraEditor.isEnabled}, clickable=${binding.btnAuraEditor.isClickable}, focusable=${binding.btnAuraEditor.isFocusable}, visibility=${binding.btnAuraEditor.visibility}")
         } else {
             // Для обычных пользователей показываем стандартные кнопки в зависимости от дисциплин
             val user = UserPrefsHelper.getUserData(this)
@@ -214,16 +235,22 @@ class MainActivity : AppCompatActivity() {
                     it.id == 9
                 }
                 binding.openTerminalButton.visibility = if (hasNoisemancy) View.VISIBLE else View.GONE
+                
+                // Проверяем наличие фамильяра
+                val hasFamiliar = !user.familiar.isNullOrEmpty()
+                binding.btnFamiliar.visibility = if (hasFamiliar) View.VISIBLE else View.GONE
             } else {
                 // Если профиль не загружен, скрываем все кнопки
                 binding.openTerminalButton.visibility = View.GONE
                 binding.openAuraButton.visibility = View.GONE
                 binding.btnScanArtifact.visibility = View.GONE
+                binding.btnFamiliar.visibility = View.GONE
             }
             
             binding.btnOpenProfile.visibility = View.VISIBLE
             
             // Скрываем кнопки для МГ
+            LogHelper.d("MainActivity: Скрываем кнопки МГ для обычного пользователя")
             binding.btnAuraEditor.visibility = View.GONE
             binding.btnCreateArtifact.visibility = View.GONE
             binding.btnMgProfileView.visibility = View.GONE
@@ -234,6 +261,12 @@ class MainActivity : AppCompatActivity() {
             binding.openAuraButton.isEnabled = ShiftApplication.instance.isInGame()
             binding.btnOpenProfile.isEnabled = ShiftApplication.instance.isInGame()
             binding.btnScanArtifact.isEnabled = ShiftApplication.instance.isInGame()
+            binding.btnFamiliar.isEnabled = ShiftApplication.instance.isInGame()
+        }
+        
+        // Логируем финальное состояние кнопок МГ
+        if (isMgUser) {
+            LogHelper.d("MainActivity: Финальное состояние кнопок МГ - btnAuraEditor: ${binding.btnAuraEditor.isEnabled}, btnCreateArtifact: ${binding.btnCreateArtifact.isEnabled}, btnMgProfileView: ${binding.btnMgProfileView.isEnabled}, btnArtifactPassport: ${binding.btnArtifactPassport.isEnabled}")
         }
         
         // Кнопка управления точками скрыта для всех
@@ -287,7 +320,7 @@ class MainActivity : AppCompatActivity() {
     private fun checkIfMgUser() {
         val userName = UserPrefsHelper.getUserId(this)
         isMgUser = userName.startsWith("MG", ignoreCase = true)
-        LogHelper.d("MainActivity: Пользователь ${if (isMgUser) "является" else "не является"} МГ")
+        LogHelper.d("MainActivity: checkIfMgUser - userName: $userName, isMgUser: $isMgUser")
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
