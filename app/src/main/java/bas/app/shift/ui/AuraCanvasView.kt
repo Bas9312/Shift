@@ -107,7 +107,7 @@ class AuraCanvasView @JvmOverloads constructor(
         aura?.let { drawAura(canvas, it) }
         
         // Логируем количество областей касаний для отладки
-        android.util.Log.d("AuraCanvasView", "Touch areas - Marks: ${markTouchAreas.size}, Problems: ${problemTouchAreas.size}")
+        LogHelper.d("Touch areas - Marks: ${markTouchAreas.size}, Problems: ${problemTouchAreas.size}")
     }
 
     private fun drawAura(canvas: Canvas, aura: Aura) {
@@ -352,13 +352,13 @@ class AuraCanvasView @JvmOverloads constructor(
                 // Запускаем таймер для long tap
                 if (longTapMark != null || longTapProblemSlot != null) {
                     startLongTapTimer()
-                    android.util.Log.d("AuraCanvasView", "Long tap timer started for mark: ${longTapMark != null}, problem: ${longTapProblemSlot != null}")
+                    LogHelper.d("Long tap timer started for mark: ${longTapMark != null}, problem: ${longTapProblemSlot != null}")
                 }
             }
             MotionEvent.ACTION_MOVE -> {
                 if (isDragging) {
                     // Если двигаем палец, отменяем long tap
-                    android.util.Log.d("AuraCanvasView", "Finger moved, canceling long tap timer")
+                    LogHelper.d("Finger moved, canceling long tap timer")
                     cancelLongTapTimer()
                     
                     offsetX += event.x - lastTouchX
@@ -396,17 +396,17 @@ class AuraCanvasView @JvmOverloads constructor(
 
     private fun startLongTapTimer() {
         cancelLongTapTimer()
-        android.util.Log.d("AuraCanvasView", "Starting long tap timer")
+        LogHelper.d("Starting long tap timer")
         longTapTimer = object : CountDownTimer(LONG_TAP_DURATION, LONG_TAP_DURATION) {
             override fun onTick(millisUntilFinished: Long) {}
             override fun onFinish() {
-                android.util.Log.d("AuraCanvasView", "Long tap timer finished, mark: ${longTapMark != null}, problem: ${longTapProblemSlot != null}")
+                LogHelper.d("Long tap timer finished, mark: ${longTapMark != null}, problem: ${longTapProblemSlot != null}")
                 longTapMark?.let { mark ->
-                    android.util.Log.d("AuraCanvasView", "Calling onMarkLongTap for mark: ${mark.markId}")
+                    LogHelper.d("Calling onMarkLongTap for mark: ${mark.markId}")
                     markCallback?.onMarkLongTap(mark)
                 }
                 longTapProblemSlot?.let { slot ->
-                    android.util.Log.d("AuraCanvasView", "Calling onProblemLongTap for slot: $slot")
+                    LogHelper.d("Calling onProblemLongTap for slot: $slot")
                     markCallback?.onProblemLongTap(slot, longTapProblem)
                 }
             }

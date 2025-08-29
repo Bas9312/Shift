@@ -7,8 +7,8 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.LayoutInflater
+import bas.app.shift.helpers.LogHelper
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -66,13 +66,13 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d("EkatMaps", "onCreate: запуск активности карты")
+        LogHelper.d("EkatMaps: onCreate: запуск активности карты")
 
         // Проверяем состояние игры
         val isInGame = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
             .getBoolean(MainActivity.KEY_IN_GAME, false)
         if (!isInGame) {
-            Log.w("EkatMaps", "onCreate: персонаж не в игре")
+            LogHelper.w("onCreate: персонаж не в игре")
             Toast.makeText(this, "Персонаж не в игре", Toast.LENGTH_SHORT).show()
             finish()
             return
@@ -81,49 +81,49 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         // Проверяем, является ли пользователь MG
         checkIfMgUser()
         
-        Log.d("EkatMaps", "onCreate: карта доступна всем пользователям, ${if (isMgUser) "MG пользователь получает дополнительный функционал (лонг тапы)" else "обычный пользователь получает базовый функционал (просмотр точек)"}")
+        LogHelper.d("EkatMaps: onCreate: карта доступна всем пользователям, ${if (isMgUser) "MG пользователь получает дополнительный функционал (лонг тапы)" else "обычный пользователь получает базовый функционал (просмотр точек)"}")
         binding = ActivityEkatMapsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         binding.toolbar.setNavigationOnClickListener {
-            Log.d("EkatMaps", "Нажата кнопка назад")
+            LogHelper.d("EkatMaps: Нажата кнопка назад")
             finish()
         }
-        Log.d("EkatMaps", "onCreate: инициализация завершена для ${if (isMgUser) "MG" else "обычного"} пользователя")
+        LogHelper.d("EkatMaps: onCreate: инициализация завершена для ${if (isMgUser) "MG" else "обычного"} пользователя")
     }
 
     override fun onResume() {
         super.onResume()
-        Log.d("EkatMaps", "onResume: возобновление активности карты")
+        LogHelper.d("EkatMaps: onResume: возобновление активности карты")
         
         // Проверяем состояние игры
         val isInGame = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
             .getBoolean(MainActivity.KEY_IN_GAME, false)
         if (!isInGame) {
-            Log.w("EkatMaps", "onResume: персонаж не в игре")
+            LogHelper.w("onResume: персонаж не в игре")
             Toast.makeText(this, "Персонаж не в игре", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
 
-        Log.d("EkatMaps", "onResume: карта доступна всем пользователям, ${if (isMgUser) "MG пользователь получает дополнительный функционал (лонг тапы)" else "обычный пользователь получает базовый функционал (просмотр точек)"}")
+        LogHelper.d("onResume: карта доступна всем пользователям, ${if (isMgUser) "MG пользователь получает дополнительный функционал (лонг тапы)" else "обычный пользователь получает базовый функционал (просмотр точек)"}")
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
-        Log.d("EkatMaps", "onResume: карта загружается асинхронно для ${if (isMgUser) "MG" else "обычного"} пользователя")
+        LogHelper.d("onResume: карта загружается асинхронно для ${if (isMgUser) "MG" else "обычного"} пользователя")
     }
 
     override fun onPause() {
         super.onPause()
-        Log.d("EkatMaps", "onPause: приостановка активности карты")
+        LogHelper.d("onPause: приостановка активности карты")
         handler.removeCallbacks(updatePointsRunnable)
         locationUpdateDisposable?.dispose()
-        Log.d("EkatMaps", "onPause: ресурсы освобождены")
+        LogHelper.d("onPause: ресурсы освобождены")
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d("EkatMaps", "onDestroy: уничтожение активности карты")
+        LogHelper.d("onDestroy: уничтожение активности карты")
     }
 
     /**
@@ -136,7 +136,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
      * installed Google Play services and returned to the app.
      */
     override fun onMapReady(googleMap: GoogleMap) {
-        Log.d("EkatMaps", "Карта готова к использованию")
+        LogHelper.d("Карта готова к использованию")
         mMap = googleMap
         mMap.setIndoorEnabled(false)
         mMap.isTrafficEnabled = false
@@ -154,10 +154,10 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
         // Добавляем обработчики событий для MG пользователей
         if (isMgUser) {
-            Log.d("EkatMaps", "Настройка карты для MG пользователя с дополнительным функционалом (лонг тапы)")
+            LogHelper.d("Настройка карты для MG пользователя с дополнительным функционалом (лонг тапы)")
             setupMgUserMapHandlers()
         } else {
-            Log.d("EkatMaps", "Настройка карты для обычного пользователя (базовый функционал без лонг тапов)")
+            LogHelper.d("Настройка карты для обычного пользователя (базовый функционал без лонг тапов)")
         }
 
         // Запускаем периодическое обновление точек
@@ -166,40 +166,40 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         // Запрашиваем локацию и подписываемся на обновления
         requestForLocation()
         
-        Log.d("EkatMaps", "Инициализация карты завершена: ${if (isMgUser) "MG пользователь с полным функционалом" else "обычный пользователь с базовым функционалом"}")
+        LogHelper.d("Инициализация карты завершена: ${if (isMgUser) "MG пользователь с полным функционалом" else "обычный пользователь с базовым функционалом"}")
     }
 
     private fun setupMgUserMapHandlers() {
-        Log.d("EkatMaps", "Настройка дополнительных обработчиков событий для MG пользователя (лонг тапы)")
+        LogHelper.d("Настройка дополнительных обработчиков событий для MG пользователя (лонг тапы)")
         
         // Обработчик лонг тапа по маркерам
         mMap.setOnMarkerClickListener { marker ->
-            Log.d("EkatMaps", "MG пользователь: лонг тап по маркеру: ${marker.title}")
+            LogHelper.d("MG пользователь: лонг тап по маркеру: ${marker.title}")
             showPointInfoDialog(marker)
             true
         }
 
         // Обработчик лонг тапа по карте
         mMap.setOnMapLongClickListener { latLng ->
-            Log.d("EkatMaps", "MG пользователь: лонг тап по карте: ${latLng.latitude}, ${latLng.longitude}")
+            LogHelper.d("MG пользователь: лонг тап по карте: ${latLng.latitude}, ${latLng.longitude}")
             showCreatePointDialog(latLng)
         }
         
-        Log.d("EkatMaps", "Дополнительные обработчики событий для MG пользователя настроены (лонг тапы по маркерам и карте)")
+        LogHelper.d("Дополнительные обработчики событий для MG пользователя настроены (лонг тапы по маркерам и карте)")
     }
 
     private fun showPointInfoDialog(marker: Marker) {
-        Log.d("EkatMaps", "Показ диалога информации о точке")
+        LogHelper.d("Показ диалога информации о точке")
         
         // Находим точку по маркеру
         val pointData = pointsOfInterest.values.find { (_, _, markerRef) -> markerRef == marker }
         if (pointData == null) {
-            Log.w("EkatMaps", "Точка не найдена для маркера: ${marker.title}")
+            LogHelper.w("Точка не найдена для маркера: ${marker.title}")
             return
         }
 
         val (point, _, _) = pointData
-        Log.d("EkatMaps", "Информация о точке: ID=${point.pointId}, тип=${point.type}")
+        LogHelper.d("Информация о точке: ID=${point.pointId}, тип=${point.type}")
         
         val dialogBinding = DialogPointInfoBinding.inflate(LayoutInflater.from(this))
         
@@ -219,34 +219,34 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
         // Обработчик кнопки удаления
         dialogBinding.btnDeletePoint.setOnClickListener {
-            Log.d("EkatMaps", "Удаление точки: ${point.pointId}")
+            LogHelper.d("Удаление точки: ${point.pointId}")
             scope.launch {
                 try {
                     val response = ServerService.deletePoint(point.pointId)
                     if (response.isSuccessful) {
                         Toast.makeText(this@EkatMaps, "Точка удалена", Toast.LENGTH_SHORT).show()
-                        Log.d("EkatMaps", "Точка успешно удалена")
+                        LogHelper.d("Точка успешно удалена")
                         // Обновляем карту
                         updatePointsFromServer()
                     } else {
                         Toast.makeText(this@EkatMaps, "Ошибка при удалении точки", Toast.LENGTH_SHORT).show()
-                        Log.e("EkatMaps", "Ошибка при удалении точки: ${response.code()}")
+                        LogHelper.e("Ошибка при удалении точки: ${response.code()}")
                     }
                 } catch (e: Exception) {
                     Toast.makeText(this@EkatMaps, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
-                    Log.e("EkatMaps", "Исключение при удалении точки", e)
+                    LogHelper.e("Исключение при удалении точки: ${e.message}")
                 }
             }
             // Закрываем диалог
             dialog.dismiss()
         }
 
-        Log.d("EkatMaps", "Диалог информации о точке показан")
+        LogHelper.d("Диалог информации о точки показан")
         dialog.show()
     }
 
     private fun showCreatePointDialog(latLng: LatLng) {
-        Log.d("EkatMaps", "Показ диалога создания точки: ${latLng.latitude}, ${latLng.longitude}")
+        LogHelper.d("Показ диалога создания точки: ${latLng.latitude}, ${latLng.longitude}")
         
         val dialogBinding = DialogCreatePointBinding.inflate(LayoutInflater.from(this))
         
@@ -265,7 +265,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         dialogBinding.spinnerPointType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedType = pointTypes[position]
-                Log.d("EkatMaps", "Выбран тип точки: $selectedType")
+                LogHelper.d("Выбран тип точки: $selectedType")
                 if (selectedType == "SHRINKING_CIRCLE") {
                     dialogBinding.tvExpireLabel.visibility = View.VISIBLE
                     dialogBinding.etExpireMinutes.visibility = View.VISIBLE
@@ -290,7 +290,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             val description = dialogBinding.etDescription.text.toString()
             val textToShowOnEnter = dialogBinding.etTextToShowOnEnter.text.toString()
             
-            Log.d("EkatMaps", "Создание точки: тип=$selectedType, описание=$description, текст при входе=$textToShowOnEnter")
+            LogHelper.d("Создание точки: тип=$selectedType, описание=$description, текст при входе=$textToShowOnEnter")
             
             if (description.isBlank()) {
                 Toast.makeText(this, "Введите описание точки", Toast.LENGTH_SHORT).show()
@@ -312,7 +312,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                     calendar.add(Calendar.MINUTE, expireMinutes)
                     val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
                     expireAt = dateFormat.format(calendar.time)
-                    Log.d("EkatMaps", "Точка истечет через: $expireMinutes минут, expireAt: $expireAt")
+                    LogHelper.d("Точка истечет через: $expireMinutes минут, expireAt: $expireAt")
                 }
             }
             
@@ -320,7 +320,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             scope.launch {
                 try {
                     val userId = UserPrefsHelper.getUserId(this@EkatMaps)
-                    Log.d("EkatMaps", "Создание точки для пользователя: $userId")
+                    LogHelper.d("Создание точки для пользователя: $userId")
                     
                     val pointRequest = PointRequest(
                         lat = latLng.latitude,
@@ -334,20 +334,20 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         textToShowOnEnter = textToShowOnEnter.takeIf { it.isNotEmpty() }
                     )
                     
-                    Log.d("EkatMaps", "Отправка запроса на создание точки: $pointRequest")
+                    LogHelper.d("Отправка запроса на создание точки: $pointRequest")
                     val response = ServerService.createPoint(pointRequest)
                     if (response.isSuccessful) {
                         Toast.makeText(this@EkatMaps, "Точка создана", Toast.LENGTH_SHORT).show()
-                        Log.d("EkatMaps", "Точка успешно создана")
+                        LogHelper.d("Точка успешно создана")
                         // Обновляем карту
                         updatePointsFromServer()
                     } else {
                         Toast.makeText(this@EkatMaps, "Ошибка при создании точки", Toast.LENGTH_SHORT).show()
-                        Log.e("EkatMaps", "Ошибка при создании точки: ${response.code()}")
+                        LogHelper.e("Ошибка при создании точки: ${response.code()}")
                     }
                 } catch (e: Exception) {
                     Toast.makeText(this@EkatMaps, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
-                    Log.e("EkatMaps", "Исключение при создании точки", e)
+                    LogHelper.e("Исключение при создании точки: ${e.message}")
                 }
             }
             
@@ -355,13 +355,13 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             dialog.dismiss()
         }
         
-        Log.d("EkatMaps", "Диалог создания точки показан")
+        LogHelper.d("Диалог создания точки показан")
         dialog.show()
     }
 
     private fun generatePointId(): String {
         val pointId = "MG_${System.currentTimeMillis()}"
-        Log.d("EkatMaps", "Сгенерирован ID точки: $pointId")
+        LogHelper.d("Сгенерирован ID точки: $pointId")
         return pointId
     }
 
@@ -370,12 +370,12 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun startPointsUpdate() {
-        Log.d("EkatMaps", "Запуск периодического обновления точек, интервал: ${pointsUpdateInterval}ms")
+        LogHelper.d("Запуск периодического обновления точек, интервал: ${pointsUpdateInterval}ms")
         updatePointsRunnable = object : Runnable {
             override fun run() {
                 val currentTime = System.currentTimeMillis()
                 if (currentTime - lastPointsUpdate >= pointsUpdateInterval) {
-                    Log.d("EkatMaps", "Выполняется обновление точек")
+                    LogHelper.d("Выполняется обновление точек")
                     updatePointsFromServer()
                     lastPointsUpdate = currentTime
                 }
@@ -386,14 +386,14 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun updatePointsFromServer() {
-        Log.d("EkatMaps", "Обновление точек с сервера")
+        LogHelper.d("Обновление точек с сервера")
         val serverPoints = ServerService.getPoints()
         if (serverPoints.isEmpty()) {
-            Log.d("EkatMaps", "Сервер не вернул точки")
+            LogHelper.d("Сервер не вернул точки")
             // Если сервер не вернул точки, используем тестовые
             //addTestPoints()
         } else {
-            Log.d("EkatMaps", "Получено ${serverPoints.size} точек с сервера")
+            LogHelper.d("Получено ${serverPoints.size} точек с сервера")
             // Удаляем все существующие точки
             pointsOfInterest.values.forEach { (_, circle, marker) ->
                 circle?.remove() // Круг может быть null для USER точек
@@ -410,7 +410,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             if (currentLocation != null) {
                 updateForLocation()
             } else {
-                Log.d("EkatMaps", "Локация недоступна, маркеры будут добавлены позже")
+                LogHelper.d("Локация недоступна, маркеры будут добавлены позже")
             }
         }
     }
@@ -435,11 +435,11 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     }*/
 
     private fun addPoint(point: Point) {
-        Log.d("EkatMaps", "Добавление точки: ID=${point.pointId}, тип=${point.type}, координаты=(${point.lat}, ${point.lng})")
+                    LogHelper.d("Добавление точки: ID=${point.pointId}, тип=${point.type}, координаты=(${point.lat}, ${point.lng})")
         
         // Для обычных пользователей: не показываем точки типа POINT_WITH_TEXT
         if (!isMgUser && point.type == "POINT_WITH_TEXT") {
-            Log.d("EkatMaps", "Обычный пользователь: пропускаем точку POINT_WITH_TEXT: ${point.pointId}")
+            LogHelper.d("Обычный пользователь: пропускаем точку POINT_WITH_TEXT: ${point.pointId}")
             return
         }
         
@@ -447,7 +447,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         pointsOfInterest[point.pointId]?.let { (_, circle, marker) ->
             circle?.remove() // Круг может быть null для USER точек
             marker?.remove()
-            Log.d("EkatMaps", "Удалена старая точка: ${point.pointId}")
+            LogHelper.d("Удалена старая точка: ${point.pointId}")
         }
         pointsOfInterest.remove(point.pointId)
 
@@ -470,22 +470,22 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         // Для обычных пользователей: показываем только точки в кругах, кроме USER точек и POINT_WITH_TEXT
         // Для точек типа USER круг = null
         pointsOfInterest[point.pointId] = Triple(point, circle, null)
-        Log.d("EkatMaps", "Точка добавлена в список: ${point.pointId} (маркер будет создан позже, круг: ${if (circle != null) "создан" else "не создан для USER"})")
+        LogHelper.d("Точка добавлена в список: ${point.pointId} (маркер будет создан позже, круг: ${if (circle != null) "создан" else "не создан для USER"})")
     }
 
     private fun updateForLocation() {
         // Проверяем, есть ли текущая локация
         if (currentLocation == null) {
-            Log.d("EkatMaps", "Текущая локация недоступна, пропускаем обновление карты")
+            LogHelper.d("Текущая локация недоступна, пропускаем обновление карты")
             return
         }
         
-        Log.d("EkatMaps", "Обновление карты для местоположения: ${currentLocation!!.latitude}, ${currentLocation!!.longitude}")
+        LogHelper.d("Обновление карты для местоположения: ${currentLocation!!.latitude}, ${currentLocation!!.longitude}")
         val latLng = LatLng(currentLocation!!.latitude, currentLocation!!.longitude)
         
         // Получаем ID текущего пользователя для проверки дублирования USER точек
         val currentUserId = UserPrefsHelper.getUserId(this)
-        Log.d("EkatMaps", "Текущий пользователь: $currentUserId, тип: ${if (isMgUser) "MG" else "обычный"}")
+        LogHelper.d("Текущий пользователь: $currentUserId, тип: ${if (isMgUser) "MG" else "обычный"}")
         
         // Удаляем предыдущий маркер, если он существует
         currentLocationMarker?.remove()
@@ -504,13 +504,13 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         // Для обычных пользователей: показываем только точки в кругах, кроме USER точек (чтобы не дублировать маркер геолокации)
         // Для MG пользователей показываем все точки всегда
         if (isMgUser) {
-            Log.d("EkatMaps", "MG пользователь: показываем все точки на карте (расстояние не учитывается)")
+            LogHelper.d("MG пользователь: показываем все точки на карте (расстояние не учитывается)")
             pointsOfInterest.forEach { (id, pointData) ->
                 val (point, circle, currentMarker) = pointData
                 
                 // Пропускаем точки типа USER (у них нет кругов и они не нужны на карте)
                 if (point.type == "USER") {
-                    Log.d("EkatMaps", "MG пользователь: пропускаем точку USER: $id (нет круга)")
+                    LogHelper.d("MG пользователь: пропускаем точку USER: $id (нет круга)")
                     return@forEach
                 }
                 
@@ -525,24 +525,24 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         )
                     )
                     pointsOfInterest[id] = Triple(point, circle, newMarker)
-                    Log.d("EkatMaps", "MG пользователь: добавлен маркер для точки: $id")
+                    LogHelper.d("MG пользователь: добавлен маркер для точки: $id")
                 }
             }
         } else {
             // Для обычных пользователей проверяем, находится ли пользователь в каких-либо кругах
-            Log.d("EkatMaps", "Обычный пользователь: проверяем расстояние до точек для отображения маркеров (только в кругах)")
+            LogHelper.d("Обычный пользователь: проверяем расстояние до точек для отображения маркеров (только в кругах)")
             pointsOfInterest.forEach { (id, pointData) ->
                 val (point, circle, currentMarker) = pointData
                 
                 // Пропускаем точки типа USER (у них нет кругов)
                 if (point.type == "USER") {
-                    Log.d("EkatMaps", "Обычный пользователь: пропускаем точку USER: $id (нет круга)")
+                    LogHelper.d("Обычный пользователь: пропускаем точку USER: $id (нет круга)")
                     return@forEach
                 }
                 
                 // Пропускаем точки без кругов
                 if (circle == null) {
-                    Log.d("EkatMaps", "Обычный пользователь: пропускаем точку без круга: $id")
+                    LogHelper.d("Обычный пользователь: пропускаем точку без круга: $id")
                     return@forEach
                 }
                 
@@ -561,20 +561,20 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                             )
                         )
                         pointsOfInterest[id] = Triple(point, circle, newMarker)
-                        Log.d("EkatMaps", "Обычный пользователь: в круге (${distance.toInt()}м), добавлен маркер для точки: $id")
+                        LogHelper.d("Обычный пользователь: в круге (${distance.toInt()}м), добавлен маркер для точки: $id")
                     }
                 } else {
                     // Если пользователь вне круга и маркер существует - удаляем его
                     if (currentMarker != null) {
                         currentMarker.remove()
                         pointsOfInterest[id] = Triple(point, circle, null)
-                        Log.d("EkatMaps", "Обычный пользователь: вне круга (${distance.toInt()}м), удален маркер для точки: $id")
+                        LogHelper.d("Обычный пользователь: вне круга (${distance.toInt()}м), удален маркер для точки: $id")
                     }
                 }
             }
         }
 
-        Log.d("EkatMaps", "Обновление карты завершено")
+        LogHelper.d("Обновление карты завершено")
     }
 
     private fun getPointTitle(type: PointType): String {
@@ -591,7 +591,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             PointType.HIDDEN_AR_POINT -> "Скрытая AR точка"
             PointType.POINT_WITH_TEXT -> "Точка с текстом"
         }
-        Log.d("EkatMaps", "Заголовок для типа ${type.serverValue}: $title")
+        LogHelper.d("Заголовок для типа ${type.serverValue}: $title")
         return title
     }
 
@@ -602,7 +602,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             }
             else -> "Радиус: ${point.radius}м"
         }
-        Log.d("EkatMaps", "Описание для точки ${point.pointId}: $description")
+        LogHelper.d("Описание для точки ${point.pointId}: $description")
         return description
     }
 
@@ -614,18 +614,18 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             results
         )
         val distance = results[0]
-        Log.d("EkatMaps", "Расстояние между точками: ${point1.latitude},${point1.longitude} и ${point2.latitude},${point2.longitude} = ${distance}м")
+        LogHelper.d("Расстояние между точками: ${point1.latitude},${point1.longitude} и ${point2.latitude},${point2.longitude} = ${distance}м")
         return distance
     }
 
     private fun requestForLocation() {
-        Log.d("EkatMaps", "Запрос разрешений на геолокацию")
+        LogHelper.d("Запрос разрешений на геолокацию")
         when {
             ContextCompat.checkSelfPermission(
                 this,
                 android.Manifest.permission.ACCESS_FINE_LOCATION
             ) == PackageManager.PERMISSION_GRANTED -> {
-                Log.d("EkatMaps", "Разрешения на геолокацию уже получены")
+                LogHelper.d("Разрешения на геолокацию уже получены")
                 requestCurrentLocation()
             }
             /*ActivityCompat.shouldShowRequestPermissionRationale(
@@ -638,7 +638,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 showInContextUI(...)
             }*/
             else -> {
-                Log.d("EkatMaps", "Запрашиваем разрешения на геолокацию")
+                LogHelper.d("Запрашиваем разрешения на геолокацию")
                 // You can directly ask for the permission.
                 // The registered ActivityResultCallback gets the result of this request.
                 requestPermissions(
@@ -651,7 +651,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     @SuppressLint("MissingPermission")
     private fun requestCurrentLocation() {
-        Log.d("EkatMaps", "Запрос текущего местоположения")
+        LogHelper.d("Запрос текущего местоположения")
         val currentTask: Task<Location> = fusedLocationProviderClient.getCurrentLocation(
             PRIORITY_HIGH_ACCURACY, cancellationTokenSource.token
         )
@@ -660,7 +660,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             if (task.isSuccessful && task.result != null) {
                 currentLocation = task.result
                 val latLng = LatLng(currentLocation!!.latitude, currentLocation!!.longitude)
-                Log.d("EkatMaps", "Получено текущее местоположение: ${currentLocation!!.latitude}, ${currentLocation!!.longitude}")
+                LogHelper.d("Получено текущее местоположение: ${currentLocation!!.latitude}, ${currentLocation!!.longitude}")
                 
                 // Центрируем карту на текущем местоположении
                 mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
@@ -668,9 +668,9 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 // Обновляем карту
                 updateForLocation()
             } else {
-                Log.e("EkatMaps", "Ошибка при получении местоположения: ${task.exception}")
+                LogHelper.e("Ошибка при получении местоположения: ${task.exception}")
                 // Локация не получена, но это не критично - она придет через LocationService
-                Log.d("EkatMaps", "Ожидаем локацию через LocationService")
+                LogHelper.d("Ожидаем локацию через LocationService")
             }
         }
 
@@ -678,7 +678,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         locationUpdateDisposable = LocationService.locationSource.subscribe(
             { location ->
                 currentLocation = location
-                Log.d("EkatMaps", "Обновление местоположения через LocationService: ${location.latitude}, ${location.longitude}")
+                LogHelper.d("Обновление местоположения через LocationService: ${location.latitude}, ${location.longitude}")
                 
                 // Центрируем карту на текущем местоположении при первом получении
                 if (currentLocationMarker == null) {
@@ -690,7 +690,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 updateForLocation()
             },
             { error ->
-                Log.e("EkatMaps", "Ошибка при получении локации: ${error.message}")
+                LogHelper.e("Ошибка при получении локации: ${error.message}")
                 Toast.makeText(this, "Ошибка при получении локации", Toast.LENGTH_SHORT).show()
             }
         )
@@ -700,10 +700,10 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_CODE_LOCATION_PERMISSION && grantResults.isNotEmpty()) {
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Log.d("EkatMaps", "Разрешения на геолокацию получены")
+                LogHelper.d("Разрешения на геолокацию получены")
                 requestCurrentLocation()
             } else {
-                Log.w("EkatMaps", "Разрешения на геолокацию не получены")
+                LogHelper.w("Разрешения на геолокацию не получены")
             }
         }
     }
@@ -711,7 +711,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     private fun checkIfMgUser() {
         val userName = UserPrefsHelper.getUserId(this)
         isMgUser = userName.startsWith("MG", ignoreCase = true)
-        Log.d("EkatMaps", "Проверка MG пользователя: $userName, результат: $isMgUser")
+        LogHelper.d("Проверка MG пользователя: $userName, результат: $isMgUser")
     }
 
     companion object {

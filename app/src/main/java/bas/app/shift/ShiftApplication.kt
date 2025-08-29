@@ -4,7 +4,7 @@ import android.app.Application
 import android.app.ActivityManager
 import android.content.Context.MODE_PRIVATE
 import android.content.Intent
-import android.util.Log
+
 import androidx.lifecycle.ViewModelProvider.NewInstanceFactory.Companion.instance
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.Lifecycle
