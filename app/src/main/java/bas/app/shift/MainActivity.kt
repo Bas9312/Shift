@@ -25,6 +25,7 @@ import bas.app.shift.ui.MgProfileViewActivity
 import bas.app.shift.ui.ArtifactPassportActivity
 import bas.app.shift.ui.AuthActivity
 import bas.app.shift.ui.FamiliarActivity
+import bas.app.shift.services.UpdateService
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -62,6 +63,9 @@ class MainActivity : AppCompatActivity() {
         
         // Проверяем состояние игры и запускаем сервис если нужно
         checkAndStartLocationService()
+        
+        // Проверяем обновления
+        checkForUpdates()
     }
 
     override fun onStart() {
@@ -92,6 +96,14 @@ class MainActivity : AppCompatActivity() {
                 LogHelper.w("MainActivity: Приложение вернулось из фона, но LocationService не запущен")
             } else {
                 LogHelper.d("MainActivity: Приложение вернулось из фона, режим 'в игре' выключен")
+            }
+            
+            // Проверяем отложенное обновление
+            if (::updateService.isInitialized) {
+                LogHelper.d("MainActivity: Проверяем отложенное обновление в onResume")
+                updateService.checkPendingUpdate()
+            } else {
+                LogHelper.d("MainActivity: UpdateService не инициализирован")
             }
         }
     }
@@ -493,6 +505,17 @@ class MainActivity : AppCompatActivity() {
             } else {
                 LogHelper.w("MainActivity: Нет разрешений на геолокацию для запуска LocationService")
             }
+        }
+    }
+
+    private lateinit var updateService: UpdateService
+    
+    private fun checkForUpdates() {
+        LogHelper.d("MainActivity: Начинаем проверку обновлений")
+        updateService = UpdateService(this, this)
+        updateService.checkForUpdates { updateInfo ->
+            LogHelper.i("MainActivity: Получен callback о доступном обновлении")
+            updateService.showUpdateDialog(updateInfo)
         }
     }
 

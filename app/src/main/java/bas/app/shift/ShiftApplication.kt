@@ -99,7 +99,7 @@ class ShiftApplication : Application(), LifecycleObserver {
     override fun onCreate() {
         super.onCreate()
         LogHelper.setLogLevel(LogHelper.LogLevel.DEBUG)
-        LogHelper.addLogger(AndroidStandardLogger())
+        //LogHelper.addLogger(AndroidStandardLogger())
         LogHelper.addLogger(BugfenderLogger())
         Bugfender.init(this, "jrdTZKyAg4q91SOxfYvaUFszBhvNihH5", true, true)
         Bugfender.setDeviceString("user id", UserPrefsHelper.getUserId(this))

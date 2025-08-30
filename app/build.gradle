@@ -18,11 +18,25 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        signingConfigs {
+            release {
+                storeFile file('./keystore.jks')
+                storePassword 'dFt56Yu2'
+                keyAlias 'key0'
+                keyPassword 'dFt56Yu2'
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            // Debug сборка без baseline profile
+            debuggable true
+            minifyEnabled false
+        }
         release {
             minifyEnabled false
+            debuggable true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
