@@ -33,13 +33,22 @@ import android.media.session.PlaybackState.ACTION_STOP
 import androidx.core.content.ContextCompat
 import android.os.Handler
 import bas.app.shift.helpers.UserPrefsHelper
+import bas.app.shift.api.RetrofitClient
+import bas.app.shift.models.User
+import bas.app.shift.ui.ProfileActivity
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import java.util.concurrent.TimeUnit
 
 class LocationService : Service() {
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private val locationUpdateInterval = 30000L // 30 секунд
     private val pointsCheckInterval = 10000L // 10 секунд для проверки точек
+    private val profileUpdateInterval = 60000L // 1 минута для обновления профиля
     private var lastLocationUpdate = 0L
     private var lastPointsCheck = 0L
+    private var lastProfileUpdate = 0L
     private var isActive = false
     private var currentLocation: Location? = null
     private var pointsInRange = mutableSetOf<String>() // Точки, в которых мы находимся
@@ -51,6 +60,17 @@ class LocationService : Service() {
                 handler.postDelayed(this, pointsCheckInterval)
             } else {
                 LogHelper.d("LocationService: Проверка точек остановлена, не планируем следующую")
+            }
+        }
+    }
+
+    private val profileUpdateRunnable = object : Runnable {
+        override fun run() {
+            if (isActive) {
+                updateProfile()
+                handler.postDelayed(this, profileUpdateInterval)
+            } else {
+                LogHelper.d("LocationService: Обновление профиля остановлено, не планируем следующую")
             }
         }
     }
@@ -135,8 +155,11 @@ class LocationService : Service() {
             // Запускаем проверку точек
             handler.post(pointsCheckRunnable)
             
+            // Запускаем обновление профиля
+            handler.post(profileUpdateRunnable)
+            
             isActive = true
-            LogHelper.d("Обновление геолокации и проверка точек запущены")
+            LogHelper.d("Обновление геолокации, проверка точек и обновление профиля запущены")
         } catch (e: Exception) {
             LogHelper.e("Ошибка при запуске обновления геолокации: ${e.message}")
             // Если не удалось запустить как Foreground Service, останавливаем
@@ -157,6 +180,7 @@ class LocationService : Service() {
         
         fusedLocationProviderClient.removeLocationUpdates(locationCallback)
         handler.removeCallbacks(pointsCheckRunnable)
+        handler.removeCallbacks(profileUpdateRunnable)
         isActive = false
         
         // Останавливаем Foreground Service
@@ -164,7 +188,7 @@ class LocationService : Service() {
             stopForeground(true)
         }
         
-        LogHelper.d("LocationService: Обновление геолокации и проверка точек остановлены")
+        LogHelper.d("LocationService: Обновление геолокации, проверка точек и обновление профиля остановлены")
     }
 
     private fun checkPointsInRange() {
@@ -330,6 +354,292 @@ class LocationService : Service() {
         LogHelper.d("LocationService: Показано уведомление для точки $notificationId: $title")
     }
     
+    private fun updateProfile() {
+        val currentTime = System.currentTimeMillis()
+        
+        if (currentTime - lastProfileUpdate < profileUpdateInterval) return
+        lastProfileUpdate = currentTime
+        
+        val userId = UserPrefsHelper.getUserId(this)
+        if (userId.isNullOrEmpty()) {
+            LogHelper.w("LocationService: ID пользователя не найден для обновления профиля")
+            return
+        }
+        
+        // Проверяем, не является ли пользователь MG
+        if (userId.startsWith("MG", ignoreCase = true)) {
+            LogHelper.d("LocationService: Пользователь MG, пропускаем обновление профиля")
+            return
+        }
+        
+        LogHelper.d("LocationService: Обновляем профиль для пользователя: $userId")
+        
+        RetrofitClient.userProfileApi.getUserProfile(userId)
+            .enqueue(object : Callback<User> {
+                override fun onResponse(call: Call<User>, response: Response<User>) {
+                    if (response.isSuccessful && response.body() != null) {
+                        val newProfile = response.body()!!
+                        val oldProfile = UserPrefsHelper.getUserData(this@LocationService)
+                        
+                        if (oldProfile != null) {
+                            val changes = compareProfiles(oldProfile, newProfile)
+                            if (changes.isNotEmpty()) {
+                                LogHelper.d("LocationService: Обнаружены изменения в профиле: ${changes.size}")
+                                showProfileChangeNotifications(changes)
+                            }
+                        }
+                        
+                        // Сохраняем новый профиль
+                        UserPrefsHelper.saveUserData(this@LocationService, newProfile)
+                        LogHelper.d("LocationService: Профиль обновлен и сохранен")
+                    } else {
+                        LogHelper.e("LocationService: Ошибка загрузки профиля: ${response.code()}")
+                    }
+                }
+                
+                override fun onFailure(call: Call<User>, t: Throwable) {
+                    LogHelper.e("LocationService: Ошибка сети при загрузке профиля: ${t.localizedMessage}")
+                }
+            })
+    }
+    
+    private fun compareProfiles(oldProfile: User, newProfile: User): List<ProfileChange> {
+        val changes = mutableListOf<ProfileChange>()
+        
+        // Сравниваем дисциплины
+        if (oldProfile.disciplines != newProfile.disciplines) {
+            val oldDisciplines = oldProfile.disciplines.map { it.name }.sorted()
+            val newDisciplines = newProfile.disciplines.map { it.name }.sorted()
+            
+            if (oldDisciplines != newDisciplines) {
+                val added = newDisciplines - oldDisciplines
+                val removed = oldDisciplines - newDisciplines
+                
+                added.forEach { discipline ->
+                    changes.add(ProfileChange(
+                        fieldName = "Дисциплина",
+                        oldValue = null,
+                        newValue = discipline,
+                        changeType = ChangeType.ADDED
+                    ))
+                }
+                
+                removed.forEach { discipline ->
+                    changes.add(ProfileChange(
+                        fieldName = "Дисциплина",
+                        oldValue = discipline,
+                        newValue = null,
+                        changeType = ChangeType.REMOVED
+                    ))
+                }
+            }
+        }
+        
+        // Сравниваем модули
+        if (oldProfile.modules != newProfile.modules) {
+            val oldModules = oldProfile.modules.map { it.name }.sorted()
+            val newModules = newProfile.modules.map { it.name }.sorted()
+            
+            if (oldModules != newModules) {
+                val added = newModules - oldModules
+                val removed = oldModules - newModules
+                
+                added.forEach { module ->
+                    changes.add(ProfileChange(
+                        fieldName = "Модуль",
+                        oldValue = null,
+                        newValue = module,
+                        changeType = ChangeType.ADDED
+                    ))
+                }
+                
+                removed.forEach { module ->
+                    changes.add(ProfileChange(
+                        fieldName = "Модуль",
+                        oldValue = module,
+                        newValue = null,
+                        changeType = ChangeType.REMOVED
+                    ))
+                }
+            }
+        }
+        
+        // Сравниваем способности
+        if (oldProfile.abilities != newProfile.abilities) {
+            val oldAbilities = oldProfile.abilities.map { "${it.type}: ${it.description}" }.sorted()
+            val newAbilities = newProfile.abilities.map { "${it.type}: ${it.description}" }.sorted()
+            
+            if (oldAbilities != newAbilities) {
+                val added = newAbilities - oldAbilities
+                val removed = oldAbilities - newAbilities
+                
+                added.forEach { ability ->
+                    changes.add(ProfileChange(
+                        fieldName = "Способность",
+                        oldValue = null,
+                        newValue = ability,
+                        changeType = ChangeType.ADDED
+                    ))
+                }
+                
+                removed.forEach { ability ->
+                    changes.add(ProfileChange(
+                        fieldName = "Способность",
+                        oldValue = ability,
+                        newValue = null,
+                        changeType = ChangeType.REMOVED
+                    ))
+                }
+            }
+        }
+        
+        // Сравниваем артефакты
+        if (oldProfile.artifacts != newProfile.artifacts) {
+            val oldArtifacts = oldProfile.artifacts.map { it.name }.sorted()
+            val newArtifacts = newProfile.artifacts.map { it.name }.sorted()
+            
+            if (oldArtifacts != newArtifacts) {
+                val added = newArtifacts - oldArtifacts
+                val removed = oldArtifacts - newArtifacts
+                
+                added.forEach { artifact ->
+                    changes.add(ProfileChange(
+                        fieldName = "Артефакт",
+                        oldValue = null,
+                        newValue = artifact,
+                        changeType = ChangeType.ADDED
+                    ))
+                }
+                
+                removed.forEach { artifact ->
+                    changes.add(ProfileChange(
+                        fieldName = "Артефакт",
+                        oldValue = artifact,
+                        newValue = null,
+                        changeType = ChangeType.REMOVED
+                    ))
+                }
+            }
+        }
+        
+        // Сравниваем инструмент
+        if (oldProfile.instrument != newProfile.instrument) {
+            changes.add(ProfileChange(
+                fieldName = "Инструмент",
+                oldValue = oldProfile.instrument,
+                newValue = newProfile.instrument,
+                changeType = ChangeType.CHANGED
+            ))
+        }
+        
+        // Сравниваем фамильяра
+        if (oldProfile.familiar != newProfile.familiar) {
+            changes.add(ProfileChange(
+                fieldName = "Фамильяр",
+                oldValue = oldProfile.familiar,
+                newValue = newProfile.familiar,
+                changeType = ChangeType.CHANGED
+            ))
+        }
+        
+        // Сравниваем misc (дополнительные параметры)
+        if (oldProfile.misc != newProfile.misc) {
+            val oldMisc = oldProfile.misc.sorted()
+            val newMisc = newProfile.misc.sorted()
+            
+            if (oldMisc != newMisc) {
+                val added = newMisc - oldMisc
+                val removed = oldMisc - newMisc
+                
+                added.forEach { miscItem ->
+                    changes.add(ProfileChange(
+                        fieldName = "Доп. параметр",
+                        oldValue = null,
+                        newValue = miscItem,
+                        changeType = ChangeType.ADDED
+                    ))
+                }
+                
+                removed.forEach { miscItem ->
+                    changes.add(ProfileChange(
+                        fieldName = "Доп. параметр",
+                        oldValue = miscItem,
+                        newValue = null,
+                        changeType = ChangeType.REMOVED
+                    ))
+                }
+            }
+        }
+        
+        // Сравниваем имя игрока
+        if (oldProfile.playerName != newProfile.playerName) {
+            changes.add(ProfileChange(
+                fieldName = "Имя игрока",
+                oldValue = oldProfile.playerName,
+                newValue = newProfile.characterName,
+                changeType = ChangeType.CHANGED
+            ))
+        }
+        
+        // Сравниваем имя персонажа
+        if (oldProfile.characterName != newProfile.characterName) {
+            changes.add(ProfileChange(
+                fieldName = "Имя персонажа",
+                oldValue = oldProfile.characterName,
+                newValue = newProfile.characterName,
+                changeType = ChangeType.CHANGED
+            ))
+        }
+        
+        return changes
+    }
+    
+    private fun showProfileChangeNotifications(changes: List<ProfileChange>) {
+        changes.forEachIndexed { index, change ->
+            val notificationId = 2000 + index // Уникальный ID для каждого уведомления об изменении профиля
+            
+            val intent = Intent(this, ProfileActivity::class.java)
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                notificationId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            val notification = NotificationCompat.Builder(this, POINTS_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification_icon)
+                .setContentTitle("Профиль обновлен")
+                .setContentText(formatChangeMessage(change))
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .build()
+            
+            try {
+                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.notify(notificationId, notification)
+                LogHelper.d("LocationService: Показано уведомление об изменении профиля: ${change.fieldName}")
+            } catch (e: Exception) {
+                LogHelper.e("LocationService: Ошибка показа уведомления об изменении профиля: ${e.message}")
+            }
+        }
+    }
+    
+    private fun formatChangeMessage(change: ProfileChange): String {
+        return when (change.changeType) {
+            ChangeType.ADDED -> "${change.fieldName} добавлен: ${change.newValue}"
+            ChangeType.REMOVED -> "${change.fieldName} удален: ${change.oldValue}"
+            ChangeType.CHANGED -> {
+                val newValue = change.newValue ?: "не указан"
+                if (newValue.length <= 30) {
+                    "${change.fieldName} изменен: $newValue"
+                } else {
+                    "${change.fieldName} изменен"
+                }
+            }
+        }
+    }
+    
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val r = 6371000.0 // Радиус Земли в метрах
         val dLat = Math.toRadians(lat2 - lat1)
@@ -339,6 +649,17 @@ class LocationService : Service() {
                 Math.sin(dLon / 2) * Math.sin(dLon / 2)
         val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
         return r * c
+    }
+
+    data class ProfileChange(
+        val fieldName: String,
+        val oldValue: String?,
+        val newValue: String?,
+        val changeType: ChangeType
+    )
+
+    enum class ChangeType {
+        ADDED, REMOVED, CHANGED
     }
 
     private fun createNotificationChannel() {

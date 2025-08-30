@@ -128,6 +128,10 @@ class MainActivity : AppCompatActivity() {
         } else {
             LogHelper.d("MainActivity: Activity уничтожается, режим 'в игре' выключен")
         }
+        
+        // Останавливаем сервис обновления профиля при уничтожении активности
+        // ProfileUpdateService.stopService(this) // Удалено
+        LogHelper.d("MainActivity: ProfileUpdateService остановлен при уничтожении")
     }
 
     private fun setupToolbar() {
@@ -210,11 +214,19 @@ class MainActivity : AppCompatActivity() {
                     requestLocationPermission()
                 }
             }
+            
+            // Запускаем сервис обновления профиля
+            // ProfileUpdateService.startService(this) // Удалено
+            LogHelper.d("MainActivity: ProfileUpdateService запущен")
         } else {
             ShiftApplication.instance.setIsInGame(false)
             updateUI()
             ShiftApplication.instance.stopLocationService()
             LogHelper.d("MainActivity: LocationService остановлен через переключатель")
+            
+            // Останавливаем сервис обновления профиля
+            // ProfileUpdateService.stopService(this) // Удалено
+            LogHelper.d("MainActivity: ProfileUpdateService остановлен")
         }
     }
 
@@ -409,6 +421,9 @@ class MainActivity : AppCompatActivity() {
         // Останавливаем сервис локации
         ShiftApplication.instance.stopLocationService()
         
+        // Останавливаем сервис обновления профиля
+        // ProfileUpdateService.stopService(this) // Удалено
+        
         // Сбрасываем состояние игры
         ShiftApplication.instance.setIsInGame(false)
         
@@ -538,6 +553,10 @@ class MainActivity : AppCompatActivity() {
                 if (!isFinishing && !isDestroyed) {
                     ShiftApplication.instance.startLocationService()
                     LogHelper.d("MainActivity: Запуск LocationService")
+                    
+                    // Запускаем сервис обновления профиля
+                    // ProfileUpdateService.startService(this) // Удалено
+                    LogHelper.d("MainActivity: ProfileUpdateService запущен")
                 } else {
                     LogHelper.w("MainActivity: Activity не активна, LocationService не запускается")
                 }
