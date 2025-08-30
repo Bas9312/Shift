@@ -58,8 +58,8 @@ class MainActivity : AppCompatActivity() {
         }
         checkUserDisciplines()
         
-        checkNotificationPermission()
-        checkLocationPermission()
+        // Запрашиваем разрешения последовательно
+        checkPermissionsSequentially()
         
         // Проверяем состояние игры и запускаем сервис если нужно
         checkAndStartLocationService()
@@ -419,9 +419,27 @@ class MainActivity : AppCompatActivity() {
         finish()
     }
 
+    private fun checkPermissionsSequentially() {
+        LogHelper.d("MainActivity: Начинаем последовательную проверку разрешений")
+        // Сначала проверяем разрешение на уведомления
+        if (!hasNotificationPermission()) {
+            LogHelper.d("MainActivity: Запрашиваем разрешение на уведомления")
+            requestNotificationPermission()
+        } else {
+            LogHelper.d("MainActivity: Разрешение на уведомления уже есть, проверяем местоположение")
+            // Если разрешение на уведомления уже есть, проверяем местоположение
+            checkLocationPermission()
+        }
+    }
+
     private fun checkNotificationPermission() {
         if (!hasNotificationPermission()) {
+            LogHelper.d("MainActivity: Запрашиваем разрешение на уведомления")
             requestNotificationPermission()
+        } else {
+            LogHelper.d("MainActivity: Разрешение на уведомления уже есть, проверяем местоположение")
+            // Если разрешение на уведомления уже есть, проверяем местоположение
+            checkLocationPermission()
         }
     }
 
@@ -433,6 +451,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestNotificationPermission() {
+        LogHelper.d("MainActivity: Отправляем запрос на разрешение уведомлений")
         ActivityCompat.requestPermissions(
             this,
             arrayOf(Manifest.permission.POST_NOTIFICATIONS),
@@ -442,7 +461,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkLocationPermission() {
         if (!hasLocationPermission()) {
+            LogHelper.d("MainActivity: Запрашиваем разрешение на местоположение")
             requestLocationPermission()
+        } else {
+            LogHelper.d("MainActivity: Разрешение на местоположение уже есть")
         }
     }
 
@@ -458,6 +480,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestLocationPermission() {
+        LogHelper.d("MainActivity: Отправляем запрос на разрешение местоположения")
         ActivityCompat.requestPermissions(
             this,
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
@@ -473,19 +496,35 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_NOTIFICATION_PERMISSION) {
+            LogHelper.d("MainActivity: Получен результат запроса разрешения на уведомления")
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                LogHelper.d("MainActivity: Разрешение на уведомления получено")
                 updateUI()
                 Toast.makeText(this, "Разрешение на уведомления получено", Toast.LENGTH_SHORT).show()
+                // После получения разрешения на уведомления, запрашиваем разрешение на геолокацию с небольшой задержкой
+                LogHelper.d("MainActivity: Планируем запрос разрешения на местоположение через 1 секунду")
+                binding.root.postDelayed({
+                    checkLocationPermission()
+                }, 1000) // 1 секунда задержки
             } else {
+                LogHelper.w("MainActivity: Пользователь отказал в разрешении на уведомления")
                 Toast.makeText(this, "Для полноценной работы приложения требуется разрешение на уведомления", Toast.LENGTH_LONG).show()
+                // Даже если пользователь отказал в уведомлениях, все равно запрашиваем местоположение с задержкой
+                LogHelper.d("MainActivity: Планируем запрос разрешения на местоположение через 1 секунду (после отказа в уведомлениях)")
+                binding.root.postDelayed({
+                    checkLocationPermission()
+                }, 1000) // 1 секунда задержки
             }
         } else if (requestCode == REQUEST_LOCATION_PERMISSION) {
+            LogHelper.d("MainActivity: Получен результат запроса разрешения на местоположение")
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                LogHelper.d("MainActivity: Разрешение на местоположение получено")
                 updateUI()
                 Toast.makeText(this, "Разрешение на геолокацию получено", Toast.LENGTH_SHORT).show()
                 // Проверяем, нужно ли запустить LocationService
                 checkAndStartLocationService()
             } else {
+                LogHelper.w("MainActivity: Пользователь отказал в разрешении на местоположение")
                 Toast.makeText(this, "Для полноценной работы приложения требуется разрешение на геолокацию", Toast.LENGTH_LONG).show()
             }
         }
