@@ -67,10 +67,14 @@
     <string name="familiar_notification_title">🐉 Фамильяр рядом!</string>
     <string name="familiar_button">Фамильяр</string>
     <string name="familiar_your_familiar">Ваш фамильяр</string>
-    <string name="familiar_found_title">Фамильяр готовый к общению</string>
+    <string name="familiar_found_title">Фамильяр готов к общению</string>
     <string name="familiar_ready_to_talk">Фамильяр готов к общению</string>
     <string name="familiar_talk_button">Поговорить</string>
     <string name="familiar_listening">Фамильяр внимательно слушает вас...</string>
+    <string name="familiar_ritual_info">Если вы успешно договорились с фамильяром на обряд - сообщите МГ, и можете отправляться его проводить в удобное вам место</string>
+    <string name="familiar_chat_title">💬 Чат с фамильяром</string>
+    <string name="send">Отправить</string>
+    <string name="loading_profile">Загрузка профиля...</string>
     <string name="show_aura_to_extrasensory">Показать ауру экстрасенсу</string>
     <string name="aura_qr_title">QR код ауры</string>
     <string name="aura_qr_description">Покажите этот QR код экстрасенсу для анализа вашей ауры</string>

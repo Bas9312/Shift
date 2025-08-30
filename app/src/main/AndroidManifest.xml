@@ -106,6 +106,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.FamiliarChatActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.AuraQrActivity"
             android:exported="false" />
 

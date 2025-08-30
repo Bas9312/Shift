@@ -41,9 +41,22 @@ class MainActivity : AppCompatActivity() {
 
         setupToolbar()
         setupButtons()
-        checkUserDisciplines()
         checkIfMgUser()
-        updateUI()
+        
+        // Проверяем, есть ли уже сохраненный профиль
+        val savedUser = UserPrefsHelper.getUserData(this)
+        if (savedUser != null) {
+            // Профиль уже загружен, показываем UI
+            LogHelper.d("MainActivity: Профиль уже загружен, показываем UI")
+            showContent()
+            updateUI()
+        } else {
+            // Профиль не загружен, показываем лоадер
+            LogHelper.d("MainActivity: Профиль не загружен, показываем лоадер")
+            showLoading()
+        }
+        checkUserDisciplines()
+        
         checkNotificationPermission()
         checkLocationPermission()
         
@@ -108,6 +121,16 @@ class MainActivity : AppCompatActivity() {
     private fun setupToolbar() {
         setSupportActionBar(binding.toolbar)
         binding.toolbar.title = "Shift"
+    }
+    
+    private fun showLoading() {
+        binding.loadingLayout.visibility = View.VISIBLE
+        binding.contentLayout.visibility = View.GONE
+    }
+    
+    private fun showContent() {
+        binding.loadingLayout.visibility = View.GONE
+        binding.contentLayout.visibility = View.VISIBLE
     }
 
     private fun setupButtons() {
@@ -206,7 +229,8 @@ class MainActivity : AppCompatActivity() {
             binding.btnCreateArtifact.isEnabled = true
             binding.btnMgProfileView.isEnabled = true
             binding.btnArtifactPassport.isEnabled = true
-            
+            binding.btnOpenMap.isEnabled = true
+
             LogHelper.d("MainActivity: Кнопки МГ установлены как активные")
             
             // Проверяем состояние кнопок после установки
@@ -255,14 +279,15 @@ class MainActivity : AppCompatActivity() {
             binding.btnCreateArtifact.visibility = View.GONE
             binding.btnMgProfileView.visibility = View.GONE
             binding.btnArtifactPassport.visibility = View.GONE
-            
+
             // Включаем/выключаем кнопки в зависимости от состояния игры
-            binding.openTerminalButton.isEnabled = ShiftApplication.instance.isInGame()
-            binding.openAuraButton.isEnabled = ShiftApplication.instance.isInGame()
-            binding.btnOpenProfile.isEnabled = ShiftApplication.instance.isInGame()
-            binding.btnScanArtifact.isEnabled = ShiftApplication.instance.isInGame()
-            binding.btnFamiliar.isEnabled = ShiftApplication.instance.isInGame()
         }
+
+        binding.openTerminalButton.isEnabled = ShiftApplication.instance.isInGame()
+        binding.openAuraButton.isEnabled = ShiftApplication.instance.isInGame()
+        binding.btnOpenProfile.isEnabled = ShiftApplication.instance.isInGame()
+        binding.btnScanArtifact.isEnabled = ShiftApplication.instance.isInGame()
+        binding.btnFamiliar.isEnabled = ShiftApplication.instance.isInGame()
         
         // Логируем финальное состояние кнопок МГ
         if (isMgUser) {
@@ -301,18 +326,45 @@ class MainActivity : AppCompatActivity() {
                         // Сохраняем актуальные данные пользователя
                         UserPrefsHelper.saveUserData(this@MainActivity, user)
                         
-                        // Обновляем UI после загрузки профиля
+                        // Показываем контент и обновляем UI после загрузки профиля
+                        showContent()
                         updateUI()
+                        LogHelper.d("MainActivity: Профиль загружен, UI обновлен")
                     } else {
                         LogHelper.e("MainActivity: Ошибка загрузки профиля: ${response.code()}")
+                        
+                        // Показываем контент даже при ошибке HTTP, но с ограниченными возможностями
+                        showContent()
+                        binding.btnScanArtifact.visibility = View.GONE
+                        binding.openAuraButton.visibility = View.GONE
+                        binding.openTerminalButton.visibility = View.GONE
+                        binding.btnFamiliar.visibility = View.GONE
+                        
+                        // Показываем уведомление об ошибке
+                        val errorMessage = when (response.code()) {
+                            401 -> "Ошибка авторизации. Попробуйте войти заново."
+                            403 -> "Доступ запрещен. Обратитесь к администратору."
+                            404 -> "Профиль не найден. Обратитесь к администратору."
+                            500 -> "Ошибка сервера. Попробуйте позже."
+                            else -> "Ошибка загрузки профиля: ${response.code()}"
+                        }
+                        Toast.makeText(this@MainActivity, errorMessage, Toast.LENGTH_LONG).show()
                     }
                 }
                 
                 override fun onFailure(call: Call<User>, t: Throwable) {
+                    LogHelper.e("MainActivity: Ошибка сети при загрузке профиля: ${t.localizedMessage}")
+                    
+                    // Даже при ошибке показываем контент, но с ограниченными возможностями
+                    showContent()
                     binding.btnScanArtifact.visibility = View.GONE
                     binding.openAuraButton.visibility = View.GONE
                     binding.openTerminalButton.visibility = View.GONE
-                    LogHelper.e("MainActivity: Ошибка сети при загрузке профиля: ${t.localizedMessage}")
+                    binding.btnFamiliar.visibility = View.GONE
+                    
+                    // Показываем уведомление об ошибке
+                    Toast.makeText(this@MainActivity, 
+                        "Ошибка загрузки профиля: ${t.localizedMessage}", Toast.LENGTH_LONG).show()
                 }
             })
     }

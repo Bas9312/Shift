@@ -10,7 +10,8 @@ import bas.app.shift.models.AuraProblemTypeAdapter
 import com.google.gson.GsonBuilder
 
 object RetrofitClient {
-    private const val BASE_URL = "http://shift96.ru/" // Замените на ваш реальный URL
+    private const val BASE_URL = "http://shift96.ru/" // Основной URL
+    private const val CHAT_BASE_URL = "http://91.184.253.175/" // URL для чата с фамильяром
 
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(HttpLoggingInterceptor().apply {
@@ -32,8 +33,15 @@ object RetrofitClient {
         .addConverterFactory(GsonConverterFactory.create(gson))
         .build()
 
+    private val chatRetrofit = Retrofit.Builder()
+        .baseUrl(CHAT_BASE_URL)
+        .client(okHttpClient)
+        .addConverterFactory(GsonConverterFactory.create(gson))
+        .build()
+
     val shiftApi: ShiftApi = retrofit.create(ShiftApi::class.java)
     val auraApi: AuraApi = retrofit.create(AuraApi::class.java)
     val userProfileApi: UserProfileApi = retrofit.create(UserProfileApi::class.java)
     val artifactApi: ArtifactApi = retrofit.create(ArtifactApi::class.java)
+    val chatApi: ChatApi = chatRetrofit.create(ChatApi::class.java)
 }

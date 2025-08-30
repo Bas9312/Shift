@@ -1,5 +1,6 @@
 package bas.app.shift.ui
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import bas.app.shift.R
@@ -51,8 +52,11 @@ class FamiliarFoundActivity : AppCompatActivity() {
 
     private fun setupButtons() {
         binding.btnTalk.setOnClickListener {
-            binding.tvStatus.text = getString(R.string.familiar_listening)
-            binding.btnTalk.isEnabled = false
+            // Открываем чат с фамильяром
+            val intent = Intent(this, FamiliarChatActivity::class.java).apply {
+                putExtra("familiar", intent.getStringExtra("familiar_id") ?: "familiar_malachite_lizard")
+            }
+            startActivity(intent)
         }
     }
 
