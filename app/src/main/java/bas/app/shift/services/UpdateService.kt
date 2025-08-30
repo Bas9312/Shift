@@ -140,7 +140,7 @@ class UpdateService(
         val dialog = AlertDialog.Builder(context)
             .setTitle("Доступно обновление")
             .setMessage("Версия ${updateInfo.latestVersion}\n\n$releaseNotesText")
-            .setPositiveButton("Обновлить") { _, _ ->
+            .setPositiveButton("Обновить") { _, _ ->
                 LogHelper.i("UpdateService: Пользователь нажал 'Обновить'")
                 downloadAndInstallUpdate(updateInfo)
             }
