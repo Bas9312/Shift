@@ -11,5 +11,7 @@ data class AuraMarkRequest(
     @SerializedName("description")
     val description: String? = null,
     @SerializedName("external")
-    val external: Boolean? = null
+    val external: Boolean? = null,
+    @SerializedName("number_of_stars")
+    val numberOfStars: Int? = null
 ) 

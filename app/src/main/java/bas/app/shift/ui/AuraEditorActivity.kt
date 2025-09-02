@@ -265,6 +265,8 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                 AuraMarkType.CONTRACT_BREACH -> getString(R.string.contract_breach)
                 AuraMarkType.INSTRUMENT_LINK -> getString(R.string.instrument_link)
                 AuraMarkType.SPIRITUAL_BEING_INSIDE -> getString(R.string.spiritual_being_inside)
+                AuraMarkType.MARK_OF_CREATION -> getString(R.string.mark_of_creation)
+                AuraMarkType.ABILITY -> getString(R.string.ability)
                 AuraMarkType.MAGIC_CONTRACT -> getString(R.string.magic_contract)
                 AuraMarkType.FAMILIAR_LINK -> getString(R.string.familiar_link)
                 AuraMarkType.MAGIC_LINK -> getString(R.string.magic_link)
@@ -275,6 +277,177 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         
         val markTypeAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, markTypeNames)
         dialogBinding.markTypeSpinner.setAdapter(markTypeAdapter)
+        
+        // Настраиваем селектор магических дисциплин
+        val disciplines = listOf(
+            "Артефактология" to "artifactology",
+            "Биомагия и микродозирование" to "biomagick_and_microdosing", 
+            "Благословения и проклятия" to "blessing_and_curses",
+            "Экстрасенсорика" to "extrasens",
+            "Ментальная магия" to "mental_magic",
+            "Шумомантия" to "noize_magick",
+            "Предсказания" to "prophecy",
+            "Ритуалистика" to "ritualistics",
+            "Шаманизм" to "shamanizm"
+        )
+        
+        val disciplineNames = disciplines.map { it.first }
+        val disciplineAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, disciplineNames)
+        dialogBinding.disciplineSpinner.setAdapter(disciplineAdapter)
+        
+        // Настраиваем селектор типов абилок
+        val abilityTypes = listOf(
+            "Защита" to "ability_protection_type",
+            "Атака" to "ability_attack_type",
+            "Усиление" to "ability_buff_type",
+            "Ослабление" to "ability_debuff_type",
+            "Изменение" to "ability_transform_type",
+            "Познание" to "ability_insight_type",
+            "Прочее" to "ability_misc"
+        )
+        
+        val abilityTypeNames = abilityTypes.map { it.first }
+        val abilityTypeAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, abilityTypeNames)
+        dialogBinding.abilityTypeSpinner.setAdapter(abilityTypeAdapter)
+        
+        // Настраиваем селектор типов проклятий
+        val curseTypes = listOf(
+            "Проклятие" to "curse",
+            "Смертельное проклятие" to "death_curse"
+        )
+        
+        val curseTypeNames = curseTypes.map { it.first }
+        val curseTypeAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, curseTypeNames)
+        dialogBinding.curseTypeSpinner.setAdapter(curseTypeAdapter)
+        
+        // Настраиваем селектор типов меток пробуждения
+        val creationTypes = listOf(
+            "Метка пробуждения классическая" to "mark_of_creation_standart",
+            "Метка пробуждения неомагическая" to "mark_of_creation_neo_by_site",
+            "Метка пробуждения Местная" to "mark_of_creation_finnougr",
+            "Метка пробуждения Хтонью" to "mark_of_creation_magic_creature"
+        )
+        
+        val creationTypeNames = creationTypes.map { it.first }
+        val creationTypeAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, creationTypeNames)
+        dialogBinding.creationTypeSpinner.setAdapter(creationTypeAdapter)
+        
+        // Настраиваем селектор типов магических связей
+        val magicLinkTypes = listOf(
+            "Магическая связь позитивная" to "magic_link_positive",
+            "Магическая связь негативная" to "magic_link_negative",
+            "Магическая связь нейтральная" to "magic_link_neutral",
+            "Ментальная связь" to "mental_link"
+        )
+        
+        val magicLinkTypeNames = magicLinkTypes.map { it.first }
+        val magicLinkTypeAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, magicLinkTypeNames)
+        dialogBinding.magicLinkTypeSpinner.setAdapter(magicLinkTypeAdapter)
+        
+        // Настраиваем селектор типов влияния планов
+        val planeTypes = listOf(
+            "Влияние плана Демонов" to "demon_plane_influence",
+            "Влияние плана Ангелов" to "angel_plane_influence",
+            "Влияние плана Бездны" to "abuss_plane_influence"
+        )
+        
+        val planeTypeNames = planeTypes.map { it.first }
+        val planeTypeAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, planeTypeNames)
+        dialogBinding.planeTypeSpinner.setAdapter(planeTypeAdapter)
+        
+        // Обработчик изменения типа метки
+        dialogBinding.markTypeSpinner.setOnItemClickListener { _, _, position, _ ->
+            val selectedType = markTypes[position]
+            
+            // Сначала скрываем все спиннеры
+            dialogBinding.disciplineLayout.visibility = View.GONE
+            dialogBinding.abilityTypeLayout.visibility = View.GONE
+            dialogBinding.curseTypeLayout.visibility = View.GONE
+            dialogBinding.creationTypeLayout.visibility = View.GONE
+            dialogBinding.magicLinkTypeLayout.visibility = View.GONE
+            dialogBinding.planeTypeLayout.visibility = View.GONE
+            
+            // Устанавливаем галочку "внешний" для определенных типов
+            val externalTypes = listOf(
+                AuraMarkType.MAGIC_CONTRACT,
+                AuraMarkType.FAMILIAR_LINK,
+                AuraMarkType.MAGIC_LINK,
+                AuraMarkType.ARTIFACT_LINK,
+                AuraMarkType.FOREIGN_PLANE_INFLUENCE
+            )
+            
+            if (selectedType in externalTypes) {
+                dialogBinding.externalCheckBox.isChecked = true
+            } else {
+                dialogBinding.externalCheckBox.isChecked = false
+            }
+            
+            when (selectedType) {
+                AuraMarkType.MAGIC_DISCIPLINE -> {
+                    dialogBinding.disciplineLayout.visibility = View.VISIBLE
+                    dialogBinding.starsLayout.visibility = View.VISIBLE
+                    dialogBinding.imageUrlLayout.visibility = View.GONE
+                    dialogBinding.imageUrlWarning.visibility = View.GONE
+                    dialogBinding.nameLayout.visibility = View.GONE
+                }
+                AuraMarkType.ABILITY -> {
+                    dialogBinding.abilityTypeLayout.visibility = View.VISIBLE
+                    dialogBinding.starsLayout.visibility = View.GONE
+                    dialogBinding.imageUrlLayout.visibility = View.GONE
+                    dialogBinding.imageUrlWarning.visibility = View.GONE
+                    dialogBinding.nameLayout.visibility = View.GONE
+                }
+                AuraMarkType.CURSE -> {
+                    dialogBinding.curseTypeLayout.visibility = View.VISIBLE
+                    dialogBinding.starsLayout.visibility = View.GONE
+                    dialogBinding.imageUrlLayout.visibility = View.GONE
+                    dialogBinding.imageUrlWarning.visibility = View.GONE
+                    dialogBinding.nameLayout.visibility = View.GONE
+                }
+                AuraMarkType.MARK_OF_CREATION -> {
+                    dialogBinding.creationTypeLayout.visibility = View.VISIBLE
+                    dialogBinding.starsLayout.visibility = View.GONE
+                    dialogBinding.imageUrlLayout.visibility = View.GONE
+                    dialogBinding.imageUrlWarning.visibility = View.GONE
+                    dialogBinding.nameLayout.visibility = View.GONE
+                }
+                AuraMarkType.MAGIC_LINK -> {
+                    dialogBinding.magicLinkTypeLayout.visibility = View.VISIBLE
+                    dialogBinding.starsLayout.visibility = View.GONE
+                    dialogBinding.imageUrlLayout.visibility = View.GONE
+                    dialogBinding.imageUrlWarning.visibility = View.GONE
+                    dialogBinding.nameLayout.visibility = View.GONE
+                }
+                AuraMarkType.FOREIGN_PLANE_INFLUENCE -> {
+                    dialogBinding.planeTypeLayout.visibility = View.VISIBLE
+                    dialogBinding.starsLayout.visibility = View.GONE
+                    dialogBinding.imageUrlLayout.visibility = View.GONE
+                    dialogBinding.imageUrlWarning.visibility = View.GONE
+                    dialogBinding.nameLayout.visibility = View.GONE
+                }
+                AuraMarkType.BLESSING,
+                AuraMarkType.JUDGE_STATUS,
+                AuraMarkType.CONTRACT_BREACH,
+                AuraMarkType.INSTRUMENT_LINK,
+                AuraMarkType.SPIRITUAL_BEING_INSIDE,
+                AuraMarkType.MAGIC_CONTRACT,
+                AuraMarkType.FAMILIAR_LINK,
+                AuraMarkType.ARTIFACT_LINK -> {
+                    // Для типов с фиксированными иконками скрываем поля ввода
+                    dialogBinding.starsLayout.visibility = View.GONE
+                    dialogBinding.imageUrlLayout.visibility = View.GONE
+                    dialogBinding.imageUrlWarning.visibility = View.GONE
+                    dialogBinding.nameLayout.visibility = View.GONE
+                }
+                else -> {
+                    // Для остальных типов показываем поля картинки и названия
+                    dialogBinding.starsLayout.visibility = View.GONE
+                    dialogBinding.imageUrlLayout.visibility = View.VISIBLE
+                    dialogBinding.imageUrlWarning.visibility = View.VISIBLE
+                    dialogBinding.nameLayout.visibility = View.VISIBLE
+                }
+            }
+        }
         
         // Создаем и показываем диалог
         val dialog = AlertDialog.Builder(this)
@@ -291,23 +464,130 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
             }
             
             val markType = markTypes[selectedPosition]
-            val imageUrl = dialogBinding.imageUrlInput.text.toString()
-            val name = dialogBinding.nameInput.text.toString()
             val description = dialogBinding.descriptionInput.text.toString()
             val external = dialogBinding.externalCheckBox.isChecked
             
-            if (name.isBlank()) {
-                Toast.makeText(this, getString(R.string.enter_mark_name), Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            val imageUrl: String
+            val name: String
+            val numberOfStars: Int
+            
+            when (markType) {
+                AuraMarkType.MAGIC_DISCIPLINE -> {
+                    val disciplinePosition = disciplineNames.indexOf(dialogBinding.disciplineSpinner.text.toString())
+                    if (disciplinePosition == -1) {
+                        Toast.makeText(this, "Выберите дисциплину", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    val discipline = disciplines[disciplinePosition]
+                    name = discipline.first
+                    imageUrl = "http://shift96.ru/static/images/${discipline.second}.png"
+                    numberOfStars = dialogBinding.starsInput.text.toString().toIntOrNull() ?: 0
+                }
+                AuraMarkType.ABILITY -> {
+                    val abilityTypePosition = abilityTypeNames.indexOf(dialogBinding.abilityTypeSpinner.text.toString())
+                    if (abilityTypePosition == -1) {
+                        Toast.makeText(this, "Выберите тип абилки", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    val abilityType = abilityTypes[abilityTypePosition]
+                    name = "Способность ${abilityType.first}"
+                    imageUrl = "http://shift96.ru/static/images/${abilityType.second}.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.BLESSING -> {
+                    name = "Благословение"
+                    imageUrl = "http://shift96.ru/static/images/blessing.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.CURSE -> {
+                    val curseTypePosition = curseTypeNames.indexOf(dialogBinding.curseTypeSpinner.text.toString())
+                    if (curseTypePosition == -1) {
+                        Toast.makeText(this, "Выберите тип проклятия", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    val curseType = curseTypes[curseTypePosition]
+                    name = curseType.first
+                    imageUrl = "http://shift96.ru/static/images/${curseType.second}.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.JUDGE_STATUS -> {
+                    name = "Статус судьи"
+                    imageUrl = "http://shift96.ru/static/images/judge.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.CONTRACT_BREACH -> {
+                    name = "Нарушение контракта"
+                    imageUrl = "http://shift96.ru/static/images/breached_contract.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.INSTRUMENT_LINK -> {
+                    name = "Связь с инструментом"
+                    imageUrl = "http://shift96.ru/static/images/instrument_bond.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.SPIRITUAL_BEING_INSIDE -> {
+                    name = "Духовное существо внутри"
+                    imageUrl = "http://shift96.ru/static/images/spiritual_inside.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.MARK_OF_CREATION -> {
+                    val creationTypePosition = creationTypeNames.indexOf(dialogBinding.creationTypeSpinner.text.toString())
+                    if (creationTypePosition == -1) {
+                        Toast.makeText(this, "Выберите тип метки пробуждения", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    val creationType = creationTypes[creationTypePosition]
+                    name = "Метка пробуждения"
+                    imageUrl = "http://shift96.ru/static/images/${creationType.second}.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.MAGIC_CONTRACT -> {
+                    name = "Магический контракт"
+                    imageUrl = "http://shift96.ru/static/images/magic_contract.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.FAMILIAR_LINK -> {
+                    name = "Связь с фамильяром"
+                    imageUrl = "http://shift96.ru/static/images/familir_bond.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.MAGIC_LINK -> {
+                    val magicLinkTypePosition = magicLinkTypeNames.indexOf(dialogBinding.magicLinkTypeSpinner.text.toString())
+                    if (magicLinkTypePosition == -1) {
+                        Toast.makeText(this, "Выберите тип магической связи", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    val magicLinkType = magicLinkTypes[magicLinkTypePosition]
+                    name = magicLinkType.first
+                    imageUrl = "http://shift96.ru/static/images/${magicLinkType.second}.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.ARTIFACT_LINK -> {
+                    name = "Связь с артефактом"
+                    imageUrl = "http://shift96.ru/static/images/artifact_bond.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.FOREIGN_PLANE_INFLUENCE -> {
+                    val planeTypePosition = planeTypeNames.indexOf(dialogBinding.planeTypeSpinner.text.toString())
+                    if (planeTypePosition == -1) {
+                        Toast.makeText(this, "Выберите тип влияния плана", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    val planeType = planeTypes[planeTypePosition]
+                    name = planeType.first
+                    imageUrl = "http://shift96.ru/static/images/${planeType.second}.png"
+                    numberOfStars = 0
+                }
             }
             
             // Создаем запрос
             val markRequest = AuraMarkRequest(
                 markType = markType,
-                imageUrl = imageUrl.ifBlank { "" },
+                imageUrl = imageUrl,
                 name = name,
                 description = description.ifBlank { null },
-                external = external
+                external = external,
+                numberOfStars = numberOfStars
             )
             
             // Отправляем запрос и закрываем диалог
@@ -331,6 +611,8 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                 AuraMarkType.CONTRACT_BREACH -> getString(R.string.contract_breach)
                 AuraMarkType.INSTRUMENT_LINK -> getString(R.string.instrument_link)
                 AuraMarkType.SPIRITUAL_BEING_INSIDE -> getString(R.string.spiritual_being_inside)
+                AuraMarkType.MARK_OF_CREATION -> getString(R.string.mark_of_creation)
+                AuraMarkType.ABILITY -> getString(R.string.ability)
                 AuraMarkType.MAGIC_CONTRACT -> getString(R.string.magic_contract)
                 AuraMarkType.FAMILIAR_LINK -> getString(R.string.familiar_link)
                 AuraMarkType.MAGIC_LINK -> getString(R.string.magic_link)
@@ -351,6 +633,14 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         dialogBinding.nameInput.setText(mark.name)
         dialogBinding.descriptionInput.setText(mark.description ?: "")
         dialogBinding.externalCheckBox.isChecked = mark.external == 1
+        dialogBinding.starsInput.setText(mark.numberOfStars?.toString() ?: "0")
+        
+        // Показываем поле звёздочек только для магических дисциплин
+        if (mark.markType == AuraMarkType.MAGIC_DISCIPLINE) {
+            dialogBinding.starsLayout.visibility = View.VISIBLE
+        } else {
+            dialogBinding.starsLayout.visibility = View.GONE
+        }
         
         // Создаем и показываем диалог
         val dialog = AlertDialog.Builder(this)
@@ -371,6 +661,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
             val name = dialogBinding.nameInput.text.toString()
             val description = dialogBinding.descriptionInput.text.toString()
             val external = dialogBinding.externalCheckBox.isChecked
+            val numberOfStars = dialogBinding.starsInput.text.toString().toIntOrNull() ?: 0
             
             if (name.isBlank()) {
                 Toast.makeText(this, getString(R.string.enter_mark_name), Toast.LENGTH_SHORT).show()
@@ -383,7 +674,8 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                 imageUrl = imageUrl.ifBlank { "" },
                 name = name,
                 description = description.ifBlank { null },
-                external = external
+                external = external,
+                numberOfStars = numberOfStars
             )
             
             // Обновляем метку

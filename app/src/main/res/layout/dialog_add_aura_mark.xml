@@ -36,8 +36,117 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Магическая дисциплина (показывается только для типа "Магическая дисциплина") -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/disciplineLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Выберите дисциплину"
+            android:visibility="gone"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+
+            <AutoCompleteTextView
+                android:id="@+id/disciplineSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Тип абилки (показывается только для типа "Абилка") -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/abilityTypeLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Выберите тип абилки"
+            android:visibility="gone"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+
+            <AutoCompleteTextView
+                android:id="@+id/abilityTypeSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Тип проклятия (показывается только для типа "Проклятие") -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/curseTypeLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Выберите тип проклятия"
+            android:visibility="gone"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+
+            <AutoCompleteTextView
+                android:id="@+id/curseTypeSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Тип метки пробуждения (показывается только для типа "Метка Пробуждения") -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/creationTypeLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Выберите тип метки пробуждения"
+            android:visibility="gone"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+
+            <AutoCompleteTextView
+                android:id="@+id/creationTypeSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Тип магической связи (показывается только для типа "Магическая связь") -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/magicLinkTypeLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Выберите тип магической связи"
+            android:visibility="gone"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+
+            <AutoCompleteTextView
+                android:id="@+id/magicLinkTypeSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Тип влияния плана (показывается только для типа "Влияние чужого плана") -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/planeTypeLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Выберите тип влияния плана"
+            android:visibility="gone"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+
+            <AutoCompleteTextView
+                android:id="@+id/planeTypeSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
         <!-- Ссылка на картинку -->
         <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/imageUrlLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
@@ -54,6 +163,7 @@
 
         <!-- Важное примечание о картинке -->
         <TextView
+            android:id="@+id/imageUrlWarning"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/image_url_warning"
@@ -66,6 +176,7 @@
 
         <!-- Название метки -->
         <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/nameLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
@@ -95,6 +206,25 @@
                 android:inputType="textMultiLine"
                 android:minLines="2"
                 android:maxLines="4" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Количество дополнительных модулей (только для магических дисциплин) -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/starsLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Количество дополнительных модулей"
+            android:visibility="gone"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/starsInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:text="0" />
 
         </com.google.android.material.textfield.TextInputLayout>
 

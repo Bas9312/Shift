@@ -168,8 +168,8 @@ class AuraCanvasView @JvmOverloads constructor(
             val problemsBySlot = aura.auraProblems.orEmpty().associateBy { it.slot }
             for (slot in 0 until slotsCount) {
                 val angle = slotAngles[slot]
-                val px = centerX + cos(angle) * (humanRadius + problemRadius + 6f)
-                val py = centerY + sin(angle) * (humanRadius + problemRadius + 6f)
+                val px = centerX + cos(angle) * (auraRadius - problemRadius - 20f)
+                val py = centerY + sin(angle) * (auraRadius - problemRadius - 20f)
                 val problem = problemsBySlot[slot]
                 if (problem != null) {
                     drawProblem(canvas, px, py, problem, problemRadius)
@@ -208,21 +208,71 @@ class AuraCanvasView @JvmOverloads constructor(
             }
         }
 
-        // Внутренние метки — столбцом слева от человека (показываем только если аура не скрыта)
+        // Внутренние метки — размещаем по типам (показываем только если аура не скрыта)
         if (shouldShowElements) {
             val internalMarks = aura.marks.orEmpty().filter { it.external == 0 }.sortedBy { it.markId }
             val markSize = humanRadius * 0.18f
             val markGap = markSize * 0.13f
-            for ((i, mark) in internalMarks.withIndex()) {
-                val mx = centerX - humanRadius - markSize + 250f
-                val my = centerY - (internalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
+            
+
+            
+            // Группируем метки по типам
+            val magicDisciplineMarks = internalMarks.filter { it.markType == AuraMarkType.MAGIC_DISCIPLINE }
+            val abilityMarks = internalMarks.filter { it.markType == AuraMarkType.ABILITY }
+            val bottomMarks = internalMarks.filter { 
+                it.markType in listOf(
+                    AuraMarkType.JUDGE_STATUS, 
+                    AuraMarkType.CONTRACT_BREACH, 
+                    AuraMarkType.MARK_OF_CREATION, 
+                    AuraMarkType.INSTRUMENT_LINK, 
+                    AuraMarkType.SPIRITUAL_BEING_INSIDE,
+                    AuraMarkType.MAGIC_LINK,
+                    AuraMarkType.FOREIGN_PLANE_INFLUENCE
+                )
+            }
+            val topMarks = internalMarks.filter { 
+                it.markType in listOf(AuraMarkType.BLESSING, AuraMarkType.CURSE)
+            }
+            
+            // Слева - магические дисциплины (внутри ауры)
+            for ((i, mark) in magicDisciplineMarks.withIndex()) {
+                val mx = centerX - (humanRadius + (auraRadius - humanRadius) * 0.2f) // Ближе к человеку
+                val my = centerY - (magicDisciplineMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
+                drawMark(canvas, mx, my, mark, markSize)
+            }
+            
+            // Справа - абилки (внутри ауры)
+            for ((i, mark) in abilityMarks.withIndex()) {
+                val mx = centerX + (humanRadius + (auraRadius - humanRadius) * 0.2f) // Ближе к человеку
+                val my = centerY - (abilityMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
+                drawMark(canvas, mx, my, mark, markSize)
+            }
+            
+            // Снизу - статусы, нарушения, метки творения, связи с инструментами, духовные существа (внутри ауры)
+            for ((i, mark) in bottomMarks.withIndex()) {
+                val spacing = markSize * 1.2f // Фиксированный отступ между метками
+                val totalWidth = (bottomMarks.size - 1) * spacing
+                val mx = centerX - totalWidth / 2 + i * spacing
+                val my = centerY + (humanRadius + (auraRadius - humanRadius) * 0.15f) // Ближе к человеку
+                drawMark(canvas, mx, my, mark, markSize)
+            }
+            
+            // Сверху - благословения и проклятия (внутри ауры)
+            for ((i, mark) in topMarks.withIndex()) {
+                val spacing = markSize * 1.2f // Фиксированный отступ между метками
+                val totalWidth = (topMarks.size - 1) * spacing
+                val mx = centerX - totalWidth / 2 + i * spacing
+                val my = centerY - (humanRadius + (auraRadius - humanRadius) * 0.20f) // Ближе к человеку
+                
+
+                
                 drawMark(canvas, mx, my, mark, markSize)
             }
 
-            // Внешние метки — столбцом справа от ауры
+            // Внешние метки — столбцом справа от ауры (дальше от внутренних меток)
             val externalMarks = aura.marks.orEmpty().filter { it.external == 1 }.sortedBy { it.markId }
             for ((i, mark) in externalMarks.withIndex()) {
-                val mx = centerX + auraRadius + 20f
+                val mx = centerX + auraRadius + 80f // Отодвигаем дальше от внутренних меток
                 val my = centerY - (externalMarks.size - 1) * (markSize + markGap) / 2 + i * (markSize + markGap)
                 drawMark(canvas, mx, my, mark, markSize)
             }
@@ -254,7 +304,9 @@ class AuraCanvasView @JvmOverloads constructor(
         }
     }
 
-    private fun drawMark(canvas: Canvas, x: Float, y: Float, mark: AuraMark, size: Float) {
+    private fun drawMark(canvas: Canvas, centerX: Float, centerY: Float, mark: AuraMark, size: Float) {
+        val x = centerX - size / 2f
+        val y = centerY - size / 2f
         val bmp = markBitmaps[mark.imageUrl]
         if (bmp != null) {
             canvas.drawBitmap(bmp, null, RectF(x, y, x + size, y + size), null)
