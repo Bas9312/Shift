@@ -49,7 +49,11 @@ class AuraCanvasView @JvmOverloads constructor(
     private var offsetX = 0f
     private var offsetY = 0f
     private var isDragging = false
-    private var pointerCount = 0
+    private var isZooming = false // Флаг для отслеживания масштабирования
+    private var lastPointerCount = 0 // Предыдущее количество пальцев
+    private var initialDistance = 0f // Начальное расстояние между пальцами
+    private var zoomEndTime = Long.MIN_VALUE // Время окончания масштабирования
+    private val ZOOM_DELAY_MS = 100L // Задержка после масштабирования в миллисекундах
     
     // Long tap state
     private var longTapTimer: CountDownTimer? = null
@@ -57,6 +61,9 @@ class AuraCanvasView @JvmOverloads constructor(
     private var longTapProblemSlot: Int? = null
     private var longTapProblem: AuraProblem? = null
     private val LONG_TAP_DURATION = 500L // 500ms для long tap
+    private val MOVEMENT_THRESHOLD = 20f // Порог движения в пикселях
+    private var initialTouchX = 0f
+    private var initialTouchY = 0f
 
     init {
         humanBitmap = BitmapFactory.decodeResource(resources, R.drawable.human)
@@ -176,8 +183,10 @@ class AuraCanvasView @JvmOverloads constructor(
                     canvas.drawCircle(px, py, problemRadius, paint)
                 }
                 
-                // Сохраняем область касания для проблем
-                val touchRect = RectF(px - problemRadius, py - problemRadius, px + problemRadius, py + problemRadius)
+                // Сохраняем область касания для проблем в экранных координатах
+                val (screenPx1, screenPy1) = auraToScreenCoordinates(px - problemRadius, py - problemRadius)
+                val (screenPx2, screenPy2) = auraToScreenCoordinates(px + problemRadius, py + problemRadius)
+                val touchRect = RectF(screenPx1, screenPy1, screenPx2, screenPy2)
                 problemTouchAreas.add(ProblemTouchArea(touchRect, slot, problem))
             }
         } else {
@@ -261,8 +270,10 @@ class AuraCanvasView @JvmOverloads constructor(
             }
         }
         
-        // Для клика — сохраняем область
-        markTouchAreas.add(MarkTouchArea(RectF(x, y, x + size, y + size), mark))
+        // Для клика — сохраняем область в экранных координатах
+        val (screenX, screenY) = auraToScreenCoordinates(x, y)
+        val (screenX2, screenY2) = auraToScreenCoordinates(x + size, y + size)
+        markTouchAreas.add(MarkTouchArea(RectF(screenX, screenY, screenX2, screenY2), mark))
     }
 
     // Цвет ауры по типу
@@ -320,11 +331,48 @@ class AuraCanvasView @JvmOverloads constructor(
     // Для обработки нажатий по проблемам
     private data class ProblemTouchArea(val rect: RectF, val slot: Int, val problem: AuraProblem?)
     private val problemTouchAreas = mutableListOf<ProblemTouchArea>()
+    
+    // Функция для преобразования координат ауры в экранные координаты
+    private fun auraToScreenCoordinates(auraX: Float, auraY: Float): Pair<Float, Float> {
+        val screenX = (auraX - width / 2f) * scaleFactor + width / 2f + offsetX
+        val screenY = (auraY - height / 2f) * scaleFactor + height / 2f + offsetY
+        return Pair(screenX, screenY)
+    }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        when (event.pointerCount) {
-            1 -> handleDrag(event)
-            2 -> handleZoom(event)
+        val currentPointerCount = event.pointerCount
+        
+        // Отслеживаем переход с 2 пальцев на 1 или 0
+        if (lastPointerCount == 2 && currentPointerCount < 2) {
+            // Завершили масштабирование
+            isZooming = false
+            zoomEndTime = System.currentTimeMillis()
+            initialDistance = 0f
+            LogHelper.d("Zoom ended, setting zoomEndTime: $zoomEndTime")
+        }
+        
+        // Обновляем количество пальцев
+        lastPointerCount = currentPointerCount
+        
+        when (currentPointerCount) {
+            1 -> {
+                // Проверяем, прошло ли достаточно времени после масштабирования
+                val timeSinceZoom = System.currentTimeMillis() - zoomEndTime
+                val isInZoomDelay = zoomEndTime != Long.MIN_VALUE && timeSinceZoom < ZOOM_DELAY_MS
+                
+                LogHelper.d("Touch check: isZooming=$isZooming, zoomEndTime=$zoomEndTime, timeSinceZoom=${timeSinceZoom}ms, isInZoomDelay=$isInZoomDelay")
+                
+                // Блокируем перетаскивание, если только что закончили масштабирование или в период задержки
+                if (!isZooming && !isInZoomDelay) {
+                    handleDrag(event)
+                } else if (isInZoomDelay) {
+                    LogHelper.d("Blocking drag due to zoom delay: ${timeSinceZoom}ms")
+                }
+            }
+            2 -> {
+                isZooming = true // Устанавливаем флаг масштабирования
+                handleZoom(event)
+            }
         }
         return true
     }
@@ -335,15 +383,16 @@ class AuraCanvasView @JvmOverloads constructor(
                 isDragging = true
                 lastTouchX = event.x
                 lastTouchY = event.y
+                initialTouchX = event.x
+                initialTouchY = event.y
                 
                 // Проверяем, есть ли метка под пальцем
-                val x = (event.x - offsetX - width / 2f) / scaleFactor + width / 2f
-                val y = (event.y - offsetY - height / 2f) / scaleFactor + height / 2f
+                LogHelper.d("Touch at screen: (${event.x}, ${event.y}), scale: $scaleFactor, offset: ($offsetX, $offsetY)")
                 
-                longTapMark = markTouchAreas.find { it.rect.contains(x, y) }?.mark
+                longTapMark = markTouchAreas.find { it.rect.contains(event.x, event.y) }?.mark
                 
                 // Проверяем, есть ли проблема под пальцем
-                val problemTouchArea = problemTouchAreas.find { it.rect.contains(x, y) }
+                val problemTouchArea = problemTouchAreas.find { it.rect.contains(event.x, event.y) }
                 if (problemTouchArea != null) {
                     longTapProblemSlot = problemTouchArea.slot
                     longTapProblem = problemTouchArea.problem
@@ -356,16 +405,32 @@ class AuraCanvasView @JvmOverloads constructor(
                 }
             }
             MotionEvent.ACTION_MOVE -> {
-                if (isDragging) {
-                    // Если двигаем палец, отменяем long tap
-                    LogHelper.d("Finger moved, canceling long tap timer")
-                    cancelLongTapTimer()
+                // Проверяем, не находимся ли мы в периоде задержки после масштабирования
+                val timeSinceZoom = System.currentTimeMillis() - zoomEndTime
+                val isInZoomDelay = zoomEndTime != Long.MIN_VALUE && timeSinceZoom < ZOOM_DELAY_MS
+                
+                LogHelper.d("Drag move check: isDragging=$isDragging, isZooming=$isZooming, timeSinceZoom=${timeSinceZoom}ms, isInZoomDelay=$isInZoomDelay")
+                
+                if (isDragging && !isZooming && !isInZoomDelay) {
+                    // Проверяем, превышен ли порог движения
+                    val movementDistance = sqrt(
+                        (event.x - initialTouchX) * (event.x - initialTouchX) + 
+                        (event.y - initialTouchY) * (event.y - initialTouchY)
+                    )
+                    
+                    if (movementDistance > MOVEMENT_THRESHOLD) {
+                        // Если движение значительное, отменяем long tap
+                        LogHelper.d("Significant finger movement ($movementDistance), canceling long tap timer")
+                        cancelLongTapTimer()
+                    }
                     
                     offsetX += event.x - lastTouchX
                     offsetY += event.y - lastTouchY
                     lastTouchX = event.x
                     lastTouchY = event.y
                     invalidate()
+                } else if (isInZoomDelay) {
+                    LogHelper.d("Blocking drag movement due to zoom delay: ${timeSinceZoom}ms")
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -380,17 +445,39 @@ class AuraCanvasView @JvmOverloads constructor(
     }
 
     private fun handleZoom(event: MotionEvent) {
-        if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
-            lastScaleFactor = scaleFactor
-            focusX = (event.getX(0) + event.getX(1)) / 2
-            focusY = (event.getY(0) + event.getY(1)) / 2
-        } else if (event.actionMasked == MotionEvent.ACTION_MOVE && event.pointerCount == 2) {
-            val dx = event.getX(0) - event.getX(1)
-            val dy = event.getY(0) - event.getY(1)
-            val distance = sqrt(dx * dx + dy * dy)
-            val newScale = distance / 400f // 400 — базовое расстояние
-            scaleFactor = (lastScaleFactor * newScale).coerceIn(0.5f, 3.5f)
-            invalidate()
+        when (event.actionMasked) {
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                // Сохраняем текущий масштаб и начальное расстояние
+                lastScaleFactor = scaleFactor
+                focusX = (event.getX(0) + event.getX(1)) / 2
+                focusY = (event.getY(0) + event.getY(1)) / 2
+                
+                // Вычисляем и сохраняем начальное расстояние между пальцами
+                val dx = event.getX(0) - event.getX(1)
+                val dy = event.getY(0) - event.getY(1)
+                initialDistance = sqrt(dx * dx + dy * dy)
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (event.pointerCount == 2) {
+                    // Вычисляем текущее расстояние между пальцами
+                    val dx = event.getX(0) - event.getX(1)
+                    val dy = event.getY(0) - event.getY(1)
+                    val currentDistance = sqrt(dx * dx + dy * dy)
+                    
+                    // Вычисляем новый масштаб относительно начального расстояния
+                    if (initialDistance > 0) {
+                        val scaleRatio = currentDistance / initialDistance
+                        val newScaleFactor = (lastScaleFactor * scaleRatio).coerceIn(0.5f, 3.5f)
+                        
+                        // Простое масштабирование без сложной корректировки смещения
+                        scaleFactor = newScaleFactor
+                        invalidate()
+                    }
+                }
+            }
+            MotionEvent.ACTION_POINTER_UP -> {
+                // Логика окончания масштабирования теперь в onTouchEvent
+            }
         }
     }
 

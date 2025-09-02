@@ -26,8 +26,10 @@ import bas.app.shift.models.AuraProblemRequest
 import bas.app.shift.models.AuraMarkResponse
 import bas.app.shift.models.AuraMarkType
 import bas.app.shift.models.AuraProblemType
+import bas.app.shift.models.AuraHiddenRequest
 import bas.app.shift.models.User
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,6 +44,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
     private var selectedUser: User? = null
     private lateinit var auraFragment: AuraFragment
     private var isAuraVisible = true // Флаг видимости ауры для редактирования
+    private var serverAuraHidden = false // Серверное состояние скрытости ауры
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -90,7 +93,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                 true
             }
             R.id.action_toggle_aura_visibility -> {
-                toggleAuraVisibility()
+                toggleAuraVisibilityVisual()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -106,6 +109,9 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
     }
     
     override fun onAuraLoaded(aura: Aura) {
+        // Сохраняем серверное состояние
+        serverAuraHidden = aura.auraHidden
+        
         // Устанавливаем начальное состояние видимости в зависимости от загруженной ауры
         isAuraVisible = !aura.auraHidden
         // Обновляем меню
@@ -114,7 +120,11 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         // Передаём состояние в canvas (null = использовать серверное значение)
         auraFragment.setAuraVisibility(null)
         
-        LogHelper.d("AuraEditorActivity: onAuraLoaded - auraHidden=${aura.auraHidden}, isAuraVisible=$isAuraVisible")
+        // Показываем кнопку управления видимостью ауры
+        binding.btnToggleAuraVisibility.visibility = View.VISIBLE
+        updateAuraButton()
+        
+        LogHelper.d("AuraEditorActivity: onAuraLoaded - serverAuraHidden=${serverAuraHidden}, isAuraVisible=$isAuraVisible")
     }
 
     private fun setupUI() {
@@ -134,9 +144,18 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
             auraFragment.setMarkCallback(this)
             auraFragment.setAuraEditorCallback(this)
         }
+        
+        // Обработчик кнопки управления видимостью ауры (отправляет запрос на сервер)
+        binding.btnToggleAuraVisibility.setOnClickListener {
+            toggleAuraVisibilityOnServer()
+        }
     }
 
     private fun loadUsers() {
+        // Показываем лоадер и скрываем выбор пользователя
+        binding.loadingLayout.visibility = View.VISIBLE
+        binding.userSelectionLayout.visibility = View.GONE
+        
         RetrofitClient.userProfileApi.getAllUserProfiles()
             .enqueue(object : Callback<List<User>> {
                 override fun onResponse(call: Call<List<User>>, response: Response<List<User>>) {
@@ -145,11 +164,13 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                         setupUserSpinner()
                     } else {
                         LogHelper.e("AuraEditorActivity: Ошибка загрузки списка пользователей: ${response.code()}")
+                        showError("Ошибка загрузки пользователей: ${response.code()}")
                     }
                 }
 
                 override fun onFailure(call: Call<List<User>>, t: Throwable) {
                     LogHelper.e("AuraEditorActivity: Ошибка сети при загрузке пользователей: ${t.localizedMessage}")
+                    showError("Ошибка сети: ${t.localizedMessage}")
                 }
             })
     }
@@ -199,6 +220,10 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                 invalidateOptionsMenu() // Обновляем меню
             }
         }
+        
+        // Скрываем лоадер и показываем выбор пользователя
+        binding.loadingLayout.visibility = View.GONE
+        binding.userSelectionLayout.visibility = View.VISIBLE
     }
 
     private fun loadUserAura(userId: String) {
@@ -212,6 +237,18 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
     private fun clearAura() {
         // Очищаем ауру
         auraFragment.clearAura()
+        
+        // Скрываем кнопку управления видимостью ауры
+        binding.btnToggleAuraVisibility.visibility = View.GONE
+    }
+    
+    private fun showError(message: String) {
+        // Скрываем лоадер и показываем выбор пользователя даже при ошибке
+        binding.loadingLayout.visibility = View.GONE
+        binding.userSelectionLayout.visibility = View.VISIBLE
+        
+        // Показываем сообщение об ошибке
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
     private fun showAddMarkDialog() {
@@ -622,13 +659,16 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         }
     }
     
-    private fun toggleAuraVisibility() {
+    // Визуальное переключение (только для редактора, без запроса на сервер)
+    private fun toggleAuraVisibilityVisual() {
         isAuraVisible = !isAuraVisible
         
-        LogHelper.d("AuraEditorActivity: toggleAuraVisibility - isAuraVisible=$isAuraVisible")
+        LogHelper.d("AuraEditorActivity: toggleAuraVisibilityVisual - isAuraVisible=$isAuraVisible")
         
         // Обновляем меню
         invalidateOptionsMenu()
+        
+        // НЕ обновляем кнопку - она показывает серверное состояние
         
         // Передаём состояние в фрагмент ауры
         // true = принудительно показать, false = принудительно скрыть
@@ -636,10 +676,57 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         
         // Показываем уведомление
         val message = if (isAuraVisible) {
-            getString(R.string.aura_shown)
+            "Аура показана (только для редактора)"
         } else {
-            getString(R.string.aura_hidden)
+            "Аура скрыта (только для редактора)"
         }
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+    
+    // Переключение с запросом на сервер
+    private fun toggleAuraVisibilityOnServer() {
+        if (selectedUser == null) return
+        
+        val newHiddenState = !serverAuraHidden
+        val request = AuraHiddenRequest(if (newHiddenState) 1 else 0)
+        
+        LogHelper.d("AuraEditorActivity: toggleAuraVisibilityOnServer - newHiddenState=$newHiddenState")
+        
+        // Используем GlobalScope для вызова suspend функции
+        GlobalScope.launch(Dispatchers.Main) {
+            try {
+                val response = RetrofitClient.auraApi.updateAuraHidden(selectedUser!!.userId, request)
+                if (response.isSuccessful) {
+                    // Обновляем серверное состояние
+                    serverAuraHidden = newHiddenState
+                    
+                    // Обновляем кнопку после успешного запроса
+                    updateAuraButton()
+                    
+                    // Показываем сообщение об успехе
+                    val message = if (newHiddenState) {
+                        getString(R.string.aura_hidden)
+                    } else {
+                        getString(R.string.aura_shown)
+                    }
+                    Toast.makeText(this@AuraEditorActivity, message, Toast.LENGTH_SHORT).show()
+                } else {
+                    LogHelper.e("AuraEditorActivity: Ошибка обновления ауры: ${response.code()}")
+                    Toast.makeText(this@AuraEditorActivity, "Ошибка обновления ауры: ${response.code()}", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                LogHelper.e("AuraEditorActivity: Ошибка сети при обновлении ауры: ${e.localizedMessage}")
+                Toast.makeText(this@AuraEditorActivity, "Ошибка сети: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    private fun updateAuraButton() {
+        // Кнопка показывает серверное состояние ауры
+        if (serverAuraHidden) {
+            binding.btnToggleAuraVisibility.text = getString(R.string.show_aura)
+        } else {
+            binding.btnToggleAuraVisibility.text = getString(R.string.hide_aura)
+        }
     }
 }

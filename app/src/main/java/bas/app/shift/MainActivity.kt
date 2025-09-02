@@ -49,8 +49,20 @@ class MainActivity : AppCompatActivity() {
 
         setupToolbar()
         setupButtons()
-        checkIfMgUser()
         
+        // Запрашиваем разрешения последовательно
+        checkPermissionsSequentially()
+        
+        // Проверяем состояние игры и запускаем сервис если нужно
+        checkAndStartLocationService()
+
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        checkIfMgUser()
+
         // Проверяем, есть ли уже сохраненный профиль
         val savedUser = UserPrefsHelper.getUserData(this)
         if (savedUser != null) {
@@ -64,19 +76,10 @@ class MainActivity : AppCompatActivity() {
             showLoading()
         }
         checkUserDisciplines()
-        
-        // Запрашиваем разрешения последовательно
-        checkPermissionsSequentially()
-        
-        // Проверяем состояние игры и запускаем сервис если нужно
-        checkAndStartLocationService()
-        
+
         // Проверяем обновления
         checkForUpdates()
-    }
 
-    override fun onStart() {
-        super.onStart()
         // Проверяем состояние сервиса при запуске активности
         if (!isFinishing && !isDestroyed) {
             checkAndStartLocationService()
