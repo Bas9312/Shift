@@ -50,8 +50,8 @@
 
         <ImageView
             android:id="@+id/familiarImage"
-            android:layout_width="200dp"
-            android:layout_height="200dp"
+            android:layout_width="300dp"
+            android:layout_height="300dp"
             android:src="@drawable/familiar_malachite_lizard"
             android:scaleType="centerCrop"
             android:layout_marginBottom="24dp"/>

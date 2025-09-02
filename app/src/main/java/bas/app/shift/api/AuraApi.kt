@@ -45,4 +45,10 @@ interface AuraApi {
         @Path("entity_id") entityId: String,
         @Body mark: AuraMarkRequest
     ): Response<AuraMarkResponse>
+
+    @PUT("/aura_api/aura/{entity_id}/hidden")
+    suspend fun updateAuraHidden(
+        @Path("entity_id") entityId: String,
+        @Body request: AuraHiddenRequest
+    ): Response<Unit>
 } 

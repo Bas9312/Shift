@@ -60,7 +60,7 @@
     <string name="parasite">Паразит</string>
     <string name="other">Другое</string>
     <string name="toggle_aura_visibility">Показать/скрыть ауру</string>
-    <string name="show_aura">Показать ауру</string>
+    <string name="show_aura">Перестать скрывать ауру</string>
     <string name="hide_aura">Скрыть ауру</string>
     <string name="aura_shown">Аура показана</string>
     <string name="aura_hidden">Аура скрыта</string>

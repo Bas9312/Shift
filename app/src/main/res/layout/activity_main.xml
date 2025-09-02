@@ -105,6 +105,14 @@
         android:layout_marginBottom="8dp"/>
 
     <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnToggleAuraHidden"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Скрыть ауру"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"/>
+
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnOpenProfile"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

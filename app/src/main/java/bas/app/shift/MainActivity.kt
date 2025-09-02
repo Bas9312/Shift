@@ -17,7 +17,12 @@ import bas.app.shift.databinding.ActivityMainBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.User
+import bas.app.shift.models.Aura
+import bas.app.shift.models.AuraHiddenRequest
 import bas.app.shift.ui.terminal.TerminalActivity
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 
 import bas.app.shift.ui.AuraEditorActivity
 import bas.app.shift.ui.ArtifactCreatorActivity
@@ -34,6 +39,8 @@ import retrofit2.Response
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var isMgUser = false
+    private var isExtrasensory = false
+    private var currentAura: Aura? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -197,6 +204,10 @@ class MainActivity : AppCompatActivity() {
         binding.btnArtifactPassport.setOnClickListener {
             startActivity(Intent(this, bas.app.shift.ui.ArtifactPassportActivity::class.java))
         }
+
+        binding.btnToggleAuraHidden.setOnClickListener {
+            toggleAuraHidden()
+        }
     }
 
     private fun onCheckChanged(checkedId: Int) {
@@ -241,6 +252,7 @@ class MainActivity : AppCompatActivity() {
             binding.btnOpenProfile.visibility = View.GONE
             binding.openAuraButton.visibility = View.GONE
             binding.btnScanArtifact.visibility = View.GONE
+            binding.btnToggleAuraHidden.visibility = View.GONE
             
             // Показываем кнопки для МГ
             binding.btnAuraEditor.visibility = View.VISIBLE
@@ -312,6 +324,12 @@ class MainActivity : AppCompatActivity() {
         binding.btnOpenProfile.isEnabled = ShiftApplication.instance.isInGame()
         binding.btnScanArtifact.isEnabled = ShiftApplication.instance.isInGame()
         binding.btnFamiliar.isEnabled = ShiftApplication.instance.isInGame()
+        binding.btnToggleAuraHidden.isEnabled = ShiftApplication.instance.isInGame()
+        
+        // Обновляем кнопку управления аурой для экстрасенсов
+        if (isExtrasensory) {
+            updateAuraButton()
+        }
         
         // Логируем финальное состояние кнопок МГ
         if (isMgUser) {
@@ -320,6 +338,71 @@ class MainActivity : AppCompatActivity() {
         
         // Кнопка управления точками скрыта для всех
         
+    }
+
+    private fun loadUserAura(userId: String) {
+        // Используем GlobalScope для вызова suspend функции
+        GlobalScope.launch(Dispatchers.Main) {
+            try {
+                val response = RetrofitClient.auraApi.getAura(userId)
+                if (response.isSuccessful && response.body() != null) {
+                    currentAura = response.body()!!
+                    LogHelper.d("MainActivity: Аура пользователя загружена, скрыта: ${currentAura!!.auraHidden}")
+                    updateAuraButton()
+                } else {
+                    LogHelper.e("MainActivity: Ошибка загрузки ауры: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                LogHelper.e("MainActivity: Ошибка сети при загрузке ауры: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    private fun updateAuraButton() {
+        if (isExtrasensory && currentAura != null) {
+            binding.btnToggleAuraHidden.visibility = View.VISIBLE
+            if (currentAura!!.auraHidden) {
+                binding.btnToggleAuraHidden.text = getString(R.string.show_aura)
+            } else {
+                binding.btnToggleAuraHidden.text = getString(R.string.hide_aura)
+            }
+        } else {
+            binding.btnToggleAuraHidden.visibility = View.GONE
+        }
+    }
+
+    private fun toggleAuraHidden() {
+        if (currentAura == null) return
+        
+        val userId = UserPrefsHelper.getUserId(this)
+        val newHiddenState = !currentAura!!.auraHidden
+        val request = AuraHiddenRequest(if (newHiddenState) 1 else 0)
+        
+        // Используем GlobalScope для вызова suspend функции
+        GlobalScope.launch(Dispatchers.Main) {
+            try {
+                val response = RetrofitClient.auraApi.updateAuraHidden(userId, request)
+                if (response.isSuccessful) {
+                    // Обновляем локальное состояние
+                    currentAura = currentAura!!.copy(auraHidden = newHiddenState)
+                    updateAuraButton()
+                    
+                    // Показываем сообщение об успехе
+                    val message = if (newHiddenState) {
+                        getString(R.string.aura_hidden)
+                    } else {
+                        getString(R.string.aura_shown)
+                    }
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                } else {
+                    LogHelper.e("MainActivity: Ошибка обновления ауры: ${response.code()}")
+                    Toast.makeText(this@MainActivity, "Ошибка обновления ауры: ${response.code()}", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                LogHelper.e("MainActivity: Ошибка сети при обновлении ауры: ${e.localizedMessage}")
+                Toast.makeText(this@MainActivity, "Ошибка сети: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun checkUserDisciplines() {
@@ -349,6 +432,14 @@ class MainActivity : AppCompatActivity() {
                         
                         // Сохраняем актуальные данные пользователя
                         UserPrefsHelper.saveUserData(this@MainActivity, user)
+                        
+                        // Если пользователь экстрасенс, загружаем его ауру
+                        if (hasExtrasensory) {
+                            this@MainActivity.isExtrasensory = true
+                            loadUserAura(userId)
+                        } else {
+                            this@MainActivity.isExtrasensory = false
+                        }
                         
                         // Показываем контент и обновляем UI после загрузки профиля
                         showContent()

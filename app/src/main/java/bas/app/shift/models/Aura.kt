@@ -12,4 +12,9 @@ data class Aura(
     @SerializedName("aura_problems")
     val auraProblems: List<AuraProblem>?,
     val marks: List<AuraMark>?
+)
+
+data class AuraHiddenRequest(
+    @SerializedName("aura_hidden")
+    val auraHidden: Int
 ) 
