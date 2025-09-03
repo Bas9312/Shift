@@ -35,6 +35,7 @@
         android:layout_marginBottom="16dp" />
 
     <TextView
+        android:id="@+id/tvDescriptionLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Описание:"
@@ -51,7 +52,25 @@
         android:maxLines="4"
         android:layout_marginBottom="16dp" />
 
+    <!-- Спиннер для выбора фамильяра (показывается только для типа FAMILIAR) -->
     <TextView
+        android:id="@+id/tvFamiliarLabel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Выберите фамильяра:"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone" />
+
+    <Spinner
+        android:id="@+id/spinnerFamiliar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/tvTextToShowLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Текст при входе в точку:"

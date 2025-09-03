@@ -114,7 +114,7 @@ class AuraCanvasView @JvmOverloads constructor(
         aura?.let { drawAura(canvas, it) }
         
         // Логируем количество областей касаний для отладки
-        LogHelper.d("Touch areas - Marks: ${markTouchAreas.size}, Problems: ${problemTouchAreas.size}")
+        //LogHelper.d("Touch areas - Marks: ${markTouchAreas.size}, Problems: ${problemTouchAreas.size}")
     }
 
     private fun drawAura(canvas: Canvas, aura: Aura) {

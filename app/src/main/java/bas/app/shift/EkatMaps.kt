@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import bas.app.shift.databinding.ActivityEkatMapsBinding
 import bas.app.shift.databinding.DialogCreatePointBinding
+import bas.app.shift.models.FamiliarData
 import bas.app.shift.databinding.DialogPointInfoBinding
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.Point
@@ -140,7 +141,11 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         mMap = googleMap
         mMap.setIndoorEnabled(false)
         mMap.isTrafficEnabled = false
-        mMap.setMinZoomPreference(13.0f)
+        if (isMgUser) {
+            mMap.setMinZoomPreference(9.0f)
+        } else {
+            mMap.setMinZoomPreference(13.0f)
+        }
         
         // Включаем отображение зданий и улиц
         mMap.mapType = GoogleMap.MAP_TYPE_NORMAL
@@ -261,17 +266,53 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         dialogBinding.spinnerPointType.adapter = adapter
         
-        // Показываем/скрываем поле "истечет через" в зависимости от выбранного типа
+        // Настраиваем спиннер фамильяров
+        val familiarNames = FamiliarData.familiars.values.toList()
+        val familiarIds = FamiliarData.familiars.keys.toList()
+        val familiarAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, familiarNames)
+        familiarAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        dialogBinding.spinnerFamiliar.adapter = familiarAdapter
+        
+        // Показываем/скрываем поля в зависимости от выбранного типа
         dialogBinding.spinnerPointType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedType = pointTypes[position]
                 LogHelper.d("Выбран тип точки: $selectedType")
-                if (selectedType == "SHRINKING_CIRCLE") {
-                    dialogBinding.tvExpireLabel.visibility = View.VISIBLE
-                    dialogBinding.etExpireMinutes.visibility = View.VISIBLE
-                } else {
-                    dialogBinding.tvExpireLabel.visibility = View.GONE
-                    dialogBinding.etExpireMinutes.visibility = View.GONE
+                
+                when (selectedType) {
+                    "FAMILIAR" -> {
+                        // Для фамильяра показываем спиннер фамильяров, скрываем описание и текст при входе
+                        dialogBinding.tvDescriptionLabel.visibility = View.GONE
+                        dialogBinding.etDescription.visibility = View.GONE
+                        dialogBinding.tvFamiliarLabel.visibility = View.VISIBLE
+                        dialogBinding.spinnerFamiliar.visibility = View.VISIBLE
+                        dialogBinding.tvTextToShowLabel.visibility = View.GONE
+                        dialogBinding.etTextToShowOnEnter.visibility = View.GONE
+                        dialogBinding.tvExpireLabel.visibility = View.GONE
+                        dialogBinding.etExpireMinutes.visibility = View.GONE
+                    }
+                    "SHRINKING_CIRCLE" -> {
+                        // Для сужающегося круга показываем поле времени истечения
+                        dialogBinding.tvDescriptionLabel.visibility = View.VISIBLE
+                        dialogBinding.etDescription.visibility = View.VISIBLE
+                        dialogBinding.tvFamiliarLabel.visibility = View.GONE
+                        dialogBinding.spinnerFamiliar.visibility = View.GONE
+                        dialogBinding.tvTextToShowLabel.visibility = View.VISIBLE
+                        dialogBinding.etTextToShowOnEnter.visibility = View.VISIBLE
+                        dialogBinding.tvExpireLabel.visibility = View.VISIBLE
+                        dialogBinding.etExpireMinutes.visibility = View.VISIBLE
+                    }
+                    else -> {
+                        // Для остальных типов показываем стандартные поля
+                        dialogBinding.tvDescriptionLabel.visibility = View.VISIBLE
+                        dialogBinding.etDescription.visibility = View.VISIBLE
+                        dialogBinding.tvFamiliarLabel.visibility = View.GONE
+                        dialogBinding.spinnerFamiliar.visibility = View.GONE
+                        dialogBinding.tvTextToShowLabel.visibility = View.VISIBLE
+                        dialogBinding.etTextToShowOnEnter.visibility = View.VISIBLE
+                        dialogBinding.tvExpireLabel.visibility = View.GONE
+                        dialogBinding.etExpireMinutes.visibility = View.GONE
+                    }
                 }
             }
             
@@ -287,15 +328,30 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         // Обработчик кнопки создания
         dialogBinding.btnCreatePoint.setOnClickListener {
             val selectedType = dialogBinding.spinnerPointType.selectedItem as String
-            val description = dialogBinding.etDescription.text.toString()
             val textToShowOnEnter = dialogBinding.etTextToShowOnEnter.text.toString()
             
-            LogHelper.d("Создание точки: тип=$selectedType, описание=$description, текст при входе=$textToShowOnEnter")
-            
-            if (description.isBlank()) {
-                Toast.makeText(this, "Введите описание точки", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            // Определяем описание в зависимости от типа точки
+            val description = when (selectedType) {
+                "FAMILIAR" -> {
+                    val selectedFamiliarPosition = dialogBinding.spinnerFamiliar.selectedItemPosition
+                    if (selectedFamiliarPosition >= 0 && selectedFamiliarPosition < familiarIds.size) {
+                        familiarIds[selectedFamiliarPosition]
+                    } else {
+                        Toast.makeText(this, "Выберите фамильяра", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                }
+                else -> {
+                    val descriptionText = dialogBinding.etDescription.text.toString()
+                    if (descriptionText.isBlank()) {
+                        Toast.makeText(this, "Введите описание точки", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    descriptionText
+                }
             }
+            
+            LogHelper.d("Создание точки: тип=$selectedType, описание=$description, текст при входе=$textToShowOnEnter")
             
             // Для точек типа POINT_WITH_TEXT поле textToShowOnEnter обязательно
             if (selectedType == "POINT_WITH_TEXT" && textToShowOnEnter.isBlank()) {
@@ -480,12 +536,12 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             return
         }
         
-        LogHelper.d("Обновление карты для местоположения: ${currentLocation!!.latitude}, ${currentLocation!!.longitude}")
+        //LogHelper.d("Обновление карты для местоположения: ${currentLocation!!.latitude}, ${currentLocation!!.longitude}")
         val latLng = LatLng(currentLocation!!.latitude, currentLocation!!.longitude)
         
         // Получаем ID текущего пользователя для проверки дублирования USER точек
         val currentUserId = UserPrefsHelper.getUserId(this)
-        LogHelper.d("Текущий пользователь: $currentUserId, тип: ${if (isMgUser) "MG" else "обычный"}")
+        //LogHelper.d("Текущий пользователь: $currentUserId, тип: ${if (isMgUser) "MG" else "обычный"}")
         
         // Удаляем предыдущий маркер, если он существует
         currentLocationMarker?.remove()
@@ -509,7 +565,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 val (point, circle, currentMarker) = pointData
                 
                 // Пропускаем точки типа USER (у них нет кругов и они не нужны на карте)
-                if (point.type == "USER") {
+                if (point.type == "USER" && !isMgUser) {
                     LogHelper.d("MG пользователь: пропускаем точку USER: $id (нет круга)")
                     return@forEach
                 }
@@ -574,7 +630,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             }
         }
 
-        LogHelper.d("Обновление карты завершено")
+        //LogHelper.d("Обновление карты завершено")
     }
 
     private fun getPointTitle(type: PointType): String {
@@ -591,7 +647,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             PointType.HIDDEN_AR_POINT -> "Скрытая AR точка"
             PointType.POINT_WITH_TEXT -> "Точка с текстом"
         }
-        LogHelper.d("Заголовок для типа ${type.serverValue}: $title")
+        //LogHelper.d("Заголовок для типа ${type.serverValue}: $title")
         return title
     }
 
@@ -602,7 +658,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             }
             else -> "Радиус: ${point.radius}м"
         }
-        LogHelper.d("Описание для точки ${point.pointId}: $description")
+        //LogHelper.d("Описание для точки ${point.pointId}: $description")
         return description
     }
 

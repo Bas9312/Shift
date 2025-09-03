@@ -80,7 +80,7 @@ class LocationService : Service() {
             locationResult.lastLocation?.let { location ->
                 val currentTime = System.currentTimeMillis()
                 currentLocation = location
-                LogHelper.d("LocationService: Обновление локации: ${location.latitude}, ${location.longitude}")
+                //LogHelper.d("LocationService: Обновление локации: ${location.latitude}, ${location.longitude}")
                 if (currentTime - lastLocationUpdate >= locationUpdateInterval) {
                     ServerService.sendLocation(location)
                     lastLocationUpdate = currentTime
@@ -142,7 +142,7 @@ class LocationService : Service() {
             }
             
             val locationRequest = LocationRequest.Builder(10000)
-                .setMinUpdateIntervalMillis(5000)
+                .setMinUpdateIntervalMillis(10000)
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                 .build()
 
@@ -289,7 +289,7 @@ class LocationService : Service() {
         val familiarId = point.description ?: "familiar_malachite_lizard" // fallback на малахитовую ящерицу
         
         // Создаем Intent для открытия экрана найденного фамильяра
-        val intent = Intent(this, bas.app.shift.ui.FamiliarFoundActivity::class.java)
+        val intent = Intent(this, FamiliarFoundActivity::class.java)
         intent.putExtra("familiar_id", familiarId)
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
