@@ -3,9 +3,11 @@ package bas.app.shift.ui
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat.startActivity
 import bas.app.shift.R
 import bas.app.shift.databinding.ActivityFamiliarFoundBinding
 import bas.app.shift.models.FamiliarData
+import bas.app.shift.ui.FamiliarChatActivity
 
 class FamiliarFoundActivity : AppCompatActivity() {
     private lateinit var binding: ActivityFamiliarFoundBinding
@@ -16,8 +18,15 @@ class FamiliarFoundActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupToolbar()
-        setupFamiliarImage()
         setupButtons()
+        setupFamiliarImage()
+    }
+
+    // Если активити уже открыта и приходит новый интент из уведомления:
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)          // обновляем this.intent
+        setupFamiliarImage()       // перерисовываем контент под новый familiar_id
     }
 
     private fun setupToolbar() {
@@ -27,36 +36,25 @@ class FamiliarFoundActivity : AppCompatActivity() {
     }
 
     private fun setupFamiliarImage() {
-        // Получаем ID фамильяра из Intent (передается из уведомления)
         val familiarId = intent.getStringExtra("familiar_id") ?: "familiar_malachite_lizard"
-        
-        // Показываем название фамильяра
         val familiarName = FamiliarData.getNameById(familiarId)
         binding.tvFamiliarName.text = familiarName
-        
-        // Всегда показываем первую картинку для найденного фамильяра
+
         val imageName = FamiliarData.getImageNameById(familiarId, 1)
-        val imageResId = resources.getIdentifier(
-            imageName, 
-            "drawable", 
-            packageName
-        )
-        
+        val imageResId = resources.getIdentifier(imageName, "drawable", packageName)
         if (imageResId != 0) {
             binding.familiarImage.setImageResource(imageResId)
         } else {
-            // Fallback если изображение не найдено
             binding.familiarImage.setImageResource(R.drawable.familiar_malachite_lizard)
         }
     }
 
     private fun setupButtons() {
         binding.btnTalk.setOnClickListener {
-            // Открываем чат с фамильяром
-            val intent = Intent(this, FamiliarChatActivity::class.java).apply {
-                putExtra("familiar", intent.getStringExtra("familiar_id") ?: "familiar_malachite_lizard")
-            }
-            startActivity(intent)
+            val famId = intent.getStringExtra("familiar_id") ?: "familiar_malachite_lizard"
+            val chatIntent = Intent(this, FamiliarChatActivity::class.java)
+                .putExtra("familiar", famId) // используем тот же ключ!
+            startActivity(chatIntent)
         }
     }
 

@@ -19,7 +19,6 @@ import bas.app.shift.ShiftApplication
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.Point
 import bas.app.shift.models.FamiliarData
-import bas.app.shift.ui.FamiliarFoundActivity
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -30,11 +29,13 @@ import io.reactivex.subjects.BehaviorSubject
 import android.Manifest
 import android.content.pm.PackageManager
 import android.media.session.PlaybackState.ACTION_STOP
+import android.net.Uri
 import androidx.core.content.ContextCompat
 import android.os.Handler
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.models.User
+import bas.app.shift.ui.FamiliarFoundActivity
 import bas.app.shift.ui.ProfileActivity
 import retrofit2.Call
 import retrofit2.Callback
@@ -213,7 +214,7 @@ class LocationService : Service() {
                 )
                 
                 // Для фамильяров используем расстояние 30 метров вместо радиуса точки
-                val checkDistance = if (point.type == "FAMILIAR") 30.0 else point.radius
+                val checkDistance = if (point.type == "FAMILIAR") 50.0 else point.radius
                 
                 if (distance <= checkDistance) {
                     newPointsInRange.add(point.pointId)
@@ -280,43 +281,46 @@ class LocationService : Service() {
             }
         }
     }
-    
+
     private fun showFamiliarNotification(point: Point) {
-        // Создаем специальное уведомление для фамильяра
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        
-        // Формируем детальное описание
-        val familiarId = point.description ?: "familiar_malachite_lizard" // fallback на малахитовую ящерицу
-        
-        // Создаем Intent для открытия экрана найденного фамильяра
-        val intent = Intent(this, FamiliarFoundActivity::class.java)
-        intent.putExtra("familiar_id", familiarId)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_IMMUTABLE
-        )
+
+        val familiarId = point.description ?: "familiar_malachite_lizard"
         val familiarName = FamiliarData.getNameById(familiarId)
-        val notificationText = "Вы чувствуете здесь присутствие $familiarName. " +
-                "Это существо готово к общению. " +
-                "Нажмите на уведомление, чтобы пообщаться с ним!"
-        
+
+        // Делаем Intent уникальным для сравнения PendingIntent'ов:
+        val intent = Intent(this, FamiliarFoundActivity::class.java).apply {
+            putExtra("familiar_id", familiarId)
+            // Любой уникальный признак: action И/ИЛИ data
+            action = "bas.app.shift.ACTION_OPEN_FAMILIAR.$familiarId"
+            data = Uri.parse("shift://familiar/$familiarId")
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            /* уникальный requestCode */ familiarId.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notificationText = "Вы чувствуете здесь присутствие $familiarName. Это существо готово к общению. Нажмите на уведомление, чтобы пообщаться с ним!"
+
         val notification = NotificationCompat.Builder(this, POINTS_CHANNEL_ID)
             .setContentTitle("🐉 Фамильяр рядом!")
             .setContentText("Вы чувствуете здесь $familiarName. Нажмите для общения!")
-            .setStyle(NotificationCompat.BigTextStyle()
-                .bigText(notificationText)
-                .setBigContentTitle("🐉 Фамильяр рядом!"))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(notificationText).setBigContentTitle("🐉 Фамильяр рядом!"))
             .setSmallIcon(R.drawable.ic_notification_icon)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
-            .setVibrate(longArrayOf(0, 500, 200, 500)) // Специальная вибрация для фамильяра
+            .setVibrate(longArrayOf(0, 500, 200, 500))
             .build()
-        
+
         notificationManager.notify(point.pointId.hashCode(), notification)
         LogHelper.d("LocationService: Показано уведомление о фамильяре для точки ${point.pointId}: $familiarName")
     }
+
     
     private fun onExitPoint(pointId: String) {
         LogHelper.d("Выход из точки: $pointId")

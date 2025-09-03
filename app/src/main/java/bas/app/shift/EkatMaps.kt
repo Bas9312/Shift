@@ -526,7 +526,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         // Для обычных пользователей: показываем только точки в кругах, кроме USER точек и POINT_WITH_TEXT
         // Для точек типа USER круг = null
         pointsOfInterest[point.pointId] = Triple(point, circle, null)
-        LogHelper.d("Точка добавлена в список: ${point.pointId} (маркер будет создан позже, круг: ${if (circle != null) "создан" else "не создан для USER"})")
+        //LogHelper.d("Точка добавлена в список: ${point.pointId} (маркер будет создан позже, круг: ${if (circle != null) "создан" else "не создан для USER"})")
     }
 
     private fun updateForLocation() {
@@ -638,7 +638,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             PointType.USER -> "Пользователь"
             PointType.FAMILIAR -> "Фамильяр"
             PointType.HIDDEN_EFFECT_AREA -> "Скрытая зона эффекта"
-            PointType.FAKE_FAMILIAR_BITER -> "Поддельный Фамильяр"
+            PointType.FAKE_FAMILIAR_BITER -> "'Фамильяр'"
             PointType.APPROACHING_BITER -> "Приближающийся Фамильяр"
             PointType.OPEN_PROBLEM -> "Открытая Проблема"
             PointType.SHRINKING_CIRCLE -> "Сужающийся Круг"

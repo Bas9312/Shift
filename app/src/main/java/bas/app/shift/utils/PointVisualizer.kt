@@ -11,7 +11,7 @@ object PointVisualizer {
     private val circleColors = mapOf(
         PointType.USER to Color.parseColor("#4CAF50"),        // Зеленый
         PointType.FAMILIAR to Color.parseColor("#1CAF50"),        // Зеленый
-        PointType.FAKE_FAMILIAR_BITER to Color.parseColor("#FF9800"),   // Оранжевый
+        PointType.FAKE_FAMILIAR_BITER to Color.parseColor("#1CAF50"),   // Зеленый, как у фамильяра
         PointType.OPEN_PROBLEM to Color.parseColor("#F44336"),    // Красный
         PointType.APPROACHING_BITER to Color.parseColor("#9C27B0"), // Фиолетовый
         PointType.SHRINKING_CIRCLE to Color.parseColor("#1FEB3B"), // Желтый
@@ -22,7 +22,7 @@ object PointVisualizer {
     private val markerColors = mapOf(
         PointType.USER to BitmapDescriptorFactory.HUE_GREEN,
         PointType.FAMILIAR to BitmapDescriptorFactory.HUE_ROSE,
-        PointType.FAKE_FAMILIAR_BITER to BitmapDescriptorFactory.HUE_ORANGE,
+        PointType.FAKE_FAMILIAR_BITER to BitmapDescriptorFactory.HUE_ROSE,
         PointType.OPEN_PROBLEM to BitmapDescriptorFactory.HUE_RED,
         PointType.APPROACHING_BITER to BitmapDescriptorFactory.HUE_VIOLET,
         PointType.OPEN_PROBLEM to BitmapDescriptorFactory.HUE_BLUE,
