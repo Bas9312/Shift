@@ -35,6 +35,8 @@ import android.os.Handler
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.models.User
+import bas.app.shift.models.UserServer
+import bas.app.shift.models.toUser
 import bas.app.shift.ui.FamiliarFoundActivity
 import bas.app.shift.ui.ProfileActivity
 import retrofit2.Call
@@ -379,10 +381,11 @@ class LocationService : Service() {
         LogHelper.d("LocationService: Обновляем профиль для пользователя: $userId")
         
         RetrofitClient.userProfileApi.getUserProfile(userId)
-            .enqueue(object : Callback<User> {
-                override fun onResponse(call: Call<User>, response: Response<User>) {
+            .enqueue(object : Callback<UserServer> {
+                override fun onResponse(call: Call<UserServer>, response: Response<UserServer>) {
                     if (response.isSuccessful && response.body() != null) {
-                        val newProfile = response.body()!!
+                        val userServer = response.body()!!
+                        val newProfile = userServer.toUser()
                         val oldProfile = UserPrefsHelper.getUserData(this@LocationService)
                         
                         if (oldProfile != null) {
@@ -401,7 +404,7 @@ class LocationService : Service() {
                     }
                 }
                 
-                override fun onFailure(call: Call<User>, t: Throwable) {
+                override fun onFailure(call: Call<UserServer>, t: Throwable) {
                     LogHelper.e("LocationService: Ошибка сети при загрузке профиля: ${t.localizedMessage}")
                 }
             })
@@ -410,7 +413,7 @@ class LocationService : Service() {
     private fun compareProfiles(oldProfile: User, newProfile: User): List<ProfileChange> {
         val changes = mutableListOf<ProfileChange>()
         
-        // Сравниваем дисциплины
+        // Сравниваем дисциплины (теперь List<NamedEntity>)
         if (oldProfile.disciplines != newProfile.disciplines) {
             val oldDisciplines = oldProfile.disciplines.map { it.name }.sorted()
             val newDisciplines = newProfile.disciplines.map { it.name }.sorted()
@@ -419,19 +422,19 @@ class LocationService : Service() {
                 val added = newDisciplines - oldDisciplines
                 val removed = oldDisciplines - newDisciplines
                 
-                added.forEach { discipline ->
+                added.forEach { disciplineName ->
                     changes.add(ProfileChange(
                         fieldName = "Дисциплина",
                         oldValue = null,
-                        newValue = discipline,
+                        newValue = disciplineName,
                         changeType = ChangeType.ADDED
                     ))
                 }
                 
-                removed.forEach { discipline ->
+                removed.forEach { disciplineName ->
                     changes.add(ProfileChange(
                         fieldName = "Дисциплина",
-                        oldValue = discipline,
+                        oldValue = disciplineName,
                         newValue = null,
                         changeType = ChangeType.REMOVED
                     ))
@@ -439,7 +442,7 @@ class LocationService : Service() {
             }
         }
         
-        // Сравниваем модули
+        // Сравниваем модули (теперь List<NamedEntity>)
         if (oldProfile.modules != newProfile.modules) {
             val oldModules = oldProfile.modules.map { it.name }.sorted()
             val newModules = newProfile.modules.map { it.name }.sorted()
@@ -448,19 +451,19 @@ class LocationService : Service() {
                 val added = newModules - oldModules
                 val removed = oldModules - newModules
                 
-                added.forEach { module ->
+                added.forEach { moduleName ->
                     changes.add(ProfileChange(
                         fieldName = "Модуль",
                         oldValue = null,
-                        newValue = module,
+                        newValue = moduleName,
                         changeType = ChangeType.ADDED
                     ))
                 }
                 
-                removed.forEach { module ->
+                removed.forEach { moduleName ->
                     changes.add(ProfileChange(
                         fieldName = "Модуль",
-                        oldValue = module,
+                        oldValue = moduleName,
                         newValue = null,
                         changeType = ChangeType.REMOVED
                     ))
@@ -468,7 +471,7 @@ class LocationService : Service() {
             }
         }
         
-        // Сравниваем способности
+        // Сравниваем способности (теперь List<Ability>)
         if (oldProfile.abilities != newProfile.abilities) {
             val oldAbilities = oldProfile.abilities.map { "${it.type}: ${it.description}" }.sorted()
             val newAbilities = newProfile.abilities.map { "${it.type}: ${it.description}" }.sorted()

@@ -20,6 +20,6 @@ interface ArtifactApi {
     @POST("/artifacts_api/api/v1/artifacts")
     fun createArtifact(@Body artifact: ArtifactRequest): Call<Artifact>
     
-    @PUT("/artifacts_api/api/v1/artifacts/{id}")
+    @PUT("/artifacts_api/api/v1/artifact/{id}")
     fun updateArtifact(@Path("id") artifactId: Int, @Body update: ArtifactUpdateRequest): Call<Artifact>
 } 

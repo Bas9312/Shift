@@ -10,6 +10,8 @@ import bas.app.shift.databinding.ActivityArtifactCreatorBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.ArtifactRequest
 import bas.app.shift.models.User
+import bas.app.shift.models.UserServer
+import bas.app.shift.models.toUser
 import com.google.android.material.snackbar.Snackbar
 import retrofit2.Call
 import retrofit2.Callback
@@ -63,10 +65,11 @@ class ArtifactCreatorActivity : AppCompatActivity() {
 
     private fun loadUsers() {
         RetrofitClient.userProfileApi.getAllUserProfiles()
-            .enqueue(object : Callback<List<User>> {
-                override fun onResponse(call: Call<List<User>>, response: Response<List<User>>) {
+            .enqueue(object : Callback<List<UserServer>> {
+                override fun onResponse(call: Call<List<UserServer>>, response: Response<List<UserServer>>) {
                     if (response.isSuccessful && response.body() != null) {
-                        users = response.body()!!
+                        val userServers = response.body()!!
+                        users = userServers.map { it.toUser() }
                         setupCreatorSpinner()
                         setupBindingSpinner()
                     } else {
@@ -75,7 +78,7 @@ class ArtifactCreatorActivity : AppCompatActivity() {
                     }
                 }
 
-                override fun onFailure(call: Call<List<User>>, t: Throwable) {
+                override fun onFailure(call: Call<List<UserServer>>, t: Throwable) {
                     LogHelper.e("ArtifactCreatorActivity: Ошибка сети при загрузке пользователей: ${t.localizedMessage}")
                     showError("Ошибка сети при загрузке пользователей")
                 }

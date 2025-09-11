@@ -17,6 +17,8 @@ import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.Artifact
 import bas.app.shift.models.ArtifactUpdateRequest
 import bas.app.shift.models.User
+import bas.app.shift.models.UserServer
+import bas.app.shift.models.toUser
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -116,17 +118,18 @@ class ArtifactDetailsFragment : Fragment() {
 
     private fun loadUsersForDialog() {
         RetrofitClient.userProfileApi.getAllUserProfiles()
-            .enqueue(object : Callback<List<User>> {
-                override fun onResponse(call: Call<List<User>>, response: Response<List<User>>) {
+            .enqueue(object : Callback<List<UserServer>> {
+                override fun onResponse(call: Call<List<UserServer>>, response: Response<List<UserServer>>) {
                     if (response.isSuccessful && response.body() != null) {
-                        users = response.body()!!
+                        val userServers = response.body()!!
+                        users = userServers.map { it.toUser() }
                         showBindingDialog()
                     } else {
                         showError("Ошибка загрузки списка пользователей")
                     }
                 }
 
-                override fun onFailure(call: Call<List<User>>, t: Throwable) {
+                override fun onFailure(call: Call<List<UserServer>>, t: Throwable) {
                     showError("Ошибка сети при загрузке пользователей")
                 }
             })

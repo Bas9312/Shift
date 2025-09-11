@@ -17,6 +17,8 @@ import bas.app.shift.databinding.ActivityMainBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.User
+import bas.app.shift.models.UserServer
+import bas.app.shift.models.toUser
 import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraHiddenRequest
 import bas.app.shift.ui.terminal.TerminalActivity
@@ -282,21 +284,15 @@ class MainActivity : AppCompatActivity() {
             val user = UserPrefsHelper.getUserData(this)
             if (user != null) {
                 // Проверяем модуль "познание артефактов"
-                val hasArtifactKnowledge = user.modules.any { 
-                    it.name.equals("познание артефактов", ignoreCase = true) 
-                }
+                val hasArtifactKnowledge = user.modules.any { it.name.equals("Познание артефактов", ignoreCase = true) }
                 binding.btnScanArtifact.visibility = if (hasArtifactKnowledge) View.VISIBLE else View.GONE
                 
                 // Проверяем дисциплину "Экстрасенсорика"
-                val hasExtrasensory = user.disciplines.any { 
-                    it.name.equals("Экстрасенсорика", ignoreCase = true) 
-                }
+                val hasExtrasensory = user.disciplines.any { it.name.equals("Экстрасенсорика", ignoreCase = true) }
                 binding.openAuraButton.visibility = if (hasExtrasensory) View.VISIBLE else View.GONE
                 
                 // Проверяем дисциплину "Шумомантия"
-                val hasNoisemancy = user.disciplines.any {
-                    it.id == 9
-                }
+                val hasNoisemancy = user.disciplines.any { it.name.equals("Шумомантия", ignoreCase = true) }
                 binding.openTerminalButton.visibility = if (hasNoisemancy) View.VISIBLE else View.GONE
                 
                 // Проверяем наличие фамильяра
@@ -411,25 +407,20 @@ class MainActivity : AppCompatActivity() {
     private fun checkUserDisciplines() {
         val userId = UserPrefsHelper.getUserId(this)
         RetrofitClient.userProfileApi.getUserProfile(userId)
-            .enqueue(object : Callback<User> {
-                override fun onResponse(call: Call<User>, response: Response<User>) {
+            .enqueue(object : Callback<UserServer> {
+                override fun onResponse(call: Call<UserServer>, response: Response<UserServer>) {
                     if (response.isSuccessful && response.body() != null) {
-                        val user = response.body()!!
+                        val userServer = response.body()!!
+                        val user = userServer.toUser()
                         
                         // Проверяем модуль "познание артефактов"
-                        val hasArtifactKnowledge = user.modules.any { 
-                            it.name.equals("познание артефактов", ignoreCase = true) 
-                        }
+                        val hasArtifactKnowledge = user.modules.any { it.name.equals("Познание артефактов", ignoreCase = true) }
                         
                         // Проверяем дисциплину "Экстрасенсорика"
-                        val hasExtrasensory = user.disciplines.any { 
-                            it.name.equals("Экстрасенсорика", ignoreCase = true) 
-                        }
+                        val hasExtrasensory = user.disciplines.any { it.name.equals("Экстрасенсорика", ignoreCase = true) }
                         
                         // Проверяем дисциплину "Шумомантия"
-                        val hasNoisemancy = user.disciplines.any {
-                            it.id == 9
-                        }
+                        val hasNoisemancy = user.disciplines.any { it.name.equals("Шумомантия", ignoreCase = true) }
                         
                         LogHelper.d("MainActivity: Проверка дисциплин - Артефакты: $hasArtifactKnowledge, Экстрасенсорика: $hasExtrasensory, Шумомантия: $hasNoisemancy")
                         
@@ -470,7 +461,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 
-                override fun onFailure(call: Call<User>, t: Throwable) {
+                override fun onFailure(call: Call<UserServer>, t: Throwable) {
                     LogHelper.e("MainActivity: Ошибка сети при загрузке профиля: ${t.localizedMessage}")
                     
                     // Даже при ошибке показываем контент, но с ограниченными возможностями

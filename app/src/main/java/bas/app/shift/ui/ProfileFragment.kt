@@ -32,6 +32,10 @@ class ProfileFragment : Fragment() {
             startActivity(intent)
         }
         
+        // Скрываем кнопки редактирования в режиме просмотра
+        binding.btnEditInstrument.visibility = View.GONE
+        binding.btnEditFamiliar.visibility = View.GONE
+        
         return binding.root
     }
 
@@ -48,13 +52,13 @@ class ProfileFragment : Fragment() {
         binding.profileCharacterName.text = user.characterName ?: "Имя персонажа не указано"
         // Имя игрока
         binding.profilePlayerName.text = user.playerName ?: "Имя игрока не указано"
-        // Дисциплины
+        // Дисциплины (теперь List<NamedEntity>)
         val disciplinesLayout = binding.profileDisciplinesList
         disciplinesLayout.removeAllViews()
         if (user.disciplines.isNotEmpty()) {
-            user.disciplines.forEach {
+            user.disciplines.forEach { discipline ->
                 val tv = TextView(requireContext())
-                tv.text = it.name
+                tv.text = discipline.name
                 disciplinesLayout.addView(tv)
             }
         } else {
@@ -62,13 +66,13 @@ class ProfileFragment : Fragment() {
             tv.text = "Нет дисциплин"
             disciplinesLayout.addView(tv)
         }
-        // Модули
+        // Модули (теперь List<NamedEntity>)
         val modulesLayout = binding.profileModulesList
         modulesLayout.removeAllViews()
         if (user.modules.isNotEmpty()) {
-            user.modules.forEach {
+            user.modules.forEach { module ->
                 val tv = TextView(requireContext())
-                tv.text = it.name
+                tv.text = module.name
                 modulesLayout.addView(tv)
             }
         } else {
@@ -76,7 +80,7 @@ class ProfileFragment : Fragment() {
             tv.text = "Нет модулей"
             modulesLayout.addView(tv)
         }
-        // Способности
+        // Способности (теперь List<Ability>)
         val abilitiesLayout = binding.profileAbilitiesList
         abilitiesLayout.removeAllViews()
         if (user.abilities.isNotEmpty()) {
@@ -91,7 +95,7 @@ class ProfileFragment : Fragment() {
             abilitiesLayout.addView(tv)
         }
         // Артефакты (только если есть Артефактология)
-        val hasArtifactology = user.disciplines.any { it.name == "Артефактология" || it.id == 1 }
+        val hasArtifactology = user.disciplines.any { it.id == 1 } // ID дисциплины Артефактология
         val artifactsSection = binding.profileArtifactsSection
         if (hasArtifactology) {
             artifactsSection.visibility = View.VISIBLE

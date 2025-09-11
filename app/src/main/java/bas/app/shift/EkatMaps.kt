@@ -90,6 +90,13 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             LogHelper.d("EkatMaps: Нажата кнопка назад")
             finish()
         }
+        
+        // Настраиваем кнопку возврата к геолокации
+        binding.fabMyLocation.setOnClickListener {
+            LogHelper.d("EkatMaps: Нажата кнопка возврата к геолокации")
+            moveToCurrentLocation()
+        }
+        
         LogHelper.d("EkatMaps: onCreate: инициализация завершена для ${if (isMgUser) "MG" else "обычного"} пользователя")
     }
 
@@ -768,6 +775,24 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         val userName = UserPrefsHelper.getUserId(this)
         isMgUser = userName.startsWith("MG", ignoreCase = true)
         LogHelper.d("Проверка MG пользователя: $userName, результат: $isMgUser")
+    }
+
+    /**
+     * Перемещает камеру к текущей геолокации пользователя
+     */
+    private fun moveToCurrentLocation() {
+        if (currentLocation != null) {
+            val latLng = LatLng(currentLocation!!.latitude, currentLocation!!.longitude)
+            LogHelper.d("Перемещение камеры к текущей геолокации: ${currentLocation!!.latitude}, ${currentLocation!!.longitude}")
+            
+            // Анимированно перемещаем камеру к текущему местоположению
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
+            
+            Toast.makeText(this, "Переход к вашему местоположению", Toast.LENGTH_SHORT).show()
+        } else {
+            LogHelper.w("Текущая геолокация недоступна")
+            Toast.makeText(this, "Геолокация недоступна", Toast.LENGTH_SHORT).show()
+        }
     }
 
     companion object {

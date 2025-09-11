@@ -6,7 +6,8 @@
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:padding="16dp">
 
         <LinearLayout
@@ -14,7 +15,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-        <!-- Имя персонажа -->
+        <!-- Имя персонажа (только для чтения) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -41,7 +42,7 @@
             android:layout_height="12dp"
             android:background="@android:color/transparent" />
 
-        <!-- Имя игрока -->
+        <!-- Имя игрока (только для чтения) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -75,18 +76,30 @@
             android:background="@drawable/bg_profile_section"
             android:orientation="vertical"
             android:padding="16dp">
-            <TextView
-                android:text="Дисциплины"
-                android:textStyle="bold"
-                android:textSize="16sp"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <TextView
+                    android:text="Дисциплины"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"/>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAddDiscipline"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="+"
+                    style="@style/Widget.Material3.Button.OutlinedButton"/>
+            </LinearLayout>
             <LinearLayout
                 android:id="@+id/profile_disciplines_list"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginTop="4dp"/>
+                android:layout_marginTop="8dp"/>
         </LinearLayout>
 
         <View
@@ -94,19 +107,32 @@
             android:layout_height="12dp"
             android:background="@android:color/transparent" />
 
-        <!-- Модули -->
+        <!-- Модули (редактируемые) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/bg_profile_section"
             android:orientation="vertical"
             android:padding="16dp">
-            <TextView
-                android:text="Модули"
-                android:textStyle="bold"
-                android:textSize="16sp"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <TextView
+                    android:text="Модули"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"/>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAddModule"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="+"
+                    android:textSize="18sp"
+                    style="@style/Widget.Material3.Button.OutlinedButton"/>
+            </LinearLayout>
             <LinearLayout
                 android:id="@+id/profile_modules_list"
                 android:layout_width="match_parent"
@@ -120,19 +146,32 @@
             android:layout_height="12dp"
             android:background="@android:color/transparent" />
 
-        <!-- Способности -->
+        <!-- Способности (редактируемые) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/bg_profile_section"
             android:orientation="vertical"
             android:padding="16dp">
-            <TextView
-                android:text="Способности"
-                android:textStyle="bold"
-                android:textSize="16sp"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <TextView
+                    android:text="Способности"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"/>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAddAbility"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="+"
+                    android:textSize="18sp"
+                    style="@style/Widget.Material3.Button.OutlinedButton"/>
+            </LinearLayout>
             <LinearLayout
                 android:id="@+id/profile_abilities_list"
                 android:layout_width="match_parent"
@@ -146,7 +185,7 @@
             android:layout_height="12dp"
             android:background="@android:color/transparent" />
 
-        <!-- Артефакты (секция скрывается если нет Артефактологии) -->
+        <!-- Артефакты (только для чтения) -->
         <LinearLayout
             android:id="@+id/profile_artifacts_section"
             android:layout_width="match_parent"
@@ -173,7 +212,7 @@
             android:layout_height="12dp"
             android:background="@android:color/transparent" />
 
-        <!-- Инструмент -->
+        <!-- Инструмент (редактируемый) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -214,7 +253,7 @@
             android:layout_height="12dp"
             android:background="@android:color/transparent" />
 
-        <!-- Фамильяр -->
+        <!-- Фамильяр (редактируемый) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -255,45 +294,32 @@
             android:layout_height="12dp"
             android:background="@android:color/transparent" />
 
-        <!-- Кнопка показа ауры экстрасенсу -->
+        <!-- Особенности (редактируемые) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/bg_profile_section"
             android:orientation="vertical"
             android:padding="16dp">
-            <TextView
-                android:text="Показать ауру экстрасенсу"
-                android:textStyle="bold"
-                android:textSize="16sp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnShowAuraToExtrasensory"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/show_aura_to_extrasensory"
-                android:layout_marginTop="8dp"/>
-        </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="12dp"
-            android:background="@android:color/transparent" />
-
-        <!-- Прочее -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_profile_section"
-            android:orientation="vertical"
-            android:padding="16dp">
-            <TextView
-                android:text="Особенности"
-                android:textStyle="bold"
-                android:textSize="16sp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
+                android:orientation="horizontal">
+                <TextView
+                    android:text="Особенности"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"/>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAddMisc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="+"
+                    android:textSize="18sp"
+                    style="@style/Widget.Material3.Button.OutlinedButton"/>
+            </LinearLayout>
             <LinearLayout
                 android:id="@+id/profile_misc_list"
                 android:layout_width="match_parent"
@@ -302,6 +328,16 @@
                 android:layout_marginTop="4dp"/>
         </LinearLayout>
 
-    </LinearLayout>
+        </LinearLayout>
     </ScrollView>
+
+    <!-- Кнопка сохранения -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSaveProfile"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Сохранить изменения"
+        android:layout_margin="16dp"
+        style="@style/Widget.Material3.Button"/>
+
 </LinearLayout>

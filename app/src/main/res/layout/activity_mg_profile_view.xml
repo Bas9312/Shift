@@ -28,11 +28,27 @@
             android:textStyle="bold"
             android:layout_marginBottom="8dp" />
 
-        <Spinner
-            android:id="@+id/userSpinner"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp" />
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <Spinner
+                android:id="@+id/userSpinner"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEditProfile"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Редактировать"
+                android:layout_marginStart="8dp"
+                style="@style/Widget.Material3.Button.OutlinedButton"/>
+
+        </LinearLayout>
 
     </LinearLayout>
 

@@ -1,5 +1,6 @@
 package bas.app.shift.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.AdapterView
@@ -10,6 +11,8 @@ import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityMgProfileViewBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.User
+import bas.app.shift.models.UserServer
+import bas.app.shift.models.toUser
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -19,6 +22,7 @@ class MgProfileViewActivity : AppCompatActivity() {
     private var users: List<User> = emptyList()
     private var filteredUsers: List<User> = emptyList() // Добавляем переменную для отфильтрованных пользователей
     private lateinit var profileFragment: ProfileFragment
+    private var selectedUserId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,12 +43,24 @@ class MgProfileViewActivity : AppCompatActivity() {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (position > 0 && position <= filteredUsers.size) { // Используем отфильтрованный список
                     val selectedUser = filteredUsers[position - 1]
+                    selectedUserId = selectedUser.userId
                     loadUserProfile(selectedUser.userId)
+                } else {
+                    selectedUserId = null
                 }
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
-                // Ничего не делаем
+                selectedUserId = null
+            }
+        }
+
+        // Настройка кнопки редактирования
+        binding.btnEditProfile.setOnClickListener {
+            if (selectedUserId != null) {
+                val intent = Intent(this, ProfileEditActivity::class.java)
+                intent.putExtra("user_id", selectedUserId)
+                startActivity(intent)
             }
         }
 
@@ -57,17 +73,18 @@ class MgProfileViewActivity : AppCompatActivity() {
 
     private fun loadUsers() {
         RetrofitClient.userProfileApi.getAllUserProfiles()
-            .enqueue(object : Callback<List<User>> {
-                override fun onResponse(call: Call<List<User>>, response: Response<List<User>>) {
+            .enqueue(object : Callback<List<UserServer>> {
+                override fun onResponse(call: Call<List<UserServer>>, response: Response<List<UserServer>>) {
                     if (response.isSuccessful && response.body() != null) {
-                        users = response.body()!!
+                        val userServers = response.body()!!
+                        users = userServers.map { it.toUser() }
                         setupUserSpinner()
                     } else {
                         LogHelper.e("MgProfileViewActivity: Ошибка загрузки списка пользователей: ${response.code()}")
                     }
                 }
 
-                override fun onFailure(call: Call<List<User>>, t: Throwable) {
+                override fun onFailure(call: Call<List<UserServer>>, t: Throwable) {
                     LogHelper.e("MgProfileViewActivity: Ошибка сети при загрузке пользователей: ${t.localizedMessage}")
                 }
             })
@@ -110,17 +127,18 @@ class MgProfileViewActivity : AppCompatActivity() {
 
     private fun loadUserProfile(userId: String) {
         RetrofitClient.userProfileApi.getUserProfile(userId)
-            .enqueue(object : Callback<User> {
-                override fun onResponse(call: Call<User>, response: Response<User>) {
+            .enqueue(object : Callback<UserServer> {
+                override fun onResponse(call: Call<UserServer>, response: Response<UserServer>) {
                     if (response.isSuccessful && response.body() != null) {
-                        val user = response.body()!!
+                        val userServer = response.body()!!
+                        val user = userServer.toUser()
                         profileFragment.showProfile(user)
                     } else {
                         profileFragment.showError("Ошибка загрузки профиля: ${response.code()}")
                     }
                 }
 
-                override fun onFailure(call: Call<User>, t: Throwable) {
+                override fun onFailure(call: Call<UserServer>, t: Throwable) {
                     profileFragment.showError("Ошибка сети: ${t.localizedMessage}")
                 }
             })

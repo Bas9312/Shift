@@ -7,6 +7,8 @@ import bas.app.shift.databinding.ActivityProfileBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.User
+import bas.app.shift.models.UserServer
+import bas.app.shift.models.toUser
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -38,10 +40,11 @@ class ProfileActivity : AppCompatActivity() {
 
     private fun fetchProfile(userId: String) {
         RetrofitClient.userProfileApi.getUserProfile(userId)
-            .enqueue(object : Callback<User> {
-                override fun onResponse(call: Call<User>, response: Response<User>) {
+            .enqueue(object : Callback<UserServer> {
+                override fun onResponse(call: Call<UserServer>, response: Response<UserServer>) {
                     if (response.isSuccessful && response.body() != null) {
-                        val user = response.body()!!
+                        val userServer = response.body()!!
+                        val user = userServer.toUser()
                         profileFragment.showProfile(user)
                         // Сохраняем актуальные данные пользователя
                         UserPrefsHelper.saveUserData(this@ProfileActivity, user)
@@ -49,7 +52,7 @@ class ProfileActivity : AppCompatActivity() {
                         profileFragment.showError("Ошибка загрузки профиля: ${response.code()}")
                     }
                 }
-                override fun onFailure(call: Call<User>, t: Throwable) {
+                override fun onFailure(call: Call<UserServer>, t: Throwable) {
                     profileFragment.showError("Ошибка сети: ${t.localizedMessage}")
                 }
             })

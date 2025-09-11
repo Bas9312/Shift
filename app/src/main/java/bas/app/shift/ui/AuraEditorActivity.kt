@@ -28,6 +28,8 @@ import bas.app.shift.models.AuraMarkType
 import bas.app.shift.models.AuraProblemType
 import bas.app.shift.models.AuraHiddenRequest
 import bas.app.shift.models.User
+import bas.app.shift.models.UserServer
+import bas.app.shift.models.toUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Dispatchers
@@ -157,10 +159,11 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         binding.userSelectionLayout.visibility = View.GONE
         
         RetrofitClient.userProfileApi.getAllUserProfiles()
-            .enqueue(object : Callback<List<User>> {
-                override fun onResponse(call: Call<List<User>>, response: Response<List<User>>) {
+            .enqueue(object : Callback<List<UserServer>> {
+                override fun onResponse(call: Call<List<UserServer>>, response: Response<List<UserServer>>) {
                     if (response.isSuccessful && response.body() != null) {
-                        users = response.body()!!
+                        val userServers = response.body()!!
+                        users = userServers.map { it.toUser() }
                         setupUserSpinner()
                     } else {
                         LogHelper.e("AuraEditorActivity: Ошибка загрузки списка пользователей: ${response.code()}")
@@ -168,7 +171,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                     }
                 }
 
-                override fun onFailure(call: Call<List<User>>, t: Throwable) {
+                override fun onFailure(call: Call<List<UserServer>>, t: Throwable) {
                     LogHelper.e("AuraEditorActivity: Ошибка сети при загрузке пользователей: ${t.localizedMessage}")
                     showError("Ошибка сети: ${t.localizedMessage}")
                 }

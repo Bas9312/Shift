@@ -99,6 +99,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.ProfileEditActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.FamiliarActivity"
             android:exported="false" />
 
