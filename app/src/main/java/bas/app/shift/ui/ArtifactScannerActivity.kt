@@ -5,6 +5,9 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
+import bas.app.shift.R
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.button.MaterialButton
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -22,15 +25,36 @@ class ArtifactScannerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+        setContentView(R.layout.activity_artifact_scanner)
+
         // Принудительно устанавливаем вертикальную ориентацию
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        
-        // Проверяем разрешение на камеру
-        if (hasCameraPermission()) {
-            startScanner()
-        } else {
-            requestCameraPermission()
+
+        // Ручной ввод ID
+        val manualIdEditText = findViewById<TextInputEditText>(R.id.manualArtifactIdEditText)
+        val confirmManualIdButton = findViewById<MaterialButton>(R.id.confirmManualIdButton)
+        confirmManualIdButton.setOnClickListener {
+            val text = manualIdEditText.text?.toString()?.trim()
+            if (text.isNullOrEmpty()) {
+                Toast.makeText(this, "Введите ID артефакта", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            try {
+                val artifactId = text.toInt()
+                fetchArtifact(artifactId)
+            } catch (e: NumberFormatException) {
+                Toast.makeText(this, "ID должен быть числом", Toast.LENGTH_LONG).show()
+            }
+        }
+
+        // Кнопка запуска сканера
+        val startScanButton = findViewById<MaterialButton>(R.id.startScanButton)
+        startScanButton.setOnClickListener {
+            if (hasCameraPermission()) {
+                startScanner()
+            } else {
+                requestCameraPermission()
+            }
         }
     }
 

@@ -20,6 +20,7 @@ class ArtifactCreatorActivity : AppCompatActivity() {
     private var users: List<User> = emptyList()
     private var filteredUsers: List<User> = emptyList() // Добавляем переменную для отфильтрованных пользователей
     private var selectedUser: User? = null
+    private var selectedBindingUser: User? = null // Добавляем переменную для выбранного персонажа для привязки
 
     // Список типов артефактов
     private val artifactTypes = listOf(
@@ -67,6 +68,7 @@ class ArtifactCreatorActivity : AppCompatActivity() {
                     if (response.isSuccessful && response.body() != null) {
                         users = response.body()!!
                         setupCreatorSpinner()
+                        setupBindingSpinner()
                     } else {
                         LogHelper.e("ArtifactCreatorActivity: Ошибка загрузки списка пользователей: ${response.code()}")
                         showError("Ошибка загрузки списка пользователей")
@@ -123,6 +125,35 @@ class ArtifactCreatorActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupBindingSpinner() {
+        // Создаем список для селектора привязки
+        val bindingItems = mutableListOf<String>()
+        bindingItems.add("Не привязан") // Дефолтный вариант
+        
+        filteredUsers.forEach { user ->
+            val displayName = if (user.playerName.isNullOrEmpty()) {
+                user.characterName ?: "Без имени"
+            } else if (user.characterName.isNullOrEmpty()) {
+                user.playerName
+            } else {
+                "${user.playerName} / ${user.characterName}"
+            }
+            bindingItems.add(displayName)
+        }
+
+        val bindingAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, bindingItems)
+        binding.bindingToSpinner.setAdapter(bindingAdapter)
+
+        // Обработчик выбора персонажа для привязки
+        binding.bindingToSpinner.setOnItemClickListener { _, _, position, _ ->
+            if (position > 0 && position <= filteredUsers.size) {
+                selectedBindingUser = filteredUsers[position - 1]
+            } else {
+                selectedBindingUser = null
+            }
+        }
+    }
+
     private fun createArtifact() {
         // Валидация полей
         val name = binding.nameEditText.text.toString().trim()
@@ -130,6 +161,7 @@ class ArtifactCreatorActivity : AppCompatActivity() {
         val type = binding.typeAutoComplete.text.toString().trim()
         val material = binding.materialEditText.text.toString().trim()
         val properties = binding.propertiesEditText.text.toString().trim()
+        val bindingToName = selectedBindingUser?.characterName
 
         if (name.isEmpty()) {
             showError("Введите название артефакта")
@@ -173,6 +205,7 @@ class ArtifactCreatorActivity : AppCompatActivity() {
             level = level,
             type = type,
             creatorUserId = selectedUser!!.userId,
+            bindingToName = bindingToName,
             material = material,
             properties = properties
         )
@@ -213,9 +246,11 @@ class ArtifactCreatorActivity : AppCompatActivity() {
         binding.levelAutoComplete.text?.clear()
         binding.typeAutoComplete.text?.clear()
         binding.creatorAutoComplete.text?.clear()
+        binding.bindingToSpinner.text?.clear()
         binding.materialEditText.text?.clear()
         binding.propertiesEditText.text?.clear()
         selectedUser = null
+        selectedBindingUser = null
     }
 
     private fun showError(message: String) {

@@ -126,6 +126,22 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Привязать к персонажу (опционально) -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                android:hint="Персонаж для привязки (опционально)"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+
+                <AutoCompleteTextView
+                    android:id="@+id/bindingToSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="none" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
             <!-- Кнопка сохранения -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/saveButton"

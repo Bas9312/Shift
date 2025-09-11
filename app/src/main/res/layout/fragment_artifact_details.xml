@@ -90,33 +90,6 @@
             android:layout_height="12dp"
             android:background="@android:color/transparent" />
 
-        <!-- Создатель -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_profile_section"
-            android:orientation="vertical"
-            android:padding="16dp">
-            <TextView
-                android:text="Создатель"
-                android:textStyle="bold"
-                android:textSize="16sp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
-            <TextView
-                android:id="@+id/artifact_creator_name"
-                android:text="-"
-                android:textSize="18sp"
-                android:layout_marginTop="4dp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
-        </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="12dp"
-            android:background="@android:color/transparent" />
-
         <!-- Материал -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -159,6 +132,76 @@
                 android:layout_height="wrap_content"/>
             <TextView
                 android:id="@+id/artifact_properties"
+                android:text="-"
+                android:textSize="18sp"
+                android:layout_marginTop="4dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="12dp"
+            android:background="@android:color/transparent" />
+
+        <!-- Создатель -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_profile_section"
+            android:orientation="vertical"
+            android:padding="16dp">
+            <TextView
+                android:text="Создатель"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+            <TextView
+                android:id="@+id/artifact_creator_name"
+                android:text="-"
+                android:textSize="18sp"
+                android:layout_marginTop="4dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="12dp"
+            android:background="@android:color/transparent" />
+
+        <!-- Привязка к персонажу -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_profile_section"
+            android:orientation="vertical"
+            android:padding="16dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <TextView
+                    android:text="Привязан к"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"/>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/edit_binding_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Изменить"
+                    android:textSize="12sp"
+                    android:padding="8dp"
+                    android:visibility="gone"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
+            </LinearLayout>
+            <TextView
+                android:id="@+id/artifact_binding_to_name"
                 android:text="-"
                 android:textSize="18sp"
                 android:layout_marginTop="4dp"
