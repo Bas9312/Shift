@@ -80,4 +80,40 @@
     <string name="show_aura_to_extrasensory">Показать ауру экстрасенсу</string>
     <string name="aura_qr_title">QR код ауры</string>
     <string name="aura_qr_description">Покажите этот QR код экстрасенсу для анализа вашей ауры</string>
+    
+    <!-- Диалоги точек -->
+    <string name="point_info_title">Информация о точке</string>
+    <string name="point_type_label">Тип:</string>
+    <string name="point_radius_label">Радиус:</string>
+    <string name="point_coordinates_label">Координаты:</string>
+    <string name="point_description_label">Описание:</string>
+    <string name="point_text_on_enter_label">Текст при входе:</string>
+    <string name="point_no_description">Нет описания</string>
+    <string name="point_no_text_on_enter">Не задан</string>
+    <string name="point_delete_button">Удалить точку</string>
+    <string name="point_deleted_success">Точка удалена</string>
+    <string name="point_delete_error">Ошибка при удалении точки</string>
+    
+    <!-- Диалог создания точки -->
+    <string name="create_point_title">Создать новую точку</string>
+    <string name="point_type_spinner_label">Тип точки:</string>
+    <string name="point_description_hint">Введите описание точки</string>
+    <string name="point_familiar_label">Выберите фамильяра:</string>
+    <string name="point_text_on_enter_hint">Введите текст для показа при входе в точку (обязательно для \'Точка с текстом\')</string>
+    <string name="point_expire_label">Истечет через (минут):</string>
+    <string name="point_expire_hint">Введите количество минут</string>
+    <string name="point_create_button">Добавить точку</string>
+    
+    <!-- Базовый диалог информации о точке -->
+    <string name="point_basic_info_title">Информация о точке</string>
+    <string name="point_basic_type">Тип: %1$s</string>
+    <string name="point_basic_radius">Радиус: %1$dм</string>
+    <string name="point_basic_description">Описание: %1$s</string>
+    
+    <!-- Диалог фамильяра -->
+    <string name="familiar_dialog_title">Фамильяр</string>
+    <string name="familiar_dialog_message">Вы находитесь рядом с %1$s (%2$dм).\n\nХотите поговорить с ним?</string>
+    <string name="familiar_cancel_button">Отмена</string>
+    <string name="familiar_too_far_message">Вы слишком далеко от фамильяра (%1$dм). Подойдите ближе (до %2$dм)</string>
+    <string name="location_unavailable">Локация недоступна</string>
 </resources>

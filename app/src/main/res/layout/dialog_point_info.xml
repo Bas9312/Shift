@@ -9,7 +9,7 @@
         android:id="@+id/tvPointTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Информация о точке"
+        android:text="@string/point_info_title"
         android:textSize="18sp"
         android:textStyle="bold"
         android:layout_marginBottom="16dp" />
@@ -18,7 +18,7 @@
         android:id="@+id/tvPointType"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Тип: "
+        android:text="@string/point_radius_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp" />
 
@@ -26,7 +26,7 @@
         android:id="@+id/tvPointRadius"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Радиус: "
+        android:text="@string/point_coordinates_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp" />
 
@@ -34,7 +34,7 @@
         android:id="@+id/tvPointCoordinates"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Координаты: "
+        android:text="@string/point_description_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp" />
 
@@ -42,7 +42,7 @@
         android:id="@+id/tvPointDescription"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Описание: "
+        android:text="@string/point_text_on_enter_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp" />
 
@@ -50,15 +50,16 @@
         android:id="@+id/tvPointTextToShowOnEnter"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Текст при входе: "
+        android:text=""
         android:textSize="16sp"
-        android:layout_marginBottom="16dp" />
+        android:layout_marginBottom="16dp"
+        android:visibility="gone" />
 
     <Button
         android:id="@+id/btnDeletePoint"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Удалить точку"
+        android:text="@string/point_delete_button"
         android:backgroundTint="@android:color/holo_red_dark"
         android:textColor="@android:color/white" />
 

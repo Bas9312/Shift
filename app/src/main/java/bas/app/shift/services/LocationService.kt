@@ -35,6 +35,7 @@ import bas.app.shift.api.RetrofitClient
 import bas.app.shift.models.User
 import bas.app.shift.ui.FamiliarFoundActivity
 import bas.app.shift.ui.ProfileActivity
+import com.bugfender.sdk.p
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -243,7 +244,7 @@ class LocationService : Service() {
             "HIDDEN_EFFECT_AREA" -> {
                 showNotification(
                     "⚠️ Неприятный эффект!",
-                    "Туду, пока не реализовано, но вы поймали неприятный эффект.\n\nВы находитесь в зоне скрытого воздействия. Будьте осторожны!",
+                    point.textToShowOnEnter ?: "Почему-то тут нет текста, обратитесь к МГ!",
                     point.pointId.hashCode()
                 )
             }

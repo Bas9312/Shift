@@ -2,6 +2,7 @@ package bas.app.shift
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
@@ -20,6 +21,8 @@ import bas.app.shift.databinding.ActivityEkatMapsBinding
 import bas.app.shift.databinding.DialogCreatePointBinding
 import bas.app.shift.models.FamiliarData
 import bas.app.shift.databinding.DialogPointInfoBinding
+import bas.app.shift.ui.FamiliarChatActivity
+import bas.app.shift.ui.FamiliarFoundActivity
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.Point
 import bas.app.shift.models.PointRequest
@@ -164,12 +167,13 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         mMap.uiSettings.isScrollGesturesEnabled = true
         mMap.uiSettings.isZoomGesturesEnabled = true
 
-        // Добавляем обработчики событий для MG пользователей
+        // Добавляем обработчики событий для всех пользователей
         if (isMgUser) {
             LogHelper.d("Настройка карты для MG пользователя с дополнительным функционалом (лонг тапы)")
             setupMgUserMapHandlers()
         } else {
-            LogHelper.d("Настройка карты для обычного пользователя (базовый функционал без лонг тапов)")
+            LogHelper.d("Настройка карты для обычного пользователя (базовый функционал с нажатиями на маркеры)")
+            setupRegularUserMapHandlers()
         }
 
         // Запускаем периодическое обновление точек
@@ -200,6 +204,138 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         LogHelper.d("Дополнительные обработчики событий для MG пользователя настроены (лонг тапы по маркерам и карте)")
     }
 
+    private fun setupRegularUserMapHandlers() {
+        LogHelper.d("Настройка обработчиков событий для обычного пользователя (нажатия на маркеры)")
+        
+        // Обработчик нажатия по маркерам
+        mMap.setOnMarkerClickListener { marker ->
+            LogHelper.d("Обычный пользователь: нажатие по маркеру: ${marker.title}")
+            handleMarkerClick(marker)
+            true
+        }
+        
+        LogHelper.d("Обработчики событий для обычного пользователя настроены (нажатия на маркеры)")
+    }
+
+    private fun handleMarkerClick(marker: Marker) {
+        LogHelper.d("Обработка нажатия на маркер: ${marker.title}")
+        
+        // Находим точку по маркеру
+        val pointData = pointsOfInterest.values.find { (_, _, markerRef) -> markerRef == marker }
+        if (pointData == null) {
+            LogHelper.w("Точка не найдена для маркера: ${marker.title}")
+            return
+        }
+
+        val (point, _, _) = pointData
+        LogHelper.d("Информация о точке: ID=${point.pointId}, тип=${point.type}")
+        
+        // Проверяем, является ли это фамильяром
+        if (point.type == "FAMILIAR") {
+            showFamiliarDialog(point)
+        } else {
+            // Для других типов точек показываем базовую информацию
+            showBasicPointInfoDialog(point)
+        }
+    }
+
+    private fun showFamiliarDialog(point: Point) {
+        LogHelper.d("Показ диалога фамильяра для точки: ${point.pointId}")
+        
+        // Проверяем расстояние до фамильяра
+        val currentLocation = this.currentLocation
+        if (currentLocation == null) {
+            LogHelper.w("Текущая локация недоступна")
+            Toast.makeText(this, getString(R.string.location_unavailable), Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val distance = calculateDistance(
+            LatLng(currentLocation.latitude, currentLocation.longitude),
+            LatLng(point.lat, point.lng)
+        )
+        
+        // Используем то же расстояние, что и в LocationService (50 метров для фамильяров)
+        val maxDistance = 50.0
+        
+        if (distance <= maxDistance) {
+            // Пользователь достаточно близко - показываем диалог с кнопкой "поговорить"
+            showFamiliarTalkDialog(point, distance)
+        } else {
+            // Пользователь слишком далеко
+            Toast.makeText(
+                this, 
+                getString(R.string.familiar_too_far_message, distance.toInt(), maxDistance.toInt()), 
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun showFamiliarTalkDialog(point: Point, distance: Float) {
+        LogHelper.d("Показ диалога разговора с фамильяром, расстояние: ${distance.toInt()}м")
+        
+        val familiarName = getPointTitle(PointType.fromServerValue(point.type))
+        val message = getString(R.string.familiar_dialog_message, familiarName, distance.toInt())
+        
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.familiar_dialog_title))
+            .setMessage(message)
+            .setPositiveButton(getString(R.string.familiar_talk_button)) { _, _ ->
+                // Открываем экран "фамильяр рядом"
+                openFamiliarFound(point)
+            }
+            .setNegativeButton(getString(R.string.familiar_cancel_button), null)
+            .show()
+    }
+
+    private fun showBasicPointInfoDialog(point: Point) {
+        LogHelper.d("Показ базовой информации о точке: ${point.pointId}")
+        
+        val title = getPointTitle(PointType.fromServerValue(point.type))
+        val message = getString(R.string.point_basic_radius, point.radius) + "\n" +
+                getString(R.string.point_basic_description, point.description ?: getString(R.string.point_no_description))
+        
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun openFamiliarFound(point: Point) {
+        LogHelper.d("Открытие экрана 'фамильяр рядом' для точки: ${point.pointId}")
+        
+        // Извлекаем ID фамильяра из pointId или используем дефолтный
+        // Предполагаем, что pointId содержит информацию о фамильяре
+        val familiarId = extractFamiliarIdFromPoint(point)
+        
+        val intent = Intent(this, FamiliarFoundActivity::class.java).apply {
+            putExtra("familiar_id", familiarId)
+        }
+        startActivity(intent)
+    }
+
+    private fun extractFamiliarIdFromPoint(point: Point): String {
+        // Пытаемся извлечь ID фамильяра из pointId или description
+        // Если не получается, используем дефолтный
+        val familiarId = when {
+            point.description?.contains("familiar_") == true -> {
+                // Ищем familiar_ в описании
+                val match = Regex("familiar_[a-zA-Z_]+").find(point.description)
+                match?.value ?: "familiar_malachite_lizard"
+            }
+            point.pointId.contains("familiar_") -> {
+                // Ищем familiar_ в pointId
+                val match = Regex("familiar_[a-zA-Z_]+").find(point.pointId)
+                match?.value ?: "familiar_malachite_lizard"
+            }
+            else -> "familiar_malachite_lizard" // Дефолтный фамильяр
+        }
+        
+        LogHelper.d("Извлечен ID фамильяра: $familiarId")
+        return familiarId
+    }
+
     private fun showPointInfoDialog(marker: Marker) {
         LogHelper.d("Показ диалога информации о точке")
         
@@ -217,11 +353,11 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         
         // Заполняем информацию о точке
         dialogBinding.tvPointTitle.text = getPointTitle(PointType.fromServerValue(point.type))
-        dialogBinding.tvPointType.text = "Тип: ${point.type}"
-        dialogBinding.tvPointRadius.text = "Радиус: ${point.radius}м"
-        dialogBinding.tvPointCoordinates.text = "Координаты: ${String.format("%.6f", point.lat)}, ${String.format("%.6f", point.lng)}"
-        dialogBinding.tvPointDescription.text = "Описание: ${point.description ?: "Нет описания"}"
-        dialogBinding.tvPointTextToShowOnEnter.text = "Текст при входе: ${point.textToShowOnEnter ?: "Не задан"}"
+        dialogBinding.tvPointType.text = getString(R.string.point_radius_label) + " " + point.radius + "м"
+        dialogBinding.tvPointRadius.text = getString(R.string.point_coordinates_label) + " " + String.format("%.6f", point.lat) + ", " + String.format("%.6f", point.lng)
+        dialogBinding.tvPointCoordinates.text = getString(R.string.point_description_label) + " " + (point.description ?: getString(R.string.point_no_description))
+        dialogBinding.tvPointDescription.text = getString(R.string.point_text_on_enter_label) + " " + (point.textToShowOnEnter ?: getString(R.string.point_no_text_on_enter))
+        dialogBinding.tvPointTextToShowOnEnter.text = "" // Скрываем это поле, так как оно не всегда нужно
 
         // Создаем диалог
         val dialog = AlertDialog.Builder(this)
@@ -236,12 +372,12 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 try {
                     val response = ServerService.deletePoint(point.pointId)
                     if (response.isSuccessful) {
-                        Toast.makeText(this@EkatMaps, "Точка удалена", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@EkatMaps, getString(R.string.point_deleted_success), Toast.LENGTH_SHORT).show()
                         LogHelper.d("Точка успешно удалена")
                         // Обновляем карту
                         updatePointsFromServer()
                     } else {
-                        Toast.makeText(this@EkatMaps, "Ошибка при удалении точки", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@EkatMaps, getString(R.string.point_delete_error), Toast.LENGTH_SHORT).show()
                         LogHelper.e("Ошибка при удалении точки: ${response.code()}")
                     }
                 } catch (e: Exception) {
@@ -263,13 +399,15 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         val dialogBinding = DialogCreatePointBinding.inflate(LayoutInflater.from(this))
         
         // Показываем координаты
-        dialogBinding.tvCoordinates.text = "Координаты: ${String.format("%.6f", latLng.latitude)}, ${String.format("%.6f", latLng.longitude)}"
+        dialogBinding.tvCoordinates.text = getString(R.string.point_coordinates_label) + " " + String.format("%.6f", latLng.latitude) + ", " + String.format("%.6f", latLng.longitude)
         
         // Настраиваем спиннер типов точек (исключаем USER)
         val pointTypes = PointType.values()
             .filter { it != PointType.USER }
-            .map { it.serverValue }
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, pointTypes)
+        val pointTypeNames = pointTypes.map { getPointTitle(it) }
+        val pointTypeValues = pointTypes.map { it.serverValue }
+        
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, pointTypeNames)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         dialogBinding.spinnerPointType.adapter = adapter
         
@@ -283,7 +421,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         // Показываем/скрываем поля в зависимости от выбранного типа
         dialogBinding.spinnerPointType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val selectedType = pointTypes[position]
+                val selectedType = pointTypeValues[position]
                 LogHelper.d("Выбран тип точки: $selectedType")
                 
                 when (selectedType) {
@@ -306,8 +444,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         dialogBinding.spinnerFamiliar.visibility = View.GONE
                         dialogBinding.tvTextToShowLabel.visibility = View.VISIBLE
                         dialogBinding.etTextToShowOnEnter.visibility = View.VISIBLE
-                        dialogBinding.tvExpireLabel.visibility = View.VISIBLE
-                        dialogBinding.etExpireMinutes.visibility = View.VISIBLE
+                        dialogBinding.tvExpireLabel.visibility = View.GONE
+                        dialogBinding.etExpireMinutes.visibility = View.GONE
                     }
                     else -> {
                         // Для остальных типов показываем стандартные поля
@@ -334,7 +472,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         
         // Обработчик кнопки создания
         dialogBinding.btnCreatePoint.setOnClickListener {
-            val selectedType = dialogBinding.spinnerPointType.selectedItem as String
+            val selectedPosition = dialogBinding.spinnerPointType.selectedItemPosition
+            val selectedType = pointTypeValues[selectedPosition]
             val textToShowOnEnter = dialogBinding.etTextToShowOnEnter.text.toString()
             
             // Определяем описание в зависимости от типа точки
@@ -646,11 +785,11 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             PointType.FAMILIAR -> "Фамильяр"
             PointType.HIDDEN_EFFECT_AREA -> "Скрытая зона эффекта"
             PointType.FAKE_FAMILIAR_BITER -> "'Фамильяр'"
-            PointType.APPROACHING_BITER -> "Приближающийся Фамильяр"
+            PointType.APPROACHING_BITER -> "Приближающийся `Фамильяр`"
             PointType.OPEN_PROBLEM -> "Открытая Проблема"
             PointType.SHRINKING_CIRCLE -> "Сужающийся Круг"
             PointType.DEMON_BLACK_CIRCLE -> "Демон Черный Круг"
-            PointType.APPROACHING_VIRTUAL -> "Приближающийся Виртуальный"
+            PointType.APPROACHING_VIRTUAL -> "Приближающаяся Виртуальная проблема"
             PointType.HIDDEN_AR_POINT -> "Скрытая AR точка"
             PointType.POINT_WITH_TEXT -> "Точка с текстом"
         }

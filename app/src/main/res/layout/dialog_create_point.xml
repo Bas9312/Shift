@@ -8,7 +8,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Создать новую точку"
+        android:text="@string/create_point_title"
         android:textSize="18sp"
         android:textStyle="bold"
         android:layout_marginBottom="16dp" />
@@ -17,14 +17,14 @@
         android:id="@+id/tvCoordinates"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Координаты: "
+        android:text="@string/point_coordinates_label"
         android:textSize="16sp"
         android:layout_marginBottom="16dp" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Тип точки:"
+        android:text="@string/point_type_spinner_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp" />
 
@@ -38,7 +38,7 @@
         android:id="@+id/tvDescriptionLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Описание:"
+        android:text="@string/point_description_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp" />
 
@@ -46,7 +46,7 @@
         android:id="@+id/etDescription"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Введите описание точки"
+        android:hint="@string/point_description_hint"
         android:inputType="textMultiLine"
         android:minLines="2"
         android:maxLines="4"
@@ -57,7 +57,7 @@
         android:id="@+id/tvFamiliarLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Выберите фамильяра:"
+        android:text="@string/point_familiar_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp"
         android:visibility="gone" />
@@ -73,7 +73,7 @@
         android:id="@+id/tvTextToShowLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Текст при входе в точку:"
+        android:text="@string/point_text_on_enter_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp" />
 
@@ -81,7 +81,7 @@
         android:id="@+id/etTextToShowOnEnter"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Введите текст для показа при входе в точку (обязательно для 'Точка с текстом')"
+        android:hint="@string/point_text_on_enter_hint"
         android:inputType="textMultiLine"
         android:minLines="2"
         android:maxLines="4"
@@ -91,7 +91,7 @@
         android:id="@+id/tvExpireLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Истечет через (минут):"
+        android:text="@string/point_expire_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp"
         android:visibility="gone" />
@@ -100,7 +100,7 @@
         android:id="@+id/etExpireMinutes"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Введите количество минут"
+        android:hint="@string/point_expire_hint"
         android:inputType="number"
         android:layout_marginBottom="16dp"
         android:visibility="gone" />
@@ -109,7 +109,7 @@
         android:id="@+id/btnCreatePoint"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Добавить точку"
+        android:text="@string/point_create_button"
         android:backgroundTint="@android:color/holo_blue_dark"
         android:textColor="@android:color/white" />
 
