@@ -154,24 +154,39 @@ class ProfileEditFragment : Fragment() {
         
         if (currentUserDisplay?.abilities?.isNotEmpty() == true) {
             currentUserDisplay!!.abilities.forEachIndexed { index, ability ->
-                val container = LinearLayout(requireContext())
-                container.orientation = LinearLayout.HORIZONTAL
-                container.setPadding(0, 8, 0, 0)
+                // Создаем основной контейнер для всей способности
+                val mainContainer = LinearLayout(requireContext())
+                mainContainer.orientation = LinearLayout.VERTICAL
+                mainContainer.setPadding(0, 8, 0, 8)
+
+                // Контейнер для текста и кнопки
+                val textButtonContainer = LinearLayout(requireContext())
+                textButtonContainer.orientation = LinearLayout.HORIZONTAL
 
                 val tv = TextView(requireContext())
                 tv.text = "Тип: ${ability.type}\nОписание: ${ability.description}"
                 tv.textSize = 16f
+                tv.setTextColor(android.graphics.Color.BLACK)
+                tv.setSingleLine(false)
+                tv.maxLines = 10 // Достаточно большое количество строк
+                tv.ellipsize = null // Отключить многоточие
+                tv.setPadding(0, 4, 8, 4) // Добавляем отступы
                 tv.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                container.addView(tv)
+                textButtonContainer.addView(tv)
 
                 val btnRemove = Button(requireContext())
                 btnRemove.text = "Удалить"
+                btnRemove.layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, 
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
                 btnRemove.setOnClickListener {
                     removeAbility(index)
                 }
-                container.addView(btnRemove)
+                textButtonContainer.addView(btnRemove)
 
-                abilitiesLayout.addView(container)
+                mainContainer.addView(textButtonContainer)
+                abilitiesLayout.addView(mainContainer)
             }
         } else {
             val tv = TextView(requireContext())

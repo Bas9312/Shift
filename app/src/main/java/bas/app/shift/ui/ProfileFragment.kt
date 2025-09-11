@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import bas.app.shift.databinding.FragmentProfileBinding
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.models.FamiliarData
 import bas.app.shift.models.User
 
 class ProfileFragment : Fragment() {
@@ -124,7 +125,12 @@ class ProfileFragment : Fragment() {
         // Инструмент
         binding.profileInstrument.text = user.instrument ?: "Инструмент не указан"
         // Фамильяр
-        binding.profileFamiliar.text = user.familiar ?: "Фамильяр не указан"
+        val familiarName = if (user.familiar != null) {
+            FamiliarData.getNameById(user.familiar!!)
+        } else {
+            "Фамильяр не указан"
+        }
+        binding.profileFamiliar.text = familiarName
         // Прочее
         val miscLayout = binding.profileMiscList
         miscLayout.removeAllViews()
