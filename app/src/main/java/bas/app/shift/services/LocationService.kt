@@ -15,7 +15,6 @@ import android.os.Looper
 import androidx.core.app.NotificationCompat
 import bas.app.shift.MainActivity
 import bas.app.shift.R
-import bas.app.shift.ShiftApplication
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.Point
 import bas.app.shift.models.FamiliarData
@@ -28,21 +27,17 @@ import com.google.android.gms.location.Priority
 import io.reactivex.subjects.BehaviorSubject
 import android.Manifest
 import android.content.pm.PackageManager
-import android.media.session.PlaybackState.ACTION_STOP
 import android.net.Uri
 import androidx.core.content.ContextCompat
 import android.os.Handler
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.models.User
-import bas.app.shift.models.UserServer
-import bas.app.shift.models.toUser
 import bas.app.shift.ui.FamiliarFoundActivity
 import bas.app.shift.ui.ProfileActivity
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import java.util.concurrent.TimeUnit
 
 class LocationService : Service() {
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
@@ -381,15 +376,14 @@ class LocationService : Service() {
         LogHelper.d("LocationService: Обновляем профиль для пользователя: $userId")
         
         RetrofitClient.userProfileApi.getUserProfile(userId)
-            .enqueue(object : Callback<UserServer> {
-                override fun onResponse(call: Call<UserServer>, response: Response<UserServer>) {
+            .enqueue(object : Callback<User> {
+                override fun onResponse(call: Call<User>, response: Response<User>) {
                     if (response.isSuccessful && response.body() != null) {
                         val userServer = response.body()!!
-                        val newProfile = userServer.toUser()
                         val oldProfile = UserPrefsHelper.getUserData(this@LocationService)
                         
                         if (oldProfile != null) {
-                            val changes = compareProfiles(oldProfile, newProfile)
+                            val changes = compareProfiles(oldProfile, userServer)
                             if (changes.isNotEmpty()) {
                                 LogHelper.d("LocationService: Обнаружены изменения в профиле: ${changes.size}")
                                 showProfileChangeNotifications(changes)
@@ -397,14 +391,14 @@ class LocationService : Service() {
                         }
                         
                         // Сохраняем новый профиль
-                        UserPrefsHelper.saveUserData(this@LocationService, newProfile)
+                        UserPrefsHelper.saveUserData(this@LocationService, userServer)
                         LogHelper.d("LocationService: Профиль обновлен и сохранен")
                     } else {
                         LogHelper.e("LocationService: Ошибка загрузки профиля: ${response.code()}")
                     }
                 }
                 
-                override fun onFailure(call: Call<UserServer>, t: Throwable) {
+                override fun onFailure(call: Call<User>, t: Throwable) {
                     LogHelper.e("LocationService: Ошибка сети при загрузке профиля: ${t.localizedMessage}")
                 }
             })

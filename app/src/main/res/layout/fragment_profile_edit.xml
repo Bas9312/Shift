@@ -92,6 +92,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="+"
+                    android:textSize="22sp"
                     style="@style/Widget.Material3.Button.OutlinedButton"/>
             </LinearLayout>
             <LinearLayout
@@ -130,7 +131,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="+"
-                    android:textSize="18sp"
+                    android:textSize="22sp"
                     style="@style/Widget.Material3.Button.OutlinedButton"/>
             </LinearLayout>
             <LinearLayout
@@ -169,38 +170,11 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="+"
-                    android:textSize="18sp"
+                    android:textSize="22sp"
                     style="@style/Widget.Material3.Button.OutlinedButton"/>
             </LinearLayout>
             <LinearLayout
                 android:id="@+id/profile_abilities_list"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginTop="4dp"/>
-        </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="12dp"
-            android:background="@android:color/transparent" />
-
-        <!-- Артефакты (только для чтения) -->
-        <LinearLayout
-            android:id="@+id/profile_artifacts_section"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_profile_section"
-            android:orientation="vertical"
-            android:padding="16dp">
-            <TextView
-                android:text="Созданные артефакты (нажатие открывает паспорт)"
-                android:textStyle="bold"
-                android:textSize="16sp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
-            <LinearLayout
-                android:id="@+id/profile_artifacts_list"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -317,7 +291,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="+"
-                    android:textSize="18sp"
+                    android:textSize="22sp"
                     style="@style/Widget.Material3.Button.OutlinedButton"/>
             </LinearLayout>
             <LinearLayout
@@ -336,8 +310,9 @@
         android:id="@+id/btnSaveProfile"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Сохранить изменения"
+        android:text="Сохранить"
         android:layout_margin="16dp"
+        android:textSize="20sp"
         style="@style/Widget.Material3.Button"/>
 
 </LinearLayout>

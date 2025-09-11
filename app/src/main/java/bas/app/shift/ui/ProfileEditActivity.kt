@@ -11,14 +11,10 @@ import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityProfileEditBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.User
-import bas.app.shift.models.UserServer
-import bas.app.shift.models.UserDisplay
 import bas.app.shift.models.NamedEntity
 import bas.app.shift.models.Ability
 import bas.app.shift.models.FamiliarData
 import bas.app.shift.models.UserUpdateRequest
-import bas.app.shift.models.toUser
-import bas.app.shift.models.toUserDisplay
 import bas.app.shift.constants.ReferenceData
 import retrofit2.Call
 import retrofit2.Callback
@@ -27,7 +23,6 @@ import retrofit2.Response
 class ProfileEditActivity : AppCompatActivity() {
     private lateinit var binding: ActivityProfileEditBinding
     private var currentUser: User? = null
-    private var currentUserDisplay: UserDisplay? = null
     private var allAbilities: List<Ability> = emptyList()
     private var allModules: List<NamedEntity> = ReferenceData.MODULES
     private var allDisciplines: List<NamedEntity> = ReferenceData.DISCIPLINES
@@ -44,8 +39,11 @@ class ProfileEditActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
+        binding.toolbar.setNavigationOnClickListener {
+            finish()
+        }
+
         supportActionBar?.title = "Редактирование профиля"
 
         // Создаем фрагмент редактирования профиля
@@ -64,11 +62,11 @@ class ProfileEditActivity : AppCompatActivity() {
         }
 
         RetrofitClient.userProfileApi.getUserProfile(userId)
-            .enqueue(object : Callback<UserServer> {
-                override fun onResponse(call: Call<UserServer>, response: Response<UserServer>) {
+            .enqueue(object : Callback<User> {
+                override fun onResponse(call: Call<User>, response: Response<User>) {
                     if (response.isSuccessful && response.body() != null) {
                         val userServer = response.body()!!
-                        currentUser = userServer.toUser(allDisciplines, allModules, allAbilities)
+                        currentUser = userServer
                         updateUserDisplay()
                     } else {
                         LogHelper.e("ProfileEditActivity: Ошибка загрузки профиля: ${response.code()}")
@@ -76,7 +74,7 @@ class ProfileEditActivity : AppCompatActivity() {
                     }
                 }
 
-                override fun onFailure(call: Call<UserServer>, t: Throwable) {
+                override fun onFailure(call: Call<User>, t: Throwable) {
                     LogHelper.e("ProfileEditActivity: Ошибка сети при загрузке профиля: ${t.localizedMessage}")
                     Toast.makeText(this@ProfileEditActivity, "Ошибка сети: ${t.localizedMessage}", Toast.LENGTH_LONG).show()
                 }
@@ -109,20 +107,18 @@ class ProfileEditActivity : AppCompatActivity() {
         }
 
         RetrofitClient.userProfileApi.updateUserProfile(currentUser!!.userId, updateRequest)
-            .enqueue(object : Callback<UserServer> {
-                override fun onResponse(call: Call<UserServer>, response: Response<UserServer>) {
+            .enqueue(object : Callback<Unit> {
+                override fun onResponse(call: Call<Unit>, response: Response<Unit>) {
                     if (response.isSuccessful && response.body() != null) {
                         Toast.makeText(this@ProfileEditActivity, "Профиль успешно обновлен", Toast.LENGTH_SHORT).show()
-                        val userServer = response.body()!!
-                        currentUser = userServer.toUser(allDisciplines, allModules, allAbilities)
-                        updateUserDisplay()
+                        loadUserProfile()
                     } else {
                         LogHelper.e("ProfileEditActivity: Ошибка обновления профиля: ${response.code()}")
                         Toast.makeText(this@ProfileEditActivity, "Ошибка обновления профиля: ${response.code()}", Toast.LENGTH_LONG).show()
                     }
                 }
 
-                override fun onFailure(call: Call<UserServer>, t: Throwable) {
+                override fun onFailure(call: Call<Unit>, t: Throwable) {
                     LogHelper.e("ProfileEditActivity: Ошибка сети при обновлении профиля: ${t.localizedMessage}")
                     Toast.makeText(this@ProfileEditActivity, "Ошибка сети: ${t.localizedMessage}", Toast.LENGTH_LONG).show()
                 }
@@ -132,8 +128,7 @@ class ProfileEditActivity : AppCompatActivity() {
 
     private fun updateUserDisplay() {
         if (currentUser != null) {
-            currentUserDisplay = currentUser!!.toUserDisplay()
-            profileEditFragment.showProfile(currentUserDisplay!!)
+            profileEditFragment.showProfile(currentUser!!)
             profileEditFragment.setModules(allModules)
             profileEditFragment.setDisciplines(allDisciplines)
         }

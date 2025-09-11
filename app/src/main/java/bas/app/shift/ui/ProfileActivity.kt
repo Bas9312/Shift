@@ -4,11 +4,8 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityProfileBinding
-import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.User
-import bas.app.shift.models.UserServer
-import bas.app.shift.models.toUser
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -40,19 +37,18 @@ class ProfileActivity : AppCompatActivity() {
 
     private fun fetchProfile(userId: String) {
         RetrofitClient.userProfileApi.getUserProfile(userId)
-            .enqueue(object : Callback<UserServer> {
-                override fun onResponse(call: Call<UserServer>, response: Response<UserServer>) {
+            .enqueue(object : Callback<User> {
+                override fun onResponse(call: Call<User>, response: Response<User>) {
                     if (response.isSuccessful && response.body() != null) {
                         val userServer = response.body()!!
-                        val user = userServer.toUser()
-                        profileFragment.showProfile(user)
+                        profileFragment.showProfile(userServer)
                         // Сохраняем актуальные данные пользователя
-                        UserPrefsHelper.saveUserData(this@ProfileActivity, user)
+                        UserPrefsHelper.saveUserData(this@ProfileActivity, userServer)
                     } else {
                         profileFragment.showError("Ошибка загрузки профиля: ${response.code()}")
                     }
                 }
-                override fun onFailure(call: Call<UserServer>, t: Throwable) {
+                override fun onFailure(call: Call<User>, t: Throwable) {
                     profileFragment.showError("Ошибка сети: ${t.localizedMessage}")
                 }
             })

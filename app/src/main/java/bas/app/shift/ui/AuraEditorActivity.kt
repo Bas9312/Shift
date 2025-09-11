@@ -7,7 +7,6 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.ArrayAdapter
-import android.widget.AutoCompleteTextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import bas.app.shift.R
@@ -19,17 +18,13 @@ import bas.app.shift.databinding.DialogEditAuraProblemBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraMark
-import bas.app.shift.ui.AuraMarkCallback
 import bas.app.shift.models.AuraMarkRequest
 import bas.app.shift.models.AuraProblem
 import bas.app.shift.models.AuraProblemRequest
-import bas.app.shift.models.AuraMarkResponse
 import bas.app.shift.models.AuraMarkType
 import bas.app.shift.models.AuraProblemType
 import bas.app.shift.models.AuraHiddenRequest
-import bas.app.shift.models.User
-import bas.app.shift.models.UserServer
-import bas.app.shift.models.toUser
+import bas.app.shift.models.ShortUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Dispatchers
@@ -41,9 +36,9 @@ import retrofit2.Response
 
 class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCallback {
     private lateinit var binding: ActivityAuraEditorBinding
-    private var users: List<User> = emptyList()
-    private var filteredUsers: List<User> = emptyList() // Добавляем переменную для отфильтрованных пользователей
-    private var selectedUser: User? = null
+    private var users: List<ShortUser> = emptyList()
+    private var filteredUsers: List<ShortUser> = emptyList() // Добавляем переменную для отфильтрованных пользователей
+    private var selectedUser: ShortUser? = null
     private lateinit var auraFragment: AuraFragment
     private var isAuraVisible = true // Флаг видимости ауры для редактирования
     private var serverAuraHidden = false // Серверное состояние скрытости ауры
@@ -158,12 +153,12 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         binding.loadingLayout.visibility = View.VISIBLE
         binding.userSelectionLayout.visibility = View.GONE
         
-        RetrofitClient.userProfileApi.getAllUserProfiles()
-            .enqueue(object : Callback<List<UserServer>> {
-                override fun onResponse(call: Call<List<UserServer>>, response: Response<List<UserServer>>) {
+        RetrofitClient.userProfileApi.getAllUserShortProfiles()
+            .enqueue(object : Callback<List<ShortUser>> {
+                override fun onResponse(call: Call<List<ShortUser>>, response: Response<List<ShortUser>>) {
                     if (response.isSuccessful && response.body() != null) {
                         val userServers = response.body()!!
-                        users = userServers.map { it.toUser() }
+                        users = userServers
                         setupUserSpinner()
                     } else {
                         LogHelper.e("AuraEditorActivity: Ошибка загрузки списка пользователей: ${response.code()}")
@@ -171,7 +166,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                     }
                 }
 
-                override fun onFailure(call: Call<List<UserServer>>, t: Throwable) {
+                override fun onFailure(call: Call<List<ShortUser>>, t: Throwable) {
                     LogHelper.e("AuraEditorActivity: Ошибка сети при загрузке пользователей: ${t.localizedMessage}")
                     showError("Ошибка сети: ${t.localizedMessage}")
                 }

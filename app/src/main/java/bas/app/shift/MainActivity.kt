@@ -17,8 +17,6 @@ import bas.app.shift.databinding.ActivityMainBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.User
-import bas.app.shift.models.UserServer
-import bas.app.shift.models.toUser
 import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraHiddenRequest
 import bas.app.shift.ui.terminal.TerminalActivity
@@ -407,11 +405,11 @@ class MainActivity : AppCompatActivity() {
     private fun checkUserDisciplines() {
         val userId = UserPrefsHelper.getUserId(this)
         RetrofitClient.userProfileApi.getUserProfile(userId)
-            .enqueue(object : Callback<UserServer> {
-                override fun onResponse(call: Call<UserServer>, response: Response<UserServer>) {
+            .enqueue(object : Callback<User> {
+                override fun onResponse(call: Call<User>, response: Response<User>) {
                     if (response.isSuccessful && response.body() != null) {
                         val userServer = response.body()!!
-                        val user = userServer.toUser()
+                        val user = userServer
                         
                         // Проверяем модуль "познание артефактов"
                         val hasArtifactKnowledge = user.modules.any { it.name.equals("Познание артефактов", ignoreCase = true) }
@@ -461,7 +459,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 
-                override fun onFailure(call: Call<UserServer>, t: Throwable) {
+                override fun onFailure(call: Call<User>, t: Throwable) {
                     LogHelper.e("MainActivity: Ошибка сети при загрузке профиля: ${t.localizedMessage}")
                     
                     // Даже при ошибке показываем контент, но с ограниченными возможностями

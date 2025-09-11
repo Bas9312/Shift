@@ -11,7 +11,6 @@ import androidx.fragment.app.Fragment
 import bas.app.shift.databinding.FragmentProfileEditBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.User
-import bas.app.shift.models.UserDisplay
 import bas.app.shift.models.NamedEntity
 import bas.app.shift.models.Ability
 import bas.app.shift.models.FamiliarData
@@ -20,7 +19,7 @@ import bas.app.shift.models.UserUpdateRequest
 class ProfileEditFragment : Fragment() {
     private var _binding: FragmentProfileEditBinding? = null
     private val binding get() = _binding!!
-    private var currentUserDisplay: UserDisplay? = null
+    private var currentUserDisplay: User? = null
     private var allAbilities: List<Ability> = emptyList()
     private var allModules: List<NamedEntity> = emptyList()
     private var allDisciplines: List<NamedEntity> = emptyList()
@@ -93,7 +92,7 @@ class ProfileEditFragment : Fragment() {
         allDisciplines = disciplines
     }
 
-    fun showProfile(user: UserDisplay) {
+    fun showProfile(user: User) {
         currentUserDisplay = user
         
         // Имя персонажа (только для чтения)
@@ -130,38 +129,6 @@ class ProfileEditFragment : Fragment() {
         // Способности (редактируемые)
         updateAbilitiesDisplay()
 
-        // Артефакты (только для чтения)
-        val hasArtifactology = user.disciplines.any { it.id == 1 } // ID дисциплины Артефактология
-        val artifactsSection = binding.profileArtifactsSection
-        if (hasArtifactology) {
-            artifactsSection.visibility = View.VISIBLE
-            val artifactsLayout = binding.profileArtifactsList
-            artifactsLayout.removeAllViews()
-            if (user.artifacts.isNotEmpty()) {
-                user.artifacts.forEach { artifact ->
-                    val tv = TextView(requireContext())
-                    tv.text = artifact.name
-                    tv.textSize = 16f
-                    tv.setPadding(0, 8, 0, 8)
-                    tv.isClickable = true
-                    tv.setOnClickListener {
-                        val intent = android.content.Intent(requireContext(), ArtifactActivity::class.java)
-                        intent.putExtra("artifact_id", artifact.id)
-                        startActivity(intent)
-                    }
-                    artifactsLayout.addView(tv)
-                }
-            } else {
-                val tv = TextView(requireContext())
-                tv.text = "Нет артефактов"
-                tv.textSize = 16f
-                tv.setPadding(0, 8, 0, 8)
-                artifactsLayout.addView(tv)
-            }
-        } else {
-            artifactsSection.visibility = View.GONE
-        }
-
         // Инструмент (редактируемый)
         binding.profileInstrument.text = user.instrument ?: "Инструмент не указан"
 
@@ -189,7 +156,7 @@ class ProfileEditFragment : Fragment() {
             currentUserDisplay!!.abilities.forEachIndexed { index, ability ->
                 val container = LinearLayout(requireContext())
                 container.orientation = LinearLayout.HORIZONTAL
-                container.setPadding(0, 8, 0, 8)
+                container.setPadding(0, 8, 0, 0)
 
                 val tv = TextView(requireContext())
                 tv.text = "Тип: ${ability.type}\nОписание: ${ability.description}"

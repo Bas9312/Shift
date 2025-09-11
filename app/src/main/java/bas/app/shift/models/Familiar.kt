@@ -9,6 +9,7 @@ data class Familiar(
 
 object FamiliarData {
     val familiars = mapOf(
+        "" to "Нет фамильяра",
         "familiar_mirror" to "Осколок зеркала",
         "familiar_vaynera_spirit" to "Дух улицы Вайнера",
         "familiar_weird_compass" to "Компас \"туда где странно\"",

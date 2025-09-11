@@ -16,9 +16,7 @@ import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.Artifact
 import bas.app.shift.models.ArtifactUpdateRequest
-import bas.app.shift.models.User
-import bas.app.shift.models.UserServer
-import bas.app.shift.models.toUser
+import bas.app.shift.models.ShortUser
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -29,8 +27,8 @@ class ArtifactDetailsFragment : Fragment() {
     private var artifactId: Int = -1
     private var currentArtifact: Artifact? = null
     private var isMgUser: Boolean = false
-    private var users: List<User> = emptyList()
-    private var selectedBindingUser: User? = null
+    private var users: List<ShortUser> = emptyList()
+    private var selectedBindingUser: ShortUser? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,19 +115,19 @@ class ArtifactDetailsFragment : Fragment() {
     }
 
     private fun loadUsersForDialog() {
-        RetrofitClient.userProfileApi.getAllUserProfiles()
-            .enqueue(object : Callback<List<UserServer>> {
-                override fun onResponse(call: Call<List<UserServer>>, response: Response<List<UserServer>>) {
+        RetrofitClient.userProfileApi.getAllUserShortProfiles()
+            .enqueue(object : Callback<List<ShortUser>> {
+                override fun onResponse(call: Call<List<ShortUser>>, response: Response<List<ShortUser>>) {
                     if (response.isSuccessful && response.body() != null) {
                         val userServers = response.body()!!
-                        users = userServers.map { it.toUser() }
+                        users = userServers
                         showBindingDialog()
                     } else {
                         showError("Ошибка загрузки списка пользователей")
                     }
                 }
 
-                override fun onFailure(call: Call<List<UserServer>>, t: Throwable) {
+                override fun onFailure(call: Call<List<ShortUser>>, t: Throwable) {
                     showError("Ошибка сети при загрузке пользователей")
                 }
             })

@@ -1,17 +1,13 @@
 package bas.app.shift.ui
 
 import android.os.Bundle
-import android.view.View
 import android.widget.ArrayAdapter
-import android.widget.AutoCompleteTextView
 import androidx.appcompat.app.AppCompatActivity
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityArtifactCreatorBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.ArtifactRequest
-import bas.app.shift.models.User
-import bas.app.shift.models.UserServer
-import bas.app.shift.models.toUser
+import bas.app.shift.models.ShortUser
 import com.google.android.material.snackbar.Snackbar
 import retrofit2.Call
 import retrofit2.Callback
@@ -19,10 +15,10 @@ import retrofit2.Response
 
 class ArtifactCreatorActivity : AppCompatActivity() {
     private lateinit var binding: ActivityArtifactCreatorBinding
-    private var users: List<User> = emptyList()
-    private var filteredUsers: List<User> = emptyList() // Добавляем переменную для отфильтрованных пользователей
-    private var selectedUser: User? = null
-    private var selectedBindingUser: User? = null // Добавляем переменную для выбранного персонажа для привязки
+    private var users: List<ShortUser> = emptyList()
+    private var filteredUsers: List<ShortUser> = emptyList() // Добавляем переменную для отфильтрованных пользователей
+    private var selectedUser: ShortUser? = null
+    private var selectedBindingUser: ShortUser? = null // Добавляем переменную для выбранного персонажа для привязки
 
     // Список типов артефактов
     private val artifactTypes = listOf(
@@ -64,12 +60,12 @@ class ArtifactCreatorActivity : AppCompatActivity() {
     }
 
     private fun loadUsers() {
-        RetrofitClient.userProfileApi.getAllUserProfiles()
-            .enqueue(object : Callback<List<UserServer>> {
-                override fun onResponse(call: Call<List<UserServer>>, response: Response<List<UserServer>>) {
+        RetrofitClient.userProfileApi.getAllUserShortProfiles()
+            .enqueue(object : Callback<List<ShortUser>> {
+                override fun onResponse(call: Call<List<ShortUser>>, response: Response<List<ShortUser>>) {
                     if (response.isSuccessful && response.body() != null) {
                         val userServers = response.body()!!
-                        users = userServers.map { it.toUser() }
+                        users = userServers
                         setupCreatorSpinner()
                         setupBindingSpinner()
                     } else {
@@ -78,7 +74,7 @@ class ArtifactCreatorActivity : AppCompatActivity() {
                     }
                 }
 
-                override fun onFailure(call: Call<List<UserServer>>, t: Throwable) {
+                override fun onFailure(call: Call<List<ShortUser>>, t: Throwable) {
                     LogHelper.e("ArtifactCreatorActivity: Ошибка сети при загрузке пользователей: ${t.localizedMessage}")
                     showError("Ошибка сети при загрузке пользователей")
                 }

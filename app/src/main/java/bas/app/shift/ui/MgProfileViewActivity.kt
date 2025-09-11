@@ -6,21 +6,19 @@ import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityMgProfileViewBinding
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.models.ShortUser
 import bas.app.shift.models.User
-import bas.app.shift.models.UserServer
-import bas.app.shift.models.toUser
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
 class MgProfileViewActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMgProfileViewBinding
-    private var users: List<User> = emptyList()
-    private var filteredUsers: List<User> = emptyList() // Добавляем переменную для отфильтрованных пользователей
+    private var users: List<ShortUser> = emptyList()
+    private var filteredUsers: List<ShortUser> = emptyList() // Добавляем переменную для отфильтрованных пользователей
     private lateinit var profileFragment: ProfileFragment
     private var selectedUserId: String? = null
 
@@ -31,6 +29,13 @@ class MgProfileViewActivity : AppCompatActivity() {
 
         setupUI()
         loadUsers()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        selectedUserId?.let {
+            loadUserProfile(it)
+        }
     }
 
     private fun setupUI() {
@@ -72,19 +77,19 @@ class MgProfileViewActivity : AppCompatActivity() {
     }
 
     private fun loadUsers() {
-        RetrofitClient.userProfileApi.getAllUserProfiles()
-            .enqueue(object : Callback<List<UserServer>> {
-                override fun onResponse(call: Call<List<UserServer>>, response: Response<List<UserServer>>) {
+        RetrofitClient.userProfileApi.getAllUserShortProfiles()
+            .enqueue(object : Callback<List<ShortUser>> {
+                override fun onResponse(call: Call<List<ShortUser>>, response: Response<List<ShortUser>>) {
                     if (response.isSuccessful && response.body() != null) {
                         val userServers = response.body()!!
-                        users = userServers.map { it.toUser() }
+                        users = userServers
                         setupUserSpinner()
                     } else {
                         LogHelper.e("MgProfileViewActivity: Ошибка загрузки списка пользователей: ${response.code()}")
                     }
                 }
 
-                override fun onFailure(call: Call<List<UserServer>>, t: Throwable) {
+                override fun onFailure(call: Call<List<ShortUser>>, t: Throwable) {
                     LogHelper.e("MgProfileViewActivity: Ошибка сети при загрузке пользователей: ${t.localizedMessage}")
                 }
             })
@@ -127,18 +132,17 @@ class MgProfileViewActivity : AppCompatActivity() {
 
     private fun loadUserProfile(userId: String) {
         RetrofitClient.userProfileApi.getUserProfile(userId)
-            .enqueue(object : Callback<UserServer> {
-                override fun onResponse(call: Call<UserServer>, response: Response<UserServer>) {
+            .enqueue(object : Callback<User> {
+                override fun onResponse(call: Call<User>, response: Response<User>) {
                     if (response.isSuccessful && response.body() != null) {
                         val userServer = response.body()!!
-                        val user = userServer.toUser()
-                        profileFragment.showProfile(user)
+                        profileFragment.showProfile(userServer)
                     } else {
                         profileFragment.showError("Ошибка загрузки профиля: ${response.code()}")
                     }
                 }
 
-                override fun onFailure(call: Call<UserServer>, t: Throwable) {
+                override fun onFailure(call: Call<User>, t: Throwable) {
                     profileFragment.showError("Ошибка сети: ${t.localizedMessage}")
                 }
             })
