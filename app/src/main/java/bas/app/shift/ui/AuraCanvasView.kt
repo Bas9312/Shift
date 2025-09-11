@@ -38,6 +38,9 @@ class AuraCanvasView @JvmOverloads constructor(
     // Флаг для принудительного показа ауры (для МГ)
     // null = используем состояние с сервера, true = принудительно показать, false = принудительно скрыть
     private var forceAuraVisible: Boolean? = null
+    
+    // Флаг, что мы находимся в режиме редактора (только для МГ)
+    private var isEditorMode = false
 
     // Zoom/drag state
     private var scaleFactor = 0.7f
@@ -91,6 +94,11 @@ class AuraCanvasView @JvmOverloads constructor(
         forceAuraVisible = visible
         LogHelper.d("AuraCanvasView: setAuraVisibility: $visible, forceAuraVisible: $forceAuraVisible")
         invalidate()
+    }
+    
+    fun setEditorMode(isEditor: Boolean) {
+        isEditorMode = isEditor
+        LogHelper.d("AuraCanvasView: setEditorMode: $isEditor")
     }
 
     private suspend fun loadBitmap(url: String): Bitmap? {
@@ -307,11 +315,15 @@ class AuraCanvasView @JvmOverloads constructor(
     private fun drawMark(canvas: Canvas, centerX: Float, centerY: Float, mark: AuraMark, size: Float) {
         val x = centerX - size / 2f
         val y = centerY - size / 2f
+        
         val bmp = markBitmaps[mark.imageUrl]
         if (bmp != null) {
             canvas.drawBitmap(bmp, null, RectF(x, y, x + size, y + size), null)
         } else {
-            val paint = Paint().apply { color = Color.LTGRAY; style = Paint.Style.FILL }
+            val paint = Paint().apply { 
+                color = Color.LTGRAY
+                style = Paint.Style.FILL
+            }
             canvas.drawRect(x, y, x + size, y + size, paint)
         }
         
@@ -541,6 +553,7 @@ class AuraCanvasView @JvmOverloads constructor(
             override fun onFinish() {
                 LogHelper.d("Long tap timer finished, mark: ${longTapMark != null}, problem: ${longTapProblemSlot != null}")
                 longTapMark?.let { mark ->
+                    // Все метки работают одинаково в любом режиме
                     LogHelper.d("Calling onMarkLongTap for mark: ${mark.markId}")
                     markCallback?.onMarkLongTap(mark)
                 }

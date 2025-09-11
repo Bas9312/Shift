@@ -111,6 +111,10 @@ class AuraFragment : Fragment() {
     fun setAuraVisibility(visible: Boolean?) {
         binding.auraCanvas.setAuraVisibility(visible)
     }
+    
+    fun setEditorMode(isEditor: Boolean) {
+        binding.auraCanvas.setEditorMode(isEditor)
+    }
 
     override fun onDestroyView() {
         super.onDestroyView()

@@ -140,6 +140,8 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         binding.auraContainer.post {
             auraFragment.setMarkCallback(this)
             auraFragment.setAuraEditorCallback(this)
+            // Устанавливаем режим редактора для AuraCanvasView
+            auraFragment.setEditorMode(true)
         }
         
         // Обработчик кнопки управления видимостью ауры (отправляет запрос на сервер)
@@ -252,24 +254,27 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
     private fun showAddMarkDialog() {
         val dialogBinding = DialogAddAuraMarkBinding.inflate(LayoutInflater.from(this))
         
-        // Настраиваем селектор типов меток
-        val markTypes = AuraMarkType.values()
+        // Настраиваем селектор типов меток (скрываем MAGIC_DISCIPLINE, INSTRUMENT_LINK, FAMILIAR_LINK, ABILITY)
+        val hiddenTypes = setOf(
+            AuraMarkType.MAGIC_DISCIPLINE,
+            AuraMarkType.INSTRUMENT_LINK,
+            AuraMarkType.FAMILIAR_LINK,
+            AuraMarkType.ABILITY
+        )
+        val markTypes = AuraMarkType.values().filter { it !in hiddenTypes }
         val markTypeNames = markTypes.map { 
             when (it) {
-                AuraMarkType.MAGIC_DISCIPLINE -> getString(R.string.magic_discipline)
                 AuraMarkType.BLESSING -> getString(R.string.blessing)
                 AuraMarkType.CURSE -> getString(R.string.curse)
                 AuraMarkType.JUDGE_STATUS -> getString(R.string.judge_status)
                 AuraMarkType.CONTRACT_BREACH -> getString(R.string.contract_breach)
-                AuraMarkType.INSTRUMENT_LINK -> getString(R.string.instrument_link)
                 AuraMarkType.SPIRITUAL_BEING_INSIDE -> getString(R.string.spiritual_being_inside)
                 AuraMarkType.MARK_OF_CREATION -> getString(R.string.mark_of_creation)
-                AuraMarkType.ABILITY -> getString(R.string.ability)
                 AuraMarkType.MAGIC_CONTRACT -> getString(R.string.magic_contract)
-                AuraMarkType.FAMILIAR_LINK -> getString(R.string.familiar_link)
                 AuraMarkType.MAGIC_LINK -> getString(R.string.magic_link)
                 AuraMarkType.ARTIFACT_LINK -> getString(R.string.artifact_link)
                 AuraMarkType.FOREIGN_PLANE_INFLUENCE -> getString(R.string.foreign_plane_influence)
+                else -> it.name // Fallback для любых других типов
             }
         }
         
@@ -368,7 +373,6 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
             // Устанавливаем галочку "внешний" для определенных типов
             val externalTypes = listOf(
                 AuraMarkType.MAGIC_CONTRACT,
-                AuraMarkType.FAMILIAR_LINK,
                 AuraMarkType.MAGIC_LINK,
                 AuraMarkType.ARTIFACT_LINK,
                 AuraMarkType.FOREIGN_PLANE_INFLUENCE
@@ -381,20 +385,6 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
             }
             
             when (selectedType) {
-                AuraMarkType.MAGIC_DISCIPLINE -> {
-                    dialogBinding.disciplineLayout.visibility = View.VISIBLE
-                    dialogBinding.starsLayout.visibility = View.VISIBLE
-                    dialogBinding.imageUrlLayout.visibility = View.GONE
-                    dialogBinding.imageUrlWarning.visibility = View.GONE
-                    dialogBinding.nameLayout.visibility = View.GONE
-                }
-                AuraMarkType.ABILITY -> {
-                    dialogBinding.abilityTypeLayout.visibility = View.VISIBLE
-                    dialogBinding.starsLayout.visibility = View.GONE
-                    dialogBinding.imageUrlLayout.visibility = View.GONE
-                    dialogBinding.imageUrlWarning.visibility = View.GONE
-                    dialogBinding.nameLayout.visibility = View.GONE
-                }
                 AuraMarkType.CURSE -> {
                     dialogBinding.curseTypeLayout.visibility = View.VISIBLE
                     dialogBinding.starsLayout.visibility = View.GONE
@@ -426,10 +416,8 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                 AuraMarkType.BLESSING,
                 AuraMarkType.JUDGE_STATUS,
                 AuraMarkType.CONTRACT_BREACH,
-                AuraMarkType.INSTRUMENT_LINK,
                 AuraMarkType.SPIRITUAL_BEING_INSIDE,
                 AuraMarkType.MAGIC_CONTRACT,
-                AuraMarkType.FAMILIAR_LINK,
                 AuraMarkType.ARTIFACT_LINK -> {
                     // Для типов с фиксированными иконками скрываем поля ввода
                     dialogBinding.starsLayout.visibility = View.GONE
@@ -470,31 +458,18 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
             val numberOfStars: Int
             
             when (markType) {
-                AuraMarkType.MAGIC_DISCIPLINE -> {
-                    val disciplinePosition = disciplineNames.indexOf(dialogBinding.disciplineSpinner.text.toString())
-                    if (disciplinePosition == -1) {
-                        Toast.makeText(this, "Выберите дисциплину", Toast.LENGTH_SHORT).show()
-                        return@setOnClickListener
-                    }
-                    val discipline = disciplines[disciplinePosition]
-                    name = discipline.first
-                    imageUrl = "http://shift96.ru/static/images/${discipline.second}.png"
-                    numberOfStars = dialogBinding.starsInput.text.toString().toIntOrNull() ?: 0
-                }
-                AuraMarkType.ABILITY -> {
-                    val abilityTypePosition = abilityTypeNames.indexOf(dialogBinding.abilityTypeSpinner.text.toString())
-                    if (abilityTypePosition == -1) {
-                        Toast.makeText(this, "Выберите тип абилки", Toast.LENGTH_SHORT).show()
-                        return@setOnClickListener
-                    }
-                    val abilityType = abilityTypes[abilityTypePosition]
-                    name = "Способность ${abilityType.first}"
-                    imageUrl = "http://shift96.ru/static/images/${abilityType.second}.png"
-                    numberOfStars = 0
-                }
                 AuraMarkType.BLESSING -> {
                     name = "Благословение"
                     imageUrl = "http://shift96.ru/static/images/blessing.png"
+                    numberOfStars = 0
+                }
+                AuraMarkType.MAGIC_DISCIPLINE,
+                AuraMarkType.INSTRUMENT_LINK,
+                AuraMarkType.FAMILIAR_LINK,
+                AuraMarkType.ABILITY -> {
+                    // Эти типы скрыты, но на всякий случай добавляем обработку
+                    name = "Скрытый тип"
+                    imageUrl = ""
                     numberOfStars = 0
                 }
                 AuraMarkType.CURSE -> {
@@ -518,11 +493,6 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                     imageUrl = "http://shift96.ru/static/images/breached_contract.png"
                     numberOfStars = 0
                 }
-                AuraMarkType.INSTRUMENT_LINK -> {
-                    name = "Связь с инструментом"
-                    imageUrl = "http://shift96.ru/static/images/instrument_bond.png"
-                    numberOfStars = 0
-                }
                 AuraMarkType.SPIRITUAL_BEING_INSIDE -> {
                     name = "Духовное существо внутри"
                     imageUrl = "http://shift96.ru/static/images/spiritual_inside.png"
@@ -542,11 +512,6 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                 AuraMarkType.MAGIC_CONTRACT -> {
                     name = "Магический контракт"
                     imageUrl = "http://shift96.ru/static/images/magic_contract.png"
-                    numberOfStars = 0
-                }
-                AuraMarkType.FAMILIAR_LINK -> {
-                    name = "Связь с фамильяром"
-                    imageUrl = "http://shift96.ru/static/images/familir_bond.png"
                     numberOfStars = 0
                 }
                 AuraMarkType.MAGIC_LINK -> {
@@ -598,6 +563,15 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
     private fun showEditMarkDialog(mark: AuraMark) {
         val dialogBinding = DialogEditAuraMarkBinding.inflate(LayoutInflater.from(this))
         
+        // Проверяем, является ли тип метки скрытым
+        val hiddenTypes = setOf(
+            AuraMarkType.MAGIC_DISCIPLINE,
+            AuraMarkType.INSTRUMENT_LINK,
+            AuraMarkType.FAMILIAR_LINK,
+            AuraMarkType.ABILITY
+        )
+        val isHiddenType = mark.markType in hiddenTypes
+        
         // Заполняем поля текущими данными метки
         val markTypes = AuraMarkType.values()
         val markTypeNames = markTypes.map { 
@@ -633,6 +607,24 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         dialogBinding.externalCheckBox.isChecked = mark.external == 1
         dialogBinding.starsInput.setText(mark.numberOfStars?.toString() ?: "0")
         
+        // Для скрытых типов делаем поля нередактируемыми и скрываем кнопки
+        if (isHiddenType) {
+            dialogBinding.markTypeSpinner.isEnabled = false
+            dialogBinding.imageUrlInput.isEnabled = false
+            dialogBinding.nameInput.isEnabled = false
+            dialogBinding.descriptionInput.isEnabled = false
+            dialogBinding.externalCheckBox.isEnabled = false
+            dialogBinding.starsInput.isEnabled = false
+            
+            // Скрываем кнопки сохранения и удаления
+            dialogBinding.saveButton.visibility = View.GONE
+            dialogBinding.deleteButton.visibility = View.GONE
+        } else {
+            // Для обычных типов показываем кнопки
+            dialogBinding.saveButton.visibility = View.VISIBLE
+            dialogBinding.deleteButton.visibility = View.VISIBLE
+        }
+        
         // Показываем поле звёздочек только для магических дисциплин
         if (mark.markType == AuraMarkType.MAGIC_DISCIPLINE) {
             dialogBinding.starsLayout.visibility = View.VISIBLE
@@ -646,43 +638,45 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
             .setCancelable(true)
             .create()
         
-        // Обработчик кнопки сохранения
-        dialogBinding.saveButton.setOnClickListener {
-            val selectedPosition = markTypeNames.indexOf(dialogBinding.markTypeSpinner.text.toString())
-            if (selectedPosition == -1) {
-                Toast.makeText(this, getString(R.string.select_mark_type), Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+        // Обработчик кнопки сохранения (только для не скрытых типов)
+        if (!isHiddenType) {
+            dialogBinding.saveButton.setOnClickListener {
+                val selectedPosition = markTypeNames.indexOf(dialogBinding.markTypeSpinner.text.toString())
+                if (selectedPosition == -1) {
+                    Toast.makeText(this, getString(R.string.select_mark_type), Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                
+                val markType = markTypes[selectedPosition]
+                val imageUrl = dialogBinding.imageUrlInput.text.toString()
+                val name = dialogBinding.nameInput.text.toString()
+                val description = dialogBinding.descriptionInput.text.toString()
+                val external = dialogBinding.externalCheckBox.isChecked
+                val numberOfStars = dialogBinding.starsInput.text.toString().toIntOrNull() ?: 0
+                
+                if (name.isBlank()) {
+                    Toast.makeText(this, getString(R.string.enter_mark_name), Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                
+                // Создаем запрос для обновления
+                val markRequest = AuraMarkRequest(
+                    markType = markType,
+                    imageUrl = imageUrl.ifBlank { "" },
+                    name = name,
+                    description = description.ifBlank { null },
+                    external = external,
+                    numberOfStars = numberOfStars
+                )
+                
+                // Обновляем метку
+                updateAuraMark(mark.markId, markRequest, dialog)
             }
             
-            val markType = markTypes[selectedPosition]
-            val imageUrl = dialogBinding.imageUrlInput.text.toString()
-            val name = dialogBinding.nameInput.text.toString()
-            val description = dialogBinding.descriptionInput.text.toString()
-            val external = dialogBinding.externalCheckBox.isChecked
-            val numberOfStars = dialogBinding.starsInput.text.toString().toIntOrNull() ?: 0
-            
-            if (name.isBlank()) {
-                Toast.makeText(this, getString(R.string.enter_mark_name), Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            // Обработчик кнопки удаления
+            dialogBinding.deleteButton.setOnClickListener {
+                deleteAuraMark(mark.markId, dialog)
             }
-            
-            // Создаем запрос для обновления
-            val markRequest = AuraMarkRequest(
-                markType = markType,
-                imageUrl = imageUrl.ifBlank { "" },
-                name = name,
-                description = description.ifBlank { null },
-                external = external,
-                numberOfStars = numberOfStars
-            )
-            
-            // Обновляем метку
-            updateAuraMark(mark.markId, markRequest, dialog)
-        }
-        
-        // Обработчик кнопки удаления
-        dialogBinding.deleteButton.setOnClickListener {
-            deleteAuraMark(mark.markId, dialog)
         }
         
         dialog.show()
@@ -1019,4 +1013,5 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
             binding.btnToggleAuraVisibility.text = getString(R.string.hide_aura)
         }
     }
+    
 }
