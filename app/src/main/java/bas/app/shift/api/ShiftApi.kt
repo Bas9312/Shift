@@ -9,7 +9,7 @@ interface ShiftApi {
     suspend fun updateUserLocation(@Body userLocation: UserLocation): Response<Unit>
 
     @GET("/api_geo/api/v1/points")
-    suspend fun getPoints(): Response<PointsResponse>
+    suspend fun getPoints(@Query("user_id") userId: String): Response<PointsResponse>
 
     @POST("/api_geo/api/v1/points")
     suspend fun createPoint(@Body pointRequest: PointRequest): Response<Point>

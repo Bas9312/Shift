@@ -100,6 +100,11 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             moveToCurrentLocation()
         }
         
+        // Настраиваем кнопку управления видимостью для MG пользователей
+        if (isMgUser) {
+            setupVisibilityToggleButton()
+        }
+        
         LogHelper.d("EkatMaps: onCreate: инициализация завершена для ${if (isMgUser) "MG" else "обычного"} пользователя")
     }
 
@@ -292,8 +297,10 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         LogHelper.d("Показ базовой информации о точке: ${point.pointId}")
         
         val title = getPointTitle(PointType.fromServerValue(point.type))
-        val message = getString(R.string.point_basic_radius, point.radius) + "\n" +
-                getString(R.string.point_basic_description, point.description ?: getString(R.string.point_no_description))
+        val message = if (point.type == "USER") "Здесь кто-то есть"
+        else getString(R.string.point_basic_radius, point.radius) + "\n" +
+                getString(R.string.point_basic_description, point.description ?: getString(R.string.point_no_description)) + "\n" +
+                if (point.textToShowOnEnter.isNullOrEmpty()) "" else "При входе: ${point.textToShowOnEnter}"
         
         AlertDialog.Builder(this)
             .setTitle(title)
@@ -736,20 +743,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             pointsOfInterest.forEach { (id, pointData) ->
                 val (point, circle, currentMarker) = pointData
                 
-                // Пропускаем точки типа USER (у них нет кругов)
-                if (point.type == "USER") {
-                    LogHelper.d("Обычный пользователь: пропускаем точку USER: $id (нет круга)")
-                    return@forEach
-                }
-                
-                // Пропускаем точки без кругов
-                if (circle == null) {
-                    LogHelper.d("Обычный пользователь: пропускаем точку без круга: $id")
-                    return@forEach
-                }
-                
                 val virtualCenter = LatLng(point.vLat, point.vLng)
-                val distance = calculateDistance(latLng, virtualCenter)
+                val distance = if (point.type == "USER") 0f else calculateDistance(latLng, virtualCenter)
                 
                 if (distance <= point.radius) {
                     // Если пользователь в круге и маркера еще нет - создаем его
@@ -816,7 +811,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             results
         )
         val distance = results[0]
-        LogHelper.d("Расстояние между точками: ${point1.latitude},${point1.longitude} и ${point2.latitude},${point2.longitude} = ${distance}м")
+        //LogHelper.d("Расстояние между точками: ${point1.latitude},${point1.longitude} и ${point2.latitude},${point2.longitude} = ${distance}м")
         return distance
     }
 
@@ -914,6 +909,57 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         val userName = UserPrefsHelper.getUserId(this)
         isMgUser = userName.startsWith("MG", ignoreCase = true)
         LogHelper.d("Проверка MG пользователя: $userName, результат: $isMgUser")
+    }
+
+    private fun setupVisibilityToggleButton() {
+        LogHelper.d("Настройка кнопки управления видимостью для MG пользователя")
+        
+        // Показываем кнопку
+        binding.btnToggleVisibility.visibility = View.VISIBLE
+        
+        // Обновляем текст кнопки в зависимости от текущего состояния
+        updateVisibilityButtonText()
+        
+        // Настраиваем обработчик нажатия
+        binding.btnToggleVisibility.setOnClickListener {
+            toggleVisibility()
+        }
+    }
+
+    private fun updateVisibilityButtonText() {
+        val isVisible = UserPrefsHelper.getShowOnMap(this)
+        val buttonText = if (isVisible) {
+            getString(R.string.hide_on_map_button)
+        } else {
+            getString(R.string.show_on_map_button)
+        }
+        binding.btnToggleVisibility.text = buttonText
+        LogHelper.d("Обновлен текст кнопки видимости: $buttonText (show = $isVisible)")
+    }
+
+    private fun toggleVisibility() {
+        val currentVisibility = UserPrefsHelper.getShowOnMap(this)
+        val newVisibility = !currentVisibility
+        
+        // Сохраняем новое состояние
+        UserPrefsHelper.setShowOnMap(this, newVisibility)
+        
+        // Обновляем текст кнопки
+        updateVisibilityButtonText()
+        
+        // Отправляем обновленную геолокацию с новым состоянием show
+        if (currentLocation != null) {
+            ServerService.sendLocation(currentLocation!!)
+        }
+        
+        val message = if (newVisibility) {
+            "Теперь вы видимы на карте для других игроков"
+        } else {
+            "Теперь вы скрыты на карте от других игроков"
+        }
+        
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        LogHelper.d("Переключена видимость на карте: $currentVisibility -> $newVisibility")
     }
 
     /**

@@ -11,6 +11,7 @@ object UserPrefsHelper {
     private const val KEY_USER_ID = "current_user_id"
     private const val KEY_USER_DATA = "current_user_data"
     private const val KEY_USER_NAME = "current_user_name"
+    private const val KEY_SHOW_ON_MAP = "show_on_map"
 
     fun getUserId(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -65,6 +66,17 @@ object UserPrefsHelper {
             remove(KEY_USER_ID)
             remove(KEY_USER_DATA)
             remove(KEY_USER_NAME)
+            remove(KEY_SHOW_ON_MAP)
         }
+    }
+
+    fun getShowOnMap(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_SHOW_ON_MAP, true) // По умолчанию false для MG пользователей
+    }
+
+    fun setShowOnMap(context: Context, show: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit { putBoolean(KEY_SHOW_ON_MAP, show) }
     }
 } 

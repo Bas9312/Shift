@@ -107,7 +107,7 @@
     <!-- Базовый диалог информации о точке -->
     <string name="point_basic_info_title">Информация о точке</string>
     <string name="point_basic_type">Тип: %1$s</string>
-    <string name="point_basic_radius">Радиус: %1$dм</string>
+    <string name="point_basic_radius">Радиус: %.0fм</string>
     <string name="point_basic_description">Описание: %1$s</string>
     
     <!-- Диалог фамильяра -->
@@ -116,4 +116,8 @@
     <string name="familiar_cancel_button">Отмена</string>
     <string name="familiar_too_far_message">Вы слишком далеко от фамильяра (%1$dм). Подойдите ближе (до %2$dм)</string>
     <string name="location_unavailable">Локация недоступна</string>
+    
+    <!-- Управление видимостью на карте для MG пользователей -->
+    <string name="show_on_map_button">Показать меня на карте</string>
+    <string name="hide_on_map_button">Скрыть меня на карте</string>
 </resources>

@@ -27,14 +27,16 @@ object ServerService {
             try {
                 val userId = UserPrefsHelper.getUserId(ShiftApplication.instance)
                 val userName = UserPrefsHelper.getUserName(ShiftApplication.instance)
+                val showOnMap = UserPrefsHelper.getShowOnMap(ShiftApplication.instance)
                 
                 val userLocation = UserLocation(
                     id = userId,
                     name = userName,
                     lat = location.latitude,
                     lng = location.longitude,
-                    show = true
+                    show = showOnMap
                 )
+                LogHelper.d("Отправка геолокации с show = $showOnMap")
                 api.updateUserLocation(userLocation)
             } catch (e: Exception) {
                 LogHelper.e("Ошибка при отправке геолокации: ${e.message}")
@@ -58,7 +60,8 @@ object ServerService {
         LogHelper.d("Получение точек с сервера")
         return runBlocking {
             try {
-                val response = api.getPoints()
+                val userId = UserPrefsHelper.getUserId(ShiftApplication.instance)
+                val response = api.getPoints(userId)
                 if (response.isSuccessful) {
                     response.body()?.points ?: emptyList()
                 } else {
