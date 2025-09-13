@@ -201,6 +201,10 @@ class EffectEditorActivity : AppCompatActivity() {
             showMarkTypeSelector(dialogBinding)
         }
 
+        // Инициализируем поле типа метки значением по умолчанию
+        dialogBinding.markTypeInput.setText("Без метки")
+        dialogBinding.markFieldsLayout.visibility = View.GONE
+
         dialogBinding.cancelButton.setOnClickListener {
             dialog.dismiss()
         }
