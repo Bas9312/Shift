@@ -257,15 +257,14 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         val dialogBinding = DialogAddAuraMarkBinding.inflate(LayoutInflater.from(this))
         
         
-        // Настраиваем селектор типов меток (скрываем MAGIC_DISCIPLINE, INSTRUMENT_LINK, FAMILIAR_LINK, ABILITY, BLESSING, CURSE, DEATH_CURSE)
+        // Настраиваем селектор типов меток (скрываем MAGIC_DISCIPLINE, INSTRUMENT_LINK, FAMILIAR_LINK, ABILITY, BLESSING, CURSE)
         val hiddenTypes = setOf(
             AuraMarkType.MAGIC_DISCIPLINE,
             AuraMarkType.INSTRUMENT_LINK,
             AuraMarkType.FAMILIAR_LINK,
             AuraMarkType.ABILITY,
             AuraMarkType.BLESSING,
-            AuraMarkType.CURSE,
-            AuraMarkType.DEATH_CURSE
+            AuraMarkType.CURSE
         )
         val markTypes = AuraMarkType.values().filter { it !in hiddenTypes }
         val markTypeNames = markTypes.map { 
@@ -468,11 +467,6 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                     imageUrl = "http://shift96.ru/static/images/blessing.png"
                     numberOfStars = 0
                 }
-                AuraMarkType.DEATH_CURSE -> {
-                    name = "Смертельное проклятие"
-                    imageUrl = "http://shift96.ru/static/images/death_curse.png"
-                    numberOfStars = 0
-                }
                 AuraMarkType.MAGIC_DISCIPLINE,
                 AuraMarkType.INSTRUMENT_LINK,
                 AuraMarkType.FAMILIAR_LINK,
@@ -580,8 +574,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
             AuraMarkType.FAMILIAR_LINK,
             AuraMarkType.ABILITY,
             AuraMarkType.BLESSING,
-            AuraMarkType.CURSE,
-            AuraMarkType.DEATH_CURSE
+            AuraMarkType.CURSE
         )
         val isHiddenType = mark.markType in hiddenTypes
         
@@ -592,7 +585,6 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                 AuraMarkType.MAGIC_DISCIPLINE -> getString(R.string.magic_discipline)
                 AuraMarkType.BLESSING -> getString(R.string.blessing)
                 AuraMarkType.CURSE -> getString(R.string.curse)
-                AuraMarkType.DEATH_CURSE -> getString(R.string.death_curse)
                 AuraMarkType.JUDGE_STATUS -> getString(R.string.judge_status)
                 AuraMarkType.CONTRACT_BREACH -> getString(R.string.contract_breach)
                 AuraMarkType.INSTRUMENT_LINK -> getString(R.string.instrument_link)

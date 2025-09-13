@@ -19,6 +19,7 @@ import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.User
 import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraHiddenRequest
+import bas.app.shift.models.Effect
 import bas.app.shift.ui.terminal.TerminalActivity
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -70,6 +71,8 @@ class MainActivity : AppCompatActivity() {
             LogHelper.d("MainActivity: Профиль уже загружен, показываем UI")
             showContent()
             updateUI()
+            // Показываем эффекты для обычных игроков
+            showEffectsForRegularPlayers()
         } else {
             // Профиль не загружен, показываем лоадер
             LogHelper.d("MainActivity: Профиль не загружен, показываем лоадер")
@@ -115,6 +118,9 @@ class MainActivity : AppCompatActivity() {
             } else {
                 LogHelper.d("MainActivity: UpdateService не инициализирован")
             }
+            
+            // Показываем эффекты для обычных игроков
+            showEffectsForRegularPlayers()
         }
     }
 
@@ -657,6 +663,37 @@ class MainActivity : AppCompatActivity() {
         updateService.checkForUpdates { updateInfo ->
             LogHelper.i("MainActivity: Получен callback о доступном обновлении")
             updateService.showUpdateDialog(updateInfo)
+        }
+    }
+
+    private fun showEffectsForRegularPlayers() {
+        // Показываем эффекты только для обычных игроков (не MG)
+        if (!isMgUser) {
+            val user = UserPrefsHelper.getUserData(this)
+            if (user != null && user.effects.isNotEmpty()) {
+                binding.effectsSection.visibility = View.VISIBLE
+                displayEffects(user.effects)
+            } else {
+                binding.effectsSection.visibility = View.GONE
+            }
+        } else {
+            binding.effectsSection.visibility = View.GONE
+        }
+    }
+
+    private fun displayEffects(effects: List<Effect>) {
+        binding.effectsList.removeAllViews()
+        
+        effects.forEach { effect ->
+            val effectView = android.view.LayoutInflater.from(this).inflate(android.R.layout.simple_list_item_1, null)
+            val textView = effectView.findViewById<android.widget.TextView>(android.R.id.text1)
+            textView.text = effect.textToShowPlayers
+            textView.textSize = 16f
+            textView.setPadding(32, 16, 32, 16)
+            textView.setSingleLine(false) // Разрешаем многострочный текст
+            textView.maxLines = 3 // Ограничиваем до 3 строк
+            textView.ellipsize = android.text.TextUtils.TruncateAt.END // Добавляем многоточие если текст обрезается
+            binding.effectsList.addView(effectView)
         }
     }
 

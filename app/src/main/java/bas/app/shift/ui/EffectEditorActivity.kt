@@ -220,7 +220,7 @@ class EffectEditorActivity : AppCompatActivity() {
         val markTypes = listOf(
             "Благословение" to AuraMarkType.BLESSING,
             "Проклятие" to AuraMarkType.CURSE,
-            "Смертельное проклятие" to AuraMarkType.DEATH_CURSE,
+            "Смертельное проклятие" to AuraMarkType.CURSE,
             "Без метки" to null
         )
 
@@ -235,16 +235,16 @@ class EffectEditorActivity : AppCompatActivity() {
                 if (selectedType.second != null) {
                     dialogBinding.markFieldsLayout.visibility = View.VISIBLE
                     // Устанавливаем значения по умолчанию для метки
-                    when (selectedType.second) {
-                        AuraMarkType.BLESSING -> {
+                    when (selectedType.first) {
+                        "Благословение" -> {
                             dialogBinding.markNameInput.setText("Благословение")
                             dialogBinding.markDescriptionInput.setText("")
                         }
-                        AuraMarkType.CURSE -> {
+                        "Проклятие" -> {
                             dialogBinding.markNameInput.setText("Проклятие")
                             dialogBinding.markDescriptionInput.setText("")
                         }
-                        AuraMarkType.DEATH_CURSE -> {
+                        "Смертельное проклятие" -> {
                             dialogBinding.markNameInput.setText("Смертельное проклятие")
                             dialogBinding.markDescriptionInput.setText("")
                         }
@@ -273,14 +273,21 @@ class EffectEditorActivity : AppCompatActivity() {
             val markType = when (markTypeText) {
                 "Благословение" -> AuraMarkType.BLESSING
                 "Проклятие" -> AuraMarkType.CURSE
-                "Смертельное проклятие" -> AuraMarkType.DEATH_CURSE
+                "Смертельное проклятие" -> AuraMarkType.CURSE
                 else -> null
             }
 
             if (markType != null) {
+                // Для смертельного проклятия используем специальную картинку
+                val imageUrl = if (markTypeText == "Смертельное проклятие") {
+                    "http://shift96.ru/static/images/death_curse.png"
+                } else {
+                    "http://shift96.ru/static/images/${markType.name.lowercase()}.png"
+                }
+                
                 AuraMarkRequest(
                     markType = markType,
-                    imageUrl = "http://shift96.ru/static/images/${markType.name.lowercase()}.png",
+                    imageUrl = imageUrl,
                     name = dialogBinding.markNameInput.text.toString(),
                     description = dialogBinding.markDescriptionInput.text.toString(),
                     external = dialogBinding.markExternalCheckBox.isChecked,

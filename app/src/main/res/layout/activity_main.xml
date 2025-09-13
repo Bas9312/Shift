@@ -167,6 +167,41 @@
         android:layout_marginBottom="8dp"
         android:visibility="gone"/>
 
+    <!-- Эффекты (только для обычных игроков) -->
+    <LinearLayout
+        android:id="@+id/effectsSection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_effects_section"
+        android:padding="16dp"
+        android:layout_marginTop="16dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/profile_effects"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp"/>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxHeight="200dp"
+            android:scrollbars="vertical">
+
+            <LinearLayout
+                android:id="@+id/effectsList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"/>
+
+        </ScrollView>
+
+    </LinearLayout>
+
     </LinearLayout>
 
 </LinearLayout> 

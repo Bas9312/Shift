@@ -43,7 +43,7 @@ import retrofit2.Response
 class LocationService : Service() {
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private val locationUpdateInterval = 30000L // 30 секунд
-    private val pointsCheckInterval = 10000L // 10 секунд для проверки точек
+    private val pointsCheckInterval = 30000L // 10 секунд для проверки точек
     private val profileUpdateInterval = 60000L // 1 минута для обновления профиля
     private var lastLocationUpdate = 0L
     private var lastPointsCheck = 0L
