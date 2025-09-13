@@ -16,5 +16,8 @@ data class AuraMark(
     val external: Int,
 
     @SerializedName("number_of_stars")
-    val numberOfStars: Int? = null
+    val numberOfStars: Int? = null,
+    
+    @SerializedName("expireAt")
+    val expireAt: String? = null
 ) 

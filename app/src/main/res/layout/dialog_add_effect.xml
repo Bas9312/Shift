@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Добавить эффект"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="24dp"
+        android:gravity="center" />
+
+    <!-- Игротехника (обязательное поле) -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/textToShowPlayersLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:hint="@string/gametech"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/textToShowPlayersInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textMultiLine"
+            android:minLines="2"
+            android:maxLines="4"
+            android:text=""
+            android:hint="@string/gametech_hint" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Время жизни эффекта (опциональное) -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/timeToLiveLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:hint="@string/time_to_live"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/timeToLiveInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="none"
+            android:focusable="false"
+            android:clickable="true"
+            android:text=""
+            android:hint="@string/time_to_live_hint" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Тип метки (только для BLESSING и CURSE) -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/markTypeLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:hint="Тип метки"
+        android:visibility="gone"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/markTypeInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="none"
+            android:focusable="false"
+            android:clickable="true"
+            android:text=""
+            android:hint="Выберите тип метки" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Поля метки (показываются только для BLESSING и CURSE) -->
+    <LinearLayout
+        android:id="@+id/markFieldsLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- Название метки -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/markNameLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Название метки"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/markNameInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:text=""
+                android:hint="Введите название метки" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Описание метки -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/markDescriptionLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Описание метки"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/markDescriptionInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine"
+                android:minLines="2"
+                android:maxLines="4"
+                android:text=""
+                android:hint="Введите описание метки" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Внешняя метка -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <CheckBox
+                android:id="@+id/markExternalCheckBox"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Внешняя метка" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Кнопки -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp">
+
+        <Button
+            android:id="@+id/cancelButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="Отмена" />
+
+        <Button
+            android:id="@+id/saveButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="Сохранить" />
+
+    </LinearLayout>
+
+</LinearLayout>

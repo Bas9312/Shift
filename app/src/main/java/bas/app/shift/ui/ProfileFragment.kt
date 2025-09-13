@@ -19,6 +19,10 @@ class ProfileFragment : Fragment() {
     private var _binding: FragmentProfileBinding? = null
     private val binding get() = _binding!!
     private var currentUserId: String? = null
+    
+    companion object {
+        private const val REQUEST_CODE_EDIT_EFFECTS = 1001
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -53,6 +57,38 @@ class ProfileFragment : Fragment() {
         
         // Имя персонажа
         binding.profileCharacterName.text = user.characterName ?: "Имя персонажа не указано"
+        
+        // Эффекты
+        val effectsLayout = binding.profileEffectsList
+        effectsLayout.removeAllViews()
+        if (user.effects.isNotEmpty()) {
+            user.effects.forEach { effect ->
+                val tv = TextView(requireContext())
+                tv.text = effect.textToShowPlayers
+                tv.textSize = 16f
+                tv.setPadding(0, 8, 0, 8)
+                effectsLayout.addView(tv)
+            }
+        } else {
+            val tv = TextView(requireContext())
+            tv.text = getString(R.string.no_effects)
+            tv.textSize = 16f
+            tv.setPadding(0, 8, 0, 8)
+            effectsLayout.addView(tv)
+        }
+        
+        // Показываем кнопку редактирования эффектов только для MG
+        if (user.type == AuraType.MAGE) {
+            binding.btnEditEffects.visibility = View.VISIBLE
+            binding.btnEditEffects.setOnClickListener {
+                val intent = Intent(requireContext(), EffectEditorActivity::class.java)
+                intent.putExtra("userId", user.userId)
+                startActivityForResult(intent, REQUEST_CODE_EDIT_EFFECTS)
+            }
+        } else {
+            binding.btnEditEffects.visibility = View.GONE
+        }
+        
         // Имя игрока
         binding.profilePlayerName.text = user.playerName ?: "Имя игрока не указано"
         // Тип
@@ -167,6 +203,17 @@ class ProfileFragment : Fragment() {
             AuraType.DEMON -> getString(R.string.aura_type_demon)
             AuraType.ANGEL -> getString(R.string.aura_type_angel)
             AuraType.OTHER -> getString(R.string.aura_type_other)
+        }
+    }
+    
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        
+        if (requestCode == REQUEST_CODE_EDIT_EFFECTS && resultCode == android.app.Activity.RESULT_OK) {
+            // Обновляем профиль после редактирования эффектов
+            // Здесь можно добавить логику для перезагрузки данных пользователя
+            // Пока что просто показываем сообщение
+            Toast.makeText(requireContext(), "Эффекты обновлены", Toast.LENGTH_SHORT).show()
         }
     }
 }

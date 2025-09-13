@@ -46,6 +46,7 @@ data class User(
     @SerializedName("showUser") val showUser: Boolean = true,
     @SerializedName("lastUpdate") val lastUpdate: String? = null,
     val type: AuraType,
+    val effects: List<Effect> = emptyList()
 )
 
 // Модель для получения профиля с сервера (с ID массивами)

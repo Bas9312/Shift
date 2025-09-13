@@ -41,6 +41,46 @@
             android:layout_height="12dp"
             android:background="@android:color/transparent" />
 
+        <!-- Эффекты -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_profile_section"
+            android:orientation="vertical"
+            android:padding="16dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <TextView
+                    android:text="@string/profile_effects"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"/>
+                <Button
+                    android:id="@+id/btnEditEffects"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Редактировать"
+                    android:textSize="12sp"
+                    android:visibility="gone"/>
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/profile_effects_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="4dp"/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="12dp"
+            android:background="@android:color/transparent" />
+
         <!-- Имя игрока -->
         <LinearLayout
             android:layout_width="match_parent"

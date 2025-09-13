@@ -52,17 +52,6 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Важное примечание о картинке -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/image_url_warning"
-            android:textSize="14sp"
-            android:textColor="#FF6B35"
-            android:background="#FFF3E0"
-            android:padding="12dp"
-            android:layout_marginBottom="16dp"
-            android:gravity="center" />
 
         <!-- Название метки -->
         <com.google.android.material.textfield.TextInputLayout
@@ -116,6 +105,34 @@
                 android:text="0" />
 
         </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Время истечения (только для чтения) -->
+        <LinearLayout
+            android:id="@+id/expireAtLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Время истечения"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/expireAtText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textSize="16sp"
+                android:background="@drawable/bg_profile_section"
+                android:padding="12dp" />
+
+        </LinearLayout>
 
         <!-- Внешняя метка -->
         <LinearLayout

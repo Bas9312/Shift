@@ -16,6 +16,8 @@ import bas.app.shift.databinding.DialogAddAuraMarkBinding
 import bas.app.shift.databinding.DialogEditAuraMarkBinding
 import bas.app.shift.databinding.DialogEditAuraProblemBinding
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.TimePickerHelper
+import bas.app.shift.helpers.DateTimeHelper
 import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraMark
 import bas.app.shift.models.AuraMarkRequest
@@ -254,6 +256,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
     private fun showAddMarkDialog() {
         val dialogBinding = DialogAddAuraMarkBinding.inflate(LayoutInflater.from(this))
         
+        
         // Настраиваем селектор типов меток (скрываем MAGIC_DISCIPLINE, INSTRUMENT_LINK, FAMILIAR_LINK, ABILITY)
         val hiddenTypes = setOf(
             AuraMarkType.MAGIC_DISCIPLINE,
@@ -389,31 +392,32 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                     dialogBinding.curseTypeLayout.visibility = View.VISIBLE
                     dialogBinding.starsLayout.visibility = View.GONE
                     dialogBinding.imageUrlLayout.visibility = View.GONE
-                    dialogBinding.imageUrlWarning.visibility = View.GONE
                     dialogBinding.nameLayout.visibility = View.GONE
                 }
                 AuraMarkType.MARK_OF_CREATION -> {
                     dialogBinding.creationTypeLayout.visibility = View.VISIBLE
                     dialogBinding.starsLayout.visibility = View.GONE
                     dialogBinding.imageUrlLayout.visibility = View.GONE
-                    dialogBinding.imageUrlWarning.visibility = View.GONE
                     dialogBinding.nameLayout.visibility = View.GONE
                 }
                 AuraMarkType.MAGIC_LINK -> {
                     dialogBinding.magicLinkTypeLayout.visibility = View.VISIBLE
                     dialogBinding.starsLayout.visibility = View.GONE
                     dialogBinding.imageUrlLayout.visibility = View.GONE
-                    dialogBinding.imageUrlWarning.visibility = View.GONE
                     dialogBinding.nameLayout.visibility = View.GONE
                 }
                 AuraMarkType.FOREIGN_PLANE_INFLUENCE -> {
                     dialogBinding.planeTypeLayout.visibility = View.VISIBLE
                     dialogBinding.starsLayout.visibility = View.GONE
                     dialogBinding.imageUrlLayout.visibility = View.GONE
-                    dialogBinding.imageUrlWarning.visibility = View.GONE
                     dialogBinding.nameLayout.visibility = View.GONE
                 }
-                AuraMarkType.BLESSING,
+                AuraMarkType.BLESSING -> {
+                    // Для благословения показываем обычные поля
+                    dialogBinding.starsLayout.visibility = View.GONE
+                    dialogBinding.imageUrlLayout.visibility = View.GONE
+                    dialogBinding.nameLayout.visibility = View.GONE
+                }
                 AuraMarkType.JUDGE_STATUS,
                 AuraMarkType.CONTRACT_BREACH,
                 AuraMarkType.SPIRITUAL_BEING_INSIDE,
@@ -422,14 +426,12 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                     // Для типов с фиксированными иконками скрываем поля ввода
                     dialogBinding.starsLayout.visibility = View.GONE
                     dialogBinding.imageUrlLayout.visibility = View.GONE
-                    dialogBinding.imageUrlWarning.visibility = View.GONE
                     dialogBinding.nameLayout.visibility = View.GONE
                 }
                 else -> {
                     // Для остальных типов показываем поля картинки и названия
                     dialogBinding.starsLayout.visibility = View.GONE
                     dialogBinding.imageUrlLayout.visibility = View.VISIBLE
-                    dialogBinding.imageUrlWarning.visibility = View.VISIBLE
                     dialogBinding.nameLayout.visibility = View.VISIBLE
                 }
             }
@@ -606,6 +608,22 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         dialogBinding.descriptionInput.setText(mark.description ?: "")
         dialogBinding.externalCheckBox.isChecked = mark.external == 1
         dialogBinding.starsInput.setText(mark.numberOfStars?.toString() ?: "0")
+        
+        // Отображаем время истечения если есть
+        LogHelper.d("AuraEditorActivity: Mark expireAt: ${mark.expireAt}")
+        if (mark.expireAt != null && mark.expireAt.isNotBlank()) {
+            val formattedExpireAt = DateTimeHelper.formatExpireAt(mark.expireAt)
+            LogHelper.d("AuraEditorActivity: Formatted expireAt: $formattedExpireAt")
+            if (formattedExpireAt != null) {
+                dialogBinding.expireAtLayout.visibility = View.VISIBLE
+                dialogBinding.expireAtText.text = formattedExpireAt
+                LogHelper.d("AuraEditorActivity: ExpireAt layout made visible and text set")
+            } else {
+                LogHelper.d("AuraEditorActivity: Formatted expireAt is null")
+            }
+        } else {
+            LogHelper.d("AuraEditorActivity: No expireAt or blank")
+        }
         
         // Для скрытых типов делаем поля нередактируемыми и скрываем кнопки
         if (isHiddenType) {

@@ -161,18 +161,6 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Важное примечание о картинке -->
-        <TextView
-            android:id="@+id/imageUrlWarning"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/image_url_warning"
-            android:textSize="14sp"
-            android:textColor="#FF6B35"
-            android:background="#FFF3E0"
-            android:padding="12dp"
-            android:layout_marginBottom="16dp"
-            android:gravity="center" />
 
         <!-- Название метки -->
         <com.google.android.material.textfield.TextInputLayout
@@ -227,6 +215,7 @@
                 android:text="0" />
 
         </com.google.android.material.textfield.TextInputLayout>
+
 
         <!-- Внешняя метка -->
         <LinearLayout

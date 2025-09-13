@@ -11,7 +11,6 @@
     <string name="add_aura_mark_title">Добавить метку ауры</string>
     <string name="mark_type">Тип метки</string>
     <string name="image_url">Ссылка на картинку</string>
-    <string name="image_url_warning">⚠️ ВАЖНО: Поле \'Ссылка на картинку\' требует полноценной реализации! Сейчас это просто текстовое поле.</string>
     <string name="mark_name">Название метки (видно экстрасенсам)</string>
     <string name="mark_description">Описание метки (видно только МГ)</string>
     <string name="external_mark">Внешняя метка</string>
@@ -133,4 +132,20 @@
     <string name="aura_type_other">Другое</string>
     <string name="profile_type">Тип</string>
     <string name="familiar_not_mage_message">Извини, я не смогу стать фамильяром никого кроме Мага</string>
+    
+    <!-- Поле времени жизни метки -->
+    <string name="time_to_live">Пропадёт через</string>
+    <string name="time_to_live_hint">Выберите время (для всех кроме вечного)</string>
+    <string name="time_picker_title">Выберите время</string>
+    <string name="time_picker_cancel">Отмена</string>
+    <string name="time_picker_ok">ОК</string>
+    
+    <!-- Поле игротехники -->
+    <string name="gametech">Игротехника, для профиля, увидит игрок</string>
+    <string name="gametech_hint">Введите игротехническое описание</string>
+    <string name="gametech_required">Поле игротехники обязательно для Благословений и Проклятий</string>
+    
+    <!-- Эффекты -->
+    <string name="profile_effects">Эффекты</string>
+    <string name="no_effects">Нет активных эффектов</string>
 </resources>

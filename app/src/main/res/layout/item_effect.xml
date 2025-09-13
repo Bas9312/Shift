@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_profile_section"
+    android:padding="16dp"
+    android:layout_marginBottom="8dp">
+
+    <TextView
+        android:id="@+id/effectText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Текст эффекта"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/effectExpireAt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Истекает: 14.09.2025 22:00"
+        android:textSize="14sp"
+        android:textColor="@android:color/darker_gray"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/deleteButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Удалить"
+        android:textColor="@android:color/holo_red_dark"
+        android:background="@android:color/transparent" />
+
+</LinearLayout>
