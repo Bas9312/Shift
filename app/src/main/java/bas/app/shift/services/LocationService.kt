@@ -595,8 +595,8 @@ class LocationService : Service() {
         
         // Сравниваем эффекты
         if (oldProfile.effects != newProfile.effects) {
-            val oldEffects = oldProfile.effects.map { it.textToShowPlayers }.sorted()
-            val newEffects = newProfile.effects.map { it.textToShowPlayers }.sorted()
+            val oldEffects = oldProfile.effects?.map { it.textToShowPlayers }?.sorted() ?: emptyList()
+            val newEffects = newProfile.effects?.map { it.textToShowPlayers }?.sorted() ?: emptyList()
             
             if (oldEffects != newEffects) {
                 val added = newEffects - oldEffects

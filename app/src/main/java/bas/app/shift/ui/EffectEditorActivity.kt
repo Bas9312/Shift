@@ -73,10 +73,8 @@ class EffectEditorActivity : AppCompatActivity() {
                 override fun onResponse(call: Call<User>, response: Response<User>) {
                     if (response.isSuccessful && response.body() != null) {
                         val userServer = response.body()!!
-                        if (userServer != null) {
-                            effects = userServer.effects
-                            displayEffects()
-                        }
+                        effects = userServer.effects ?: emptyList()
+                        displayEffects()
                     } else {
                         LogHelper.e("EffectEditorActivity: Error loading effects, empty")
                         Toast.makeText(this@EffectEditorActivity, "Ошибка загрузки эффектов", Toast.LENGTH_SHORT).show()

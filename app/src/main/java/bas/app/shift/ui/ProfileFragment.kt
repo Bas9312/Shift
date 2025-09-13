@@ -62,8 +62,8 @@ class ProfileFragment : Fragment() {
         // Эффекты
         val effectsLayout = binding.profileEffectsList
         effectsLayout.removeAllViews()
-        if (user.effects.isNotEmpty()) {
-            user.effects.forEach { effect ->
+        if (user.effects?.isNotEmpty() == true) {
+            user.effects?.forEach { effect ->
                 val tv = TextView(requireContext())
                 tv.text = effect.textToShowPlayers
                 tv.textSize = 16f

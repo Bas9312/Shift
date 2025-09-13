@@ -32,7 +32,13 @@ class MgProfileViewActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        loadUsers()
+        // Загружаем пользователей только если список пустой
+        if (users.isEmpty()) {
+            loadUsers()
+        } else {
+            // Если пользователи уже загружены, просто обновляем спиннер
+            setupUserSpinner()
+        }
         selectedUserId?.let {
             loadUserProfile(it)
         }
@@ -128,6 +134,14 @@ class MgProfileViewActivity : AppCompatActivity() {
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, spinnerItems)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.userSpinner.adapter = adapter
+        
+        // Восстанавливаем выбранного пользователя если он был
+        selectedUserId?.let { userId ->
+            val userIndex = filteredUsers.indexOfFirst { it.userId == userId }
+            if (userIndex != -1) {
+                binding.userSpinner.setSelection(userIndex + 1) // +1 потому что первый элемент - заголовок
+            }
+        }
     }
 
     private fun loadUserProfile(userId: String) {

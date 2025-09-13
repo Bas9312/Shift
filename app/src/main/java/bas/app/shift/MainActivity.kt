@@ -670,7 +670,7 @@ class MainActivity : AppCompatActivity() {
         // Показываем эффекты только для обычных игроков (не MG)
         if (!isMgUser) {
             val user = UserPrefsHelper.getUserData(this)
-            if (user != null && user.effects.isNotEmpty()) {
+            if (user?.effects != null &&  user.effects.isNotEmpty()) {
                 binding.effectsSection.visibility = View.VISIBLE
                 displayEffects(user.effects)
             } else {
