@@ -31,6 +31,7 @@
     <string name="magic_discipline">Магическая дисциплина</string>
     <string name="blessing">Благословение</string>
     <string name="curse">Проклятие</string>
+    <string name="death_curse">Смертельное проклятие</string>
     <string name="judge_status">Статус судьи</string>
     <string name="contract_breach">Нарушение контракта</string>
     <string name="instrument_link">Связь с инструментом</string>
@@ -146,6 +147,6 @@
     <string name="gametech_required">Поле игротехники обязательно для Благословений и Проклятий</string>
     
     <!-- Эффекты -->
-    <string name="profile_effects">Эффекты</string>
+    <string name="profile_effects">Эффекты (Игротехника!)</string>
     <string name="no_effects">Нет активных эффектов</string>
 </resources>

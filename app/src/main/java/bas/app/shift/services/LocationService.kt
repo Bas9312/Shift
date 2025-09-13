@@ -593,6 +593,35 @@ class LocationService : Service() {
             ))
         }
         
+        // Сравниваем эффекты
+        if (oldProfile.effects != newProfile.effects) {
+            val oldEffects = oldProfile.effects.map { it.textToShowPlayers }.sorted()
+            val newEffects = newProfile.effects.map { it.textToShowPlayers }.sorted()
+            
+            if (oldEffects != newEffects) {
+                val added = newEffects - oldEffects
+                val removed = oldEffects - newEffects
+                
+                added.forEach { effectText ->
+                    changes.add(ProfileChange(
+                        fieldName = "Эффект",
+                        oldValue = null,
+                        newValue = effectText,
+                        changeType = ChangeType.ADDED
+                    ))
+                }
+                
+                removed.forEach { effectText ->
+                    changes.add(ProfileChange(
+                        fieldName = "Эффект",
+                        oldValue = effectText,
+                        newValue = null,
+                        changeType = ChangeType.REMOVED
+                    ))
+                }
+            }
+        }
+        
         return changes
     }
     
@@ -608,13 +637,32 @@ class LocationService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             
+            // Специальная обработка для эффектов
+            val (title, priority, vibration) = if (change.fieldName == "Эффект") {
+                when (change.changeType) {
+                    ChangeType.ADDED -> Triple("✨ Новый эффект!", NotificationCompat.PRIORITY_HIGH, longArrayOf(0, 500, 200, 500))
+                    ChangeType.REMOVED -> Triple("❌ Эффект исчез", NotificationCompat.PRIORITY_HIGH, longArrayOf(0, 500, 200, 500))
+                    else -> Triple("Профиль обновлен", NotificationCompat.PRIORITY_DEFAULT, null)
+                }
+            } else {
+                Triple("Профиль обновлен", NotificationCompat.PRIORITY_DEFAULT, null)
+            }
+            
             val notification = NotificationCompat.Builder(this, POINTS_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification_icon)
-                .setContentTitle("Профиль обновлен")
+                .setContentTitle(title)
                 .setContentText(formatChangeMessage(change))
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setPriority(priority)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
+                .apply {
+                    if (vibration != null) {
+                        setVibrate(vibration)
+                    }
+                    if (change.fieldName == "Эффект") {
+                        setDefaults(NotificationCompat.DEFAULT_ALL)
+                    }
+                }
                 .build()
             
             try {
@@ -629,8 +677,20 @@ class LocationService : Service() {
     
     private fun formatChangeMessage(change: ProfileChange): String {
         return when (change.changeType) {
-            ChangeType.ADDED -> "${change.fieldName} добавлен: ${change.newValue}"
-            ChangeType.REMOVED -> "${change.fieldName} удален: ${change.oldValue}"
+            ChangeType.ADDED -> {
+                if (change.fieldName == "Эффект") {
+                    "Получен новый эффект: ${change.newValue}"
+                } else {
+                    "${change.fieldName} добавлен: ${change.newValue}"
+                }
+            }
+            ChangeType.REMOVED -> {
+                if (change.fieldName == "Эффект") {
+                    "Эффект исчез: ${change.oldValue}"
+                } else {
+                    "${change.fieldName} удален: ${change.oldValue}"
+                }
+            }
             ChangeType.CHANGED -> {
                 val newValue = change.newValue ?: "не указан"
                 if (newValue.length <= 30) {

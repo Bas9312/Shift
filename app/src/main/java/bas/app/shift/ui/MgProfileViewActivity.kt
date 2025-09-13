@@ -28,11 +28,11 @@ class MgProfileViewActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupUI()
-        loadUsers()
     }
 
     override fun onResume() {
         super.onResume()
+        loadUsers()
         selectedUserId?.let {
             loadUserProfile(it)
         }

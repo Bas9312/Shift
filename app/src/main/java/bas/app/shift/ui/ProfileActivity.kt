@@ -30,6 +30,10 @@ class ProfileActivity : AppCompatActivity() {
         supportFragmentManager.beginTransaction()
             .replace(binding.profileContainer.id, profileFragment)
             .commit()
+    }
+
+    override fun onStart() {
+        super.onStart()
 
         val userId = UserPrefsHelper.getUserId(this)
         fetchProfile(userId)

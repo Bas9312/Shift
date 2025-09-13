@@ -11,6 +11,7 @@ import androidx.fragment.app.Fragment
 import bas.app.shift.R
 import bas.app.shift.databinding.FragmentProfileBinding
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.FamiliarData
 import bas.app.shift.models.User
 import bas.app.shift.models.AuraType
@@ -77,8 +78,11 @@ class ProfileFragment : Fragment() {
             effectsLayout.addView(tv)
         }
         
-        // Показываем кнопку редактирования эффектов только для MG
-        if (user.type == AuraType.MAGE) {
+        // Показываем кнопку редактирования эффектов только для MG пользователей
+        val currentUserId = UserPrefsHelper.getUserId(requireContext())
+        val isMgUser = currentUserId?.startsWith("MG", ignoreCase = true) == true
+        
+        if (isMgUser) {
             binding.btnEditEffects.visibility = View.VISIBLE
             binding.btnEditEffects.setOnClickListener {
                 val intent = Intent(requireContext(), EffectEditorActivity::class.java)

@@ -45,7 +45,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_profile_section"
+            android:background="@drawable/bg_effects_section"
             android:orientation="vertical"
             android:padding="16dp">
             <LinearLayout

@@ -220,6 +220,7 @@ class EffectEditorActivity : AppCompatActivity() {
         val markTypes = listOf(
             "Благословение" to AuraMarkType.BLESSING,
             "Проклятие" to AuraMarkType.CURSE,
+            "Смертельное проклятие" to AuraMarkType.DEATH_CURSE,
             "Без метки" to null
         )
 
@@ -241,6 +242,10 @@ class EffectEditorActivity : AppCompatActivity() {
                         }
                         AuraMarkType.CURSE -> {
                             dialogBinding.markNameInput.setText("Проклятие")
+                            dialogBinding.markDescriptionInput.setText("")
+                        }
+                        AuraMarkType.DEATH_CURSE -> {
+                            dialogBinding.markNameInput.setText("Смертельное проклятие")
                             dialogBinding.markDescriptionInput.setText("")
                         }
                         else -> {}
@@ -268,6 +273,7 @@ class EffectEditorActivity : AppCompatActivity() {
             val markType = when (markTypeText) {
                 "Благословение" -> AuraMarkType.BLESSING
                 "Проклятие" -> AuraMarkType.CURSE
+                "Смертельное проклятие" -> AuraMarkType.DEATH_CURSE
                 else -> null
             }
 

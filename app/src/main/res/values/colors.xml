@@ -22,5 +22,9 @@
     <color name="rspGray">#C4C7D1</color>
     <color name="errRed">#FF5555</color>
     <color name="sysBlue">#7AA2F7</color>
+    
+    <!-- Цвета для эффектов -->
+    <color name="effects_background">#FFF3E0</color> <!-- Светло-оранжевый -->
+    <color name="effects_border">#FF9800</color> <!-- Оранжевый для границы -->
 
 </resources>
