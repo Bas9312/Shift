@@ -58,20 +58,20 @@ object TimePickerHelper {
         for (pattern in patterns) {
             val matchResult = pattern.find(timeString)
             if (matchResult != null) {
-                val hours = matchResult.groupValues[1].toIntOrNull() ?: 0
-                val minutes = if (matchResult.groupValues.size > 2) {
+                val first = matchResult.groupValues[1].toIntOrNull() ?: 0
+                val second = if (matchResult.groupValues.size > 2) {
                     matchResult.groupValues[2].toIntOrNull() ?: 0
                 } else {
                     0
                 }
                 
                 val totalMinutes = if (timeString.contains("ч")) {
-                    hours * 60 + minutes
+                    first * 60 + second
                 } else {
-                    minutes
+                    first
                 }
                 
-                LogHelper.d("TimePickerHelper: Parsed $timeString -> hours: $hours, minutes: $minutes, total: $totalMinutes")
+                LogHelper.d("TimePickerHelper: Parsed $timeString -> first: $first, second: $second, total: $totalMinutes")
                 return totalMinutes
             }
         }

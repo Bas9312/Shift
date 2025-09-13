@@ -22,6 +22,9 @@ import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -42,8 +45,17 @@ class EffectEditorActivity : AppCompatActivity() {
         }
 
 
+
+        setupToolbar()
         setupUI()
         loadEffects()
+    }
+
+    private fun setupToolbar() {
+        binding.toolbar.title = "Редактор эффектов"
+        binding.toolbar.setNavigationOnClickListener {
+            finish()
+        }
     }
 
     private fun setupUI() {
@@ -56,18 +68,25 @@ class EffectEditorActivity : AppCompatActivity() {
     }
 
     private fun loadEffects() {
-        lifecycleScope.launch {
-            try {
-                val user = UserPrefsHelper.getUserData(this@EffectEditorActivity)
-                if (user != null) {
-                    effects = user.effects
-                    displayEffects()
+        RetrofitClient.userProfileApi.getUserProfile(userId)
+            .enqueue(object : Callback<User> {
+                override fun onResponse(call: Call<User>, response: Response<User>) {
+                    if (response.isSuccessful && response.body() != null) {
+                        val userServer = response.body()!!
+                        if (userServer != null) {
+                            effects = userServer.effects
+                            displayEffects()
+                        }
+                    } else {
+                        LogHelper.e("EffectEditorActivity: Error loading effects, empty")
+                        Toast.makeText(this@EffectEditorActivity, "Ошибка загрузки эффектов", Toast.LENGTH_SHORT).show()
+                    }
                 }
-            } catch (e: Exception) {
-                LogHelper.e("EffectEditorActivity: Error loading effects: $e")
-                Toast.makeText(this@EffectEditorActivity, "Ошибка загрузки эффектов", Toast.LENGTH_SHORT).show()
-            }
-        }
+                override fun onFailure(call: Call<User>, t: Throwable) {
+                    LogHelper.e("EffectEditorActivity: Error loading effects: $t")
+                    Toast.makeText(this@EffectEditorActivity, "Ошибка загрузки эффектов", Toast.LENGTH_SHORT).show()
+                }
+            })
     }
 
     private fun displayEffects() {
@@ -126,19 +145,32 @@ class EffectEditorActivity : AppCompatActivity() {
     private fun deleteEffect(effectId: Int) {
         lifecycleScope.launch {
             try {
-                withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val response = withContext(kotlinx.coroutines.Dispatchers.IO) {
                     RetrofitClient.effectApi.deleteEffect(userId, effectId)
                 }
                 
                 withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    Toast.makeText(this@EffectEditorActivity, "Эффект удален", Toast.LENGTH_SHORT).show()
-                    loadEffects() // Перезагружаем список
-                    setResult(android.app.Activity.RESULT_OK)
+                    if (response.isSuccessful) {
+                        Toast.makeText(this@EffectEditorActivity, "Эффект удален", Toast.LENGTH_SHORT).show()
+                        loadEffects() // Перезагружаем список
+                        setResult(android.app.Activity.RESULT_OK)
+                    } else {
+                        val errorMsg = "HTTP ${response.code()}"
+                        val errorBody = response.errorBody()?.string()
+                        val fullErrorMsg = if (errorBody != null) {
+                            "$errorMsg: $errorBody"
+                        } else {
+                            errorMsg
+                        }
+                        Toast.makeText(this@EffectEditorActivity, "Ошибка удаления эффекта: $fullErrorMsg", Toast.LENGTH_LONG).show()
+                        LogHelper.e("EffectEditorActivity: Error deleting effect: $fullErrorMsg")
+                    }
                 }
             } catch (e: Exception) {
                 LogHelper.e("EffectEditorActivity: Error deleting effect: $e")
                 withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    Toast.makeText(this@EffectEditorActivity, "Ошибка удаления эффекта", Toast.LENGTH_SHORT).show()
+                    val errorMsg = e.localizedMessage ?: "Неизвестная ошибка"
+                    Toast.makeText(this@EffectEditorActivity, "Ошибка удаления эффекта: $errorMsg", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -255,20 +287,33 @@ class EffectEditorActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
-                withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val response = withContext(kotlinx.coroutines.Dispatchers.IO) {
                     RetrofitClient.effectApi.createEffect(userId, effectRequest)
                 }
                 
                 withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    Toast.makeText(this@EffectEditorActivity, "Эффект создан", Toast.LENGTH_SHORT).show()
-                    dialog.dismiss()
-                    loadEffects() // Перезагружаем список
-                    setResult(android.app.Activity.RESULT_OK)
+                    if (response.isSuccessful && response.body() != null) {
+                        Toast.makeText(this@EffectEditorActivity, "Эффект создан", Toast.LENGTH_SHORT).show()
+                        dialog.dismiss()
+                        loadEffects() // Перезагружаем список
+                        setResult(android.app.Activity.RESULT_OK)
+                    } else {
+                        val errorMsg = "HTTP ${response.code()}"
+                        val errorBody = response.errorBody()?.string()
+                        val fullErrorMsg = if (errorBody != null) {
+                            "$errorMsg: $errorBody"
+                        } else {
+                            errorMsg
+                        }
+                        Toast.makeText(this@EffectEditorActivity, "Ошибка создания эффекта: $fullErrorMsg", Toast.LENGTH_LONG).show()
+                        LogHelper.e("EffectEditorActivity: Error creating effect: $fullErrorMsg")
+                    }
                 }
             } catch (e: Exception) {
                 LogHelper.e("EffectEditorActivity: Error creating effect: $e")
                 withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    Toast.makeText(this@EffectEditorActivity, "Ошибка создания эффекта", Toast.LENGTH_SHORT).show()
+                    val errorMsg = e.localizedMessage ?: "Неизвестная ошибка"
+                    Toast.makeText(this@EffectEditorActivity, "Ошибка создания эффекта: $errorMsg", Toast.LENGTH_LONG).show()
                 }
             }
         }
