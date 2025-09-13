@@ -68,6 +68,33 @@
             android:layout_height="12dp"
             android:background="@android:color/transparent" />
 
+        <!-- Тип -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_profile_section"
+            android:orientation="vertical"
+            android:padding="16dp">
+            <TextView
+                android:text="@string/profile_type"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+            <TextView
+                android:id="@+id/profile_type"
+                android:text="-"
+                android:textSize="18sp"
+                android:layout_marginTop="4dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="12dp"
+            android:background="@android:color/transparent" />
+
         <!-- Дисциплины -->
         <LinearLayout
             android:layout_width="match_parent"

@@ -197,7 +197,7 @@ class LocationService : Service() {
         if (currentTime - lastPointsCheck < pointsCheckInterval) return
         lastPointsCheck = currentTime
         
-        LogHelper.d("LocationService: Проверяем точки в радиусе, текущая локация: ${location.latitude}, ${location.longitude}")
+        //LogHelper.d("LocationService: Проверяем точки в радиусе, текущая локация: ${location.latitude}, ${location.longitude}")
         
         try {
             val points = ServerService.getPoints()

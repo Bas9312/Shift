@@ -70,10 +70,10 @@
     <string name="familiar_button">Фамильяр</string>
     <string name="familiar_your_familiar">Ваш фамильяр</string>
     <string name="familiar_found_title">Фамильяр готов к общению</string>
-    <string name="familiar_ready_to_talk">Фамильяр готов к общению</string>
+    <string name="familiar_ready_to_talk">Фамильяр готов к общению\nВнимание, фамильяр в чате не может оказывать никаких игротехнических эффектов, он только для общения, все эффекты - через МГ!</string>
     <string name="familiar_talk_button">Поговорить</string>
     <string name="familiar_listening">Фамильяр внимательно слушает вас...</string>
-    <string name="familiar_ritual_info">Если вы успешно договорились с фамильяром на обряд - сообщите МГ, и можете отправляться его проводить в удобное вам место</string>
+    <string name="familiar_ritual_info">Если вы успешно договорились с фамильяром на обряд в чате - сообщите МГ, и можете отправляться проводить обряд в удобное вам место.</string>
     <string name="familiar_chat_title">💬 Чат с фамильяром</string>
     <string name="send">Отправить</string>
     <string name="loading_profile">Загрузка профиля...</string>
@@ -120,4 +120,17 @@
     <!-- Управление видимостью на карте для MG пользователей -->
     <string name="show_on_map_button">Показать меня на карте</string>
     <string name="hide_on_map_button">Скрыть меня на карте</string>
+    
+    <!-- Типы ауры -->
+    <string name="aura_type_human">Человек</string>
+    <string name="aura_type_mage">Маг</string>
+    <string name="aura_type_creature_of_spirit_world">Существо мира духов</string>
+    <string name="aura_type_creature_of_abyss">Существо бездны</string>
+    <string name="aura_type_creature_of_myth">Существо Сказаний</string>
+    <string name="aura_type_creature_of_reality">Существо реальности</string>
+    <string name="aura_type_demon">Демон</string>
+    <string name="aura_type_angel">Ангел</string>
+    <string name="aura_type_other">Другое</string>
+    <string name="profile_type">Тип</string>
+    <string name="familiar_not_mage_message">Извини, я не смогу стать фамильяром никого кроме Мага</string>
 </resources>

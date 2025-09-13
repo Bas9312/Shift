@@ -8,10 +8,12 @@ import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import bas.app.shift.R
 import bas.app.shift.databinding.FragmentProfileBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.FamiliarData
 import bas.app.shift.models.User
+import bas.app.shift.models.AuraType
 
 class ProfileFragment : Fragment() {
     private var _binding: FragmentProfileBinding? = null
@@ -53,6 +55,8 @@ class ProfileFragment : Fragment() {
         binding.profileCharacterName.text = user.characterName ?: "Имя персонажа не указано"
         // Имя игрока
         binding.profilePlayerName.text = user.playerName ?: "Имя игрока не указано"
+        // Тип
+        binding.profileType.text = getAuraTypeDisplayName(user.type)
         // Дисциплины (теперь List<NamedEntity>)
         val disciplinesLayout = binding.profileDisciplinesList
         disciplinesLayout.removeAllViews()
@@ -150,5 +154,19 @@ class ProfileFragment : Fragment() {
     fun showError(msg: String) {
         Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show()
         LogHelper.e("ProfileFragment $msg")
+    }
+    
+    private fun getAuraTypeDisplayName(type: AuraType): String {
+        return when (type) {
+            AuraType.HUMAN -> getString(R.string.aura_type_human)
+            AuraType.MAGE -> getString(R.string.aura_type_mage)
+            AuraType.CREATURE_OF_SPIRIT_WORLD -> getString(R.string.aura_type_creature_of_spirit_world)
+            AuraType.CREATURE_OF_ABYSS -> getString(R.string.aura_type_creature_of_abyss)
+            AuraType.CREATURE_OF_MYTH -> getString(R.string.aura_type_creature_of_myth)
+            AuraType.CREATURE_OF_REALITY -> getString(R.string.aura_type_creature_of_reality)
+            AuraType.DEMON -> getString(R.string.aura_type_demon)
+            AuraType.ANGEL -> getString(R.string.aura_type_angel)
+            AuraType.OTHER -> getString(R.string.aura_type_other)
+        }
     }
 }

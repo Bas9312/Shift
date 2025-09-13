@@ -158,9 +158,7 @@ class AuraCanvasView @JvmOverloads constructor(
             }
             style = Paint.Style.FILL
         }
-        LogHelper.d(
-            "Drawing aura: forceAuraVisible=$forceAuraVisible, auraHidden=${aura.auraHidden}, alpha=${paintAura.alpha}"
-        )
+        //LogHelper.d("Drawing aura: forceAuraVisible=$forceAuraVisible, auraHidden=${aura.auraHidden}, alpha=${paintAura.alpha}")
         canvas.drawCircle(centerX, centerY, auraRadius, paintAura)
 
         // 10 слотов для проблем по кругу вокруг человека (показываем только если аура не скрыта)
@@ -412,7 +410,7 @@ class AuraCanvasView @JvmOverloads constructor(
             isZooming = false
             zoomEndTime = System.currentTimeMillis()
             initialDistance = 0f
-            LogHelper.d("Zoom ended, setting zoomEndTime: $zoomEndTime")
+            //LogHelper.d("Zoom ended, setting zoomEndTime: $zoomEndTime")
         }
         
         // Обновляем количество пальцев
@@ -424,13 +422,13 @@ class AuraCanvasView @JvmOverloads constructor(
                 val timeSinceZoom = System.currentTimeMillis() - zoomEndTime
                 val isInZoomDelay = zoomEndTime != Long.MIN_VALUE && timeSinceZoom < ZOOM_DELAY_MS
                 
-                LogHelper.d("Touch check: isZooming=$isZooming, zoomEndTime=$zoomEndTime, timeSinceZoom=${timeSinceZoom}ms, isInZoomDelay=$isInZoomDelay")
+                //LogHelper.d("Touch check: isZooming=$isZooming, zoomEndTime=$zoomEndTime, timeSinceZoom=${timeSinceZoom}ms, isInZoomDelay=$isInZoomDelay")
                 
                 // Блокируем перетаскивание, если только что закончили масштабирование или в период задержки
                 if (!isZooming && !isInZoomDelay) {
                     handleDrag(event)
                 } else if (isInZoomDelay) {
-                    LogHelper.d("Blocking drag due to zoom delay: ${timeSinceZoom}ms")
+                    //LogHelper.d("Blocking drag due to zoom delay: ${timeSinceZoom}ms")
                 }
             }
             2 -> {
@@ -451,7 +449,7 @@ class AuraCanvasView @JvmOverloads constructor(
                 initialTouchY = event.y
                 
                 // Проверяем, есть ли метка под пальцем
-                LogHelper.d("Touch at screen: (${event.x}, ${event.y}), scale: $scaleFactor, offset: ($offsetX, $offsetY)")
+                //LogHelper.d("Touch at screen: (${event.x}, ${event.y}), scale: $scaleFactor, offset: ($offsetX, $offsetY)")
                 
                 longTapMark = markTouchAreas.find { it.rect.contains(event.x, event.y) }?.mark
                 
@@ -465,7 +463,7 @@ class AuraCanvasView @JvmOverloads constructor(
                 // Запускаем таймер для long tap
                 if (longTapMark != null || longTapProblemSlot != null) {
                     startLongTapTimer()
-                    LogHelper.d("Long tap timer started for mark: ${longTapMark != null}, problem: ${longTapProblemSlot != null}")
+                    //LogHelper.d("Long tap timer started for mark: ${longTapMark != null}, problem: ${longTapProblemSlot != null}")
                 }
             }
             MotionEvent.ACTION_MOVE -> {
@@ -473,7 +471,7 @@ class AuraCanvasView @JvmOverloads constructor(
                 val timeSinceZoom = System.currentTimeMillis() - zoomEndTime
                 val isInZoomDelay = zoomEndTime != Long.MIN_VALUE && timeSinceZoom < ZOOM_DELAY_MS
                 
-                LogHelper.d("Drag move check: isDragging=$isDragging, isZooming=$isZooming, timeSinceZoom=${timeSinceZoom}ms, isInZoomDelay=$isInZoomDelay")
+                //LogHelper.d("Drag move check: isDragging=$isDragging, isZooming=$isZooming, timeSinceZoom=${timeSinceZoom}ms, isInZoomDelay=$isInZoomDelay")
                 
                 if (isDragging && !isZooming && !isInZoomDelay) {
                     // Проверяем, превышен ли порог движения
@@ -484,7 +482,7 @@ class AuraCanvasView @JvmOverloads constructor(
                     
                     if (movementDistance > MOVEMENT_THRESHOLD) {
                         // Если движение значительное, отменяем long tap
-                        LogHelper.d("Significant finger movement ($movementDistance), canceling long tap timer")
+                        //LogHelper.d("Significant finger movement ($movementDistance), canceling long tap timer")
                         cancelLongTapTimer()
                     }
                     
@@ -494,7 +492,7 @@ class AuraCanvasView @JvmOverloads constructor(
                     lastTouchY = event.y
                     invalidate()
                 } else if (isInZoomDelay) {
-                    LogHelper.d("Blocking drag movement due to zoom delay: ${timeSinceZoom}ms")
+                    //LogHelper.d("Blocking drag movement due to zoom delay: ${timeSinceZoom}ms")
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -547,11 +545,11 @@ class AuraCanvasView @JvmOverloads constructor(
 
     private fun startLongTapTimer() {
         cancelLongTapTimer()
-        LogHelper.d("Starting long tap timer")
+        //LogHelper.d("Starting long tap timer")
         longTapTimer = object : CountDownTimer(LONG_TAP_DURATION, LONG_TAP_DURATION) {
             override fun onTick(millisUntilFinished: Long) {}
             override fun onFinish() {
-                LogHelper.d("Long tap timer finished, mark: ${longTapMark != null}, problem: ${longTapProblemSlot != null}")
+                //LogHelper.d("Long tap timer finished, mark: ${longTapMark != null}, problem: ${longTapProblemSlot != null}")
                 longTapMark?.let { mark ->
                     // Все метки работают одинаково в любом режиме
                     LogHelper.d("Calling onMarkLongTap for mark: ${mark.markId}")

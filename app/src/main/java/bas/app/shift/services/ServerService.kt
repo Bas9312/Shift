@@ -36,7 +36,7 @@ object ServerService {
                     lng = location.longitude,
                     show = showOnMap
                 )
-                LogHelper.d("Отправка геолокации с show = $showOnMap")
+                //LogHelper.d("Отправка геолокации с show = $showOnMap")
                 api.updateUserLocation(userLocation)
             } catch (e: Exception) {
                 LogHelper.e("Ошибка при отправке геолокации: ${e.message}")
@@ -57,7 +57,7 @@ object ServerService {
     }
 
     fun getPoints(): List<Point> {
-        LogHelper.d("Получение точек с сервера")
+        //LogHelper.d("Получение точек с сервера")
         return runBlocking {
             try {
                 val userId = UserPrefsHelper.getUserId(ShiftApplication.instance)

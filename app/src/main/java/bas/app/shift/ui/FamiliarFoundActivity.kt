@@ -2,11 +2,14 @@ package bas.app.shift.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat.startActivity
 import bas.app.shift.R
 import bas.app.shift.databinding.ActivityFamiliarFoundBinding
 import bas.app.shift.models.FamiliarData
+import bas.app.shift.models.AuraType
+import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.ui.FamiliarChatActivity
 
 class FamiliarFoundActivity : AppCompatActivity() {
@@ -50,11 +53,26 @@ class FamiliarFoundActivity : AppCompatActivity() {
     }
 
     private fun setupButtons() {
-        binding.btnTalk.setOnClickListener {
-            val famId = intent.getStringExtra("familiar_id") ?: "familiar_malachite_lizard"
-            val chatIntent = Intent(this, FamiliarChatActivity::class.java)
-                .putExtra("familiar", famId) // используем тот же ключ!
-            startActivity(chatIntent)
+        val user = UserPrefsHelper.getUserData(this)
+        
+        // Проверяем тип пользователя
+        if (user?.type != AuraType.MAGE) {
+            // Если пользователь не маг или не загружен, скрываем верхний текст и показываем сообщение о невозможности стать фамильяром
+            binding.tvRitualInfo.visibility = View.GONE
+            binding.tvStatus.text = getString(R.string.familiar_not_mage_message)
+            binding.btnTalk.visibility = View.GONE
+        } else {
+            // Если пользователь маг, показываем обычное сообщение и кнопку
+            binding.tvRitualInfo.visibility = View.VISIBLE
+            binding.tvStatus.text = getString(R.string.familiar_ready_to_talk)
+            binding.btnTalk.visibility = View.VISIBLE
+            
+            binding.btnTalk.setOnClickListener {
+                val famId = intent.getStringExtra("familiar_id") ?: "familiar_malachite_lizard"
+                val chatIntent = Intent(this, FamiliarChatActivity::class.java)
+                    .putExtra("familiar", famId) // используем тот же ключ!
+                startActivity(chatIntent)
+            }
         }
     }
 

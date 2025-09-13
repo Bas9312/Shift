@@ -644,7 +644,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     }*/
 
     private fun addPoint(point: Point) {
-                    LogHelper.d("Добавление точки: ID=${point.pointId}, тип=${point.type}, координаты=(${point.lat}, ${point.lng})")
+        //LogHelper.d("Добавление точки: ID=${point.pointId}, тип=${point.type}, координаты=(${point.lat}, ${point.lng})")
         
         // Для обычных пользователей: не показываем точки типа POINT_WITH_TEXT
         if (!isMgUser && point.type == "POINT_WITH_TEXT") {

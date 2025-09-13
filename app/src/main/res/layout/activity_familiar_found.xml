@@ -22,14 +22,7 @@
         android:gravity="center">
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/familiar_found_title"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="16dp"/>
-
-        <TextView
+            android:id="@+id/tvRitualInfo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/familiar_ritual_info"
@@ -61,8 +54,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/familiar_ready_to_talk"
-            android:textSize="16sp"
-            android:layout_marginBottom="32dp"
+            android:textSize="14sp"
+            android:layout_marginBottom="16dp"
             android:gravity="center"/>
 
         <com.google.android.material.button.MaterialButton
