@@ -68,6 +68,9 @@ class ProfileFragment : Fragment() {
                 tv.text = effect.textToShowPlayers
                 tv.textSize = 16f
                 tv.setPadding(0, 8, 0, 8)
+                tv.setSingleLine(false) // Разрешаем многострочный текст
+                tv.maxLines = 15 // Увеличиваем лимит строк для полного отображения эффектов
+                tv.ellipsize = android.text.TextUtils.TruncateAt.END // Добавляем многоточие если текст обрезается
                 effectsLayout.addView(tv)
             }
         } else {

@@ -33,6 +33,11 @@ import bas.app.shift.helpers.NoiseHelper
 import bas.app.shift.helpers.WikipediaHelper
 import bas.app.shift.models.TerminalCommand
 import bas.app.shift.models.TerminalHistory
+import bas.app.shift.models.NoiseState
+import bas.app.shift.api.RetrofitClient
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class TerminalActivity : AppCompatActivity() {
 
@@ -201,6 +206,12 @@ class TerminalActivity : AppCompatActivity() {
             }
             "DEEP_DIVE.END" -> {
                 handleDeepDiveEndCommand(fullCommand)
+            }
+            "UTILS.GLOBAL_NOIZE" -> {
+                handleGlobalNoiseCommand()
+            }
+            "UTILS.USER_COUNT" -> {
+                handleUserCountCommand()
             }
             else -> {
                 // Обычная команда
@@ -774,6 +785,95 @@ class TerminalActivity : AppCompatActivity() {
         isDeepDiveSessionActive = false
 
         smoothScrollToBottom()
+    }
+
+    private fun handleGlobalNoiseCommand() {
+        val executingMsg = "Выполняю: UTILS.GLOBAL_NOIZE"
+        val processMsg = "Получаю данные о глобальном шуме..."
+        
+        adapter.addTyping(executingMsg)
+        adapter.addTyping(processMsg)
+        saveResponseToHistory(executingMsg)
+        saveResponseToHistory(processMsg)
+        
+        val currentUserId = UserPrefsHelper.getUserId(this) ?: return
+        
+        RetrofitClient.noiseApi.getUserNoise(currentUserId)
+            .enqueue(object : Callback<NoiseState> {
+                override fun onResponse(call: Call<NoiseState>, response: Response<NoiseState>) {
+                    if (response.isSuccessful && response.body() != null) {
+                        val noiseState = response.body()!!
+                        val resultMsg = """
+                            === ГЛОБАЛЬНЫЙ ШУМ ===
+                            
+                            Текущий уровень глобального шума: ${noiseState.globalLevel}
+                            Значение шума: ${String.format("%.2f", noiseState.globalNoise)}
+                            
+                            Глобальный шум влияет на всех Шумомантов одновременно.
+                            Чем выше уровень, тем сильнее воздействие на цифровую реальность.
+                        """.trimIndent()
+                        
+                        adapter.addTyping(resultMsg)
+                        saveResponseToHistory(resultMsg)
+                    } else {
+                        val errorMsg = "Ошибка получения данных о глобальном шуме: ${response.code()}"
+                        adapter.addTyping(errorMsg)
+                        saveResponseToHistory(errorMsg)
+                    }
+                    smoothScrollToBottom()
+                }
+                
+                override fun onFailure(call: Call<NoiseState>, t: Throwable) {
+                    val errorMsg = "Ошибка подключения: ${t.message}"
+                    adapter.addTyping(errorMsg)
+                    saveResponseToHistory(errorMsg)
+                    smoothScrollToBottom()
+                }
+            })
+    }
+
+    private fun handleUserCountCommand() {
+        val executingMsg = "Выполняю: UTILS.USER_COUNT"
+        val processMsg = "Подсчитываю активных Шумомантов..."
+        
+        adapter.addTyping(executingMsg)
+        adapter.addTyping(processMsg)
+        saveResponseToHistory(executingMsg)
+        saveResponseToHistory(processMsg)
+        
+        val currentUserId = UserPrefsHelper.getUserId(this) ?: return
+        
+        RetrofitClient.noiseApi.getUserNoise(currentUserId)
+            .enqueue(object : Callback<NoiseState> {
+                override fun onResponse(call: Call<NoiseState>, response: Response<NoiseState>) {
+                    if (response.isSuccessful && response.body() != null) {
+                        val noiseState = response.body()!!
+                        val resultMsg = """
+                            === АКТИВНЫЕ ШУМОМАНТЫ ===
+                            
+                            Количество активных Шумомантов: ${noiseState.noisemancers}
+                            
+                            Каждый активный Шумомант вносит свой вклад
+                            в общий уровень глобального шума.
+                        """.trimIndent()
+                        
+                        adapter.addTyping(resultMsg)
+                        saveResponseToHistory(resultMsg)
+                    } else {
+                        val errorMsg = "Ошибка получения данных о количестве пользователей: ${response.code()}"
+                        adapter.addTyping(errorMsg)
+                        saveResponseToHistory(errorMsg)
+                    }
+                    smoothScrollToBottom()
+                }
+                
+                override fun onFailure(call: Call<NoiseState>, t: Throwable) {
+                    val errorMsg = "Ошибка подключения: ${t.message}"
+                    adapter.addTyping(errorMsg)
+                    saveResponseToHistory(errorMsg)
+                    smoothScrollToBottom()
+                }
+            })
     }
 
 

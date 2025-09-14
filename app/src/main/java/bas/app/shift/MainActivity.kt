@@ -689,9 +689,9 @@ class MainActivity : AppCompatActivity() {
             val textView = effectView.findViewById<android.widget.TextView>(android.R.id.text1)
             textView.text = effect.textToShowPlayers
             textView.textSize = 16f
-            textView.setPadding(32, 16, 32, 16)
+            textView.setPadding(16, 16, 16, 16)
             textView.setSingleLine(false) // Разрешаем многострочный текст
-            textView.maxLines = 3 // Ограничиваем до 3 строк
+            textView.maxLines = 20 // Увеличиваем лимит строк для полного отображения эффектов
             textView.ellipsize = android.text.TextUtils.TruncateAt.END // Добавляем многоточие если текст обрезается
             binding.effectsList.addView(effectView)
         }

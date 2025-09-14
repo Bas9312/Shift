@@ -48,6 +48,10 @@ object TerminalCommandManager {
         TerminalCommand("DEEP_DIVE", "DEEP_DIVE.START", "", "Начать глубокое погружение в цифровую реальность", 0),
         TerminalCommand("DEEP_DIVE", "DEEP_DIVE.END", "<глубина>", "Завершить погружение: вернуться с указанной глубины", 0),
         
+        // UTILS группа
+        TerminalCommand("UTILS", "UTILS.GLOBAL_NOIZE", "", "Получить текущий уровень глобального шума", 0),
+        TerminalCommand("UTILS", "UTILS.USER_COUNT", "", "Получить количество активных Шумомантов", 0),
+        
         // HELP команда
         TerminalCommand("SYSTEM", "HELP", "", "Показать все доступные команды", 0)
     )

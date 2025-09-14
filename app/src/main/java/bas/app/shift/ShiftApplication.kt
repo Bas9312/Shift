@@ -18,6 +18,7 @@ import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.services.LocationService
 import com.bugfender.sdk.Bugfender
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 
 class ShiftApplication : Application(), LifecycleObserver {
 
@@ -107,6 +108,8 @@ class ShiftApplication : Application(), LifecycleObserver {
         
         // Регистрируем наблюдатель жизненного цикла
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+
+        FirebaseCrashlytics.getInstance().setUserId(UserPrefsHelper.getUserId(this));                // correct
         
         // НЕ запускаем LocationService автоматически на Android 15+
         // Сервис будет запускаться только при активации приложения
