@@ -26,10 +26,11 @@ object TerminalCommandManager {
         TerminalCommand("TRACE", "TRACE.USER", "<аккаунт>", "Цифровой след: IP/сервисы/логины", 2),
         
         // SHIFT-Proxy группа (требует модуль 91)
-        TerminalCommand("SHIFT-Proxy", "SHIFT.PROXY.DEPLOY", "<node>", "Развернуть узел на 24 ч", 2, 91),
+        TerminalCommand("SHIFT-Proxy", "SHIFT.PROXY.DEPLOY", "<node>", "Развернуть узел на 24 часа", 2, 91),
+        TerminalCommand("SHIFT-Proxy", "SHIFT.PROXY.STATUS", "", "Проверить статус Proxy узла", 0, 91),
         
         // Cross-Vault группа (требует модуль 92)
-        TerminalCommand("Cross-Vault", "CROSS.LINK", "<partner>", "Связать хранилища (хэндшейк)", 0, 92),
+        TerminalCommand("Cross-Vault", "CROSS.LINK", "<partner>", "Связать хранилища (хэндшейк)", 1, 92),
         TerminalCommand("Cross-Vault", "CROSS.RETRIEVE", "<item> HERE TO_PARTNER", "Достать общий предмет", 1, 92),
         TerminalCommand("Cross-Vault", "CROSS.CAST", "VIA PARTNER <…>", "Запустить команду через партнёра/его узел", 0, 92),
         

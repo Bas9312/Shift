@@ -77,12 +77,60 @@ class NoiseManager(private val context: Context) {
             })
     }
     
-    fun adjustNoise(delta: Int) {
+    fun adjustNoise(delta: Double) {
         val currentUserId = userId ?: return
+        var currentDelta = delta
         
+        // Проверяем, есть ли Proxy эффект
+        val hasProxyEffect = noiseEffectManager.hasProxyEffect()
+        
+        if (hasProxyEffect && delta > 0) {
+            // Если есть Proxy эффект и шум положительный - делим пополам
+            currentDelta = delta / 2.0
+            val proxyUserId = "${currentUserId}_Proxy"
+            
+            LogHelper.d("NoiseManager: Proxy effect active, splitting noise: $delta -> $currentDelta for user and proxy")
+            
+            // Отправляем половину шума Proxy узлу
+            adjustNoiseForUser(proxyUserId, currentDelta)
+        }
+
+        val hasCrossLinkEffect = noiseEffectManager.hasCrossLinkEffect()
+        if (hasCrossLinkEffect && currentDelta > 0) {
+            // Проверяем, есть ли Cross-Link эффект
+
+                // Если есть Cross-Link эффект и шум положительный - делим пополам
+            currentDelta /= 2.0
+                val partnerName = noiseEffectManager.getCrossLinkPartnerName()
+
+                if (partnerName != null) {
+                    LogHelper.d("NoiseManager: Cross-Link effect active, splitting noise: ${currentDelta * 2} -> $currentDelta for user and partner")
+
+                    // Отправляем половину шума пользователю
+
+                    // Находим ID партнера и отправляем половину шума ему
+                    findUserByName(partnerName) { partnerId ->
+                        if (partnerId != null) {
+                            adjustNoiseForUser(partnerId, currentDelta)
+                        } else {
+                            LogHelper.e("NoiseManager: Could not find partner ID for name: $partnerName")
+                        }
+                    }
+                } else {
+                    LogHelper.e("NoiseManager: Cross-Link effect active but partner name not found")
+                    adjustNoiseForUser(currentUserId, delta)
+                }
+            } else {
+                // Обычная отправка шума
+                adjustNoiseForUser(currentUserId, delta)
+            }
+        adjustNoiseForUser(currentUserId, currentDelta)
+    }
+    
+    private fun adjustNoiseForUser(targetUserId: String, delta: Double) {
         val request = NoiseAdjustRequest(delta = delta)
         
-        RetrofitClient.noiseApi.adjustUserNoise(currentUserId, request)
+        RetrofitClient.noiseApi.adjustUserNoise(targetUserId, request)
             .enqueue(object : Callback<bas.app.shift.models.NoiseAdjustResponse> {
                 override fun onResponse(
                     call: Call<bas.app.shift.models.NoiseAdjustResponse>, 
@@ -91,31 +139,75 @@ class NoiseManager(private val context: Context) {
                     if (response.isSuccessful && response.body() != null) {
                         val adjustResponse = response.body()!!
                         val serverBeforeNoise = adjustResponse.local.before
-                        currentNoise = adjustResponse.local.after
+                        val newNoise = adjustResponse.local.after
                         
-                        // Проверяем эффекты при изменении шума
-                        if (userId != null) {
-                            LogHelper.d("NoiseManager: Calling NoiseEffectManager with serverBeforeNoise: $serverBeforeNoise, currentNoise: $currentNoise, userId: $userId")
-                            noiseEffectManager.checkAndApplyNoiseEffects(serverBeforeNoise, currentNoise, userId!!)
-                        } else {
-                            LogHelper.e("NoiseManager: userId is null, cannot check noise effects")
+                        // Обновляем currentNoise только если это основной пользователь
+                        if (targetUserId == userId) {
+                            currentNoise = newNoise
+                            
+                            // Проверяем эффекты при изменении шума только для основного пользователя
+                            if (userId != null) {
+                                LogHelper.d("NoiseManager: Calling NoiseEffectManager with serverBeforeNoise: $serverBeforeNoise, currentNoise: $currentNoise, userId: $userId")
+                                noiseEffectManager.checkAndApplyNoiseEffects(serverBeforeNoise, currentNoise, userId!!)
+                            } else {
+                                LogHelper.e("NoiseManager: userId is null, cannot check noise effects")
+                            }
+                            
+                            onNoiseUpdateListener?.invoke(currentNoise)
+                            onCommandSuccessListener?.invoke()
                         }
                         
-                        onNoiseUpdateListener?.invoke(currentNoise)
-                        onCommandSuccessListener?.invoke()
-                        LogHelper.d("NoiseManager: Noise adjusted: ${adjustResponse.local.before} -> ${adjustResponse.local.after}")
+                        LogHelper.d("NoiseManager: Noise adjusted for $targetUserId: ${adjustResponse.local.before} -> ${adjustResponse.local.after}")
                     } else {
-                        LogHelper.e("NoiseManager: Error adjusting noise: ${response.code()}")
+                        LogHelper.e("NoiseManager: Error adjusting noise for $targetUserId: ${response.code()}")
                     }
                 }
                 
                 override fun onFailure(call: Call<bas.app.shift.models.NoiseAdjustResponse>, t: Throwable) {
-                    LogHelper.e("NoiseManager: Error adjusting noise: ${t.message}")
+                    LogHelper.e("NoiseManager: Error adjusting noise for $targetUserId: ${t.message}")
                 }
             })
     }
     
     fun getCurrentNoise(): Double = currentNoise
+    
+    fun hasProxyEffect(): Boolean {
+        return noiseEffectManager.hasProxyEffect()
+    }
+    
+    fun applyProxyEffect(userId: String) {
+        noiseEffectManager.applyProxyEffect(userId)
+    }
+    
+    fun hasCrossLinkEffect(): Boolean {
+        return noiseEffectManager.hasCrossLinkEffect()
+    }
+    
+    fun applyCrossLinkEffect(userId1: String, userId2: String, partnerName1: String, partnerName2: String) {
+        noiseEffectManager.applyCrossLinkEffect(userId1, userId2, partnerName1, partnerName2)
+    }
+    
+    /**
+     * Находит пользователя по имени персонажа
+     */
+    fun findUserByName(characterName: String, callback: (String?) -> Unit) {
+        RetrofitClient.userProfileApi.getAllUserShortProfiles()
+            .enqueue(object : Callback<List<bas.app.shift.models.ShortUser>> {
+                override fun onResponse(call: Call<List<bas.app.shift.models.ShortUser>>, response: Response<List<bas.app.shift.models.ShortUser>>) {
+                    if (response.isSuccessful && response.body() != null) {
+                        val users = response.body()!!
+                        val foundUser = users.find { it.characterName == characterName }
+                        callback(foundUser?.userId)
+                    } else {
+                        callback(null)
+                    }
+                }
+                
+                override fun onFailure(call: Call<List<bas.app.shift.models.ShortUser>>, t: Throwable) {
+                    callback(null)
+                }
+            })
+    }
     
     fun cleanup() {
         stopPeriodicNoiseUpdate()

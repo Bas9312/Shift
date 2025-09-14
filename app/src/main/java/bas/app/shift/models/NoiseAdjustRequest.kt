@@ -1,5 +1,5 @@
 package bas.app.shift.models
 
 data class NoiseAdjustRequest(
-    val delta: Int                      // +увеличение / -уменьшение локального шума
+    val delta: Double                   // +увеличение / -уменьшение локального шума
 )

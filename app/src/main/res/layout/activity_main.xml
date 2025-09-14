@@ -141,6 +141,14 @@
         android:layout_marginBottom="8dp"
         android:visibility="gone"/>
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnRitual"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Я провёл ритуал"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"/>
+
     <!-- Кнопки для МГ пользователей -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnAuraEditor"

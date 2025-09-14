@@ -22,13 +22,22 @@ class CommandAutocompleteAdapter(
     
     override fun getCount(): Int = filteredCommands.size
     
-    override fun getItem(position: Int): TerminalCommand = filteredCommands[position]
+    override fun getItem(position: Int): TerminalCommand? {
+        return if (position >= 0 && position < filteredCommands.size) {
+            filteredCommands[position]
+        } else null
+    }
     
     override fun getItemId(position: Int): Long = position.toLong()
     
     override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
         val view = convertView ?: LayoutInflater.from(context)
             .inflate(R.layout.item_dropdown_command_with_desc, parent, false)
+        
+        // Проверяем границы массива
+        if (position < 0 || position >= filteredCommands.size) {
+            return view
+        }
         
         val command = filteredCommands[position]
         
@@ -62,7 +71,9 @@ class CommandAutocompleteAdapter(
             override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
                 if (results != null) {
                     @Suppress("UNCHECKED_CAST")
-                    filteredCommands = results.values as List<TerminalCommand>
+                    val newFilteredCommands = results.values as List<TerminalCommand>
+                    // Убеждаемся, что новый список не null и не пустой
+                    filteredCommands = newFilteredCommands ?: emptyList()
                     notifyDataSetChanged()
                 }
             }

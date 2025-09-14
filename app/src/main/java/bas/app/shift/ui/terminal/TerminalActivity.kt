@@ -228,6 +228,15 @@ class TerminalActivity : AppCompatActivity() {
             "UTILS.USER_COUNT" -> {
                 handleUserCountCommand()
             }
+            "SHIFT.PROXY.DEPLOY" -> {
+                handleProxyDeployCommand(fullCommand)
+            }
+            "SHIFT.PROXY.STATUS" -> {
+                handleProxyStatusCommand()
+            }
+            "CROSS.LINK" -> {
+                handleCrossLinkCommand(fullCommand)
+            }
             else -> {
                 // Обычная команда
                 val executingMsg = "Выполняю: $fullCommand"
@@ -242,7 +251,7 @@ class TerminalActivity : AppCompatActivity() {
                 
                 // Отправляем команду на сервер для изменения шума
                 if (command.noiseIncrease != 0) {
-                    noiseManager.adjustNoise(command.noiseIncrease)
+                    noiseManager.adjustNoise(command.noiseIncrease.toDouble())
                 }
             }
         }
@@ -596,7 +605,7 @@ class TerminalActivity : AppCompatActivity() {
         saveResponseToHistory(successMsg)
         
         // Снижаем шум
-        noiseManager.adjustNoise(-2)
+        noiseManager.adjustNoise(-2.0)
         
         // Завершаем сессию UPGRADE
         isUpgradeSessionActive = false
@@ -684,7 +693,7 @@ class TerminalActivity : AppCompatActivity() {
         saveResponseToHistory(successMsg)
         
         // Снижаем шум
-        noiseManager.adjustNoise(-1)
+        noiseManager.adjustNoise(-1.0)
         
         // Завершаем сессию REBOOT
         isRebootSessionActive = false
@@ -797,7 +806,7 @@ class TerminalActivity : AppCompatActivity() {
         saveResponseToHistory(returnText)
 
         // Увеличиваем шум на указанную глубину
-        noiseManager.adjustNoise(depth)
+        noiseManager.adjustNoise(depth.toDouble())
 
         // Завершаем сессию DEEP_DIVE
         isDeepDiveSessionActive = false
@@ -887,6 +896,243 @@ class TerminalActivity : AppCompatActivity() {
                 
                 override fun onFailure(call: Call<NoiseState>, t: Throwable) {
                     val errorMsg = "Ошибка подключения: ${t.message}"
+                    adapter.addTyping(errorMsg)
+                    saveResponseToHistory(errorMsg)
+                    smoothScrollToBottom()
+                }
+            })
+    }
+
+    private fun handleProxyDeployCommand(fullCommand: String) {
+        val executingMsg = "Выполняю: SHIFT.PROXY.DEPLOY"
+        adapter.addTyping(executingMsg)
+        saveResponseToHistory(executingMsg)
+        
+        // Проверяем, есть ли уже Proxy эффект
+        val hasProxyEffect = noiseManager.hasProxyEffect()
+        
+        if (hasProxyEffect) {
+            val errorMsg = "Ошибка: Proxy узел уже развернут. Повторная активация невозможна."
+            adapter.addTyping(errorMsg)
+            saveResponseToHistory(errorMsg)
+            smoothScrollToBottom()
+            return
+        }
+        
+        // Парсим параметр node
+        val parts = fullCommand.split(" ")
+        if (parts.size < 2) {
+            val errorMsg = "Ошибка: Не указан параметр <node>. Используйте: SHIFT.PROXY.DEPLOY <node>"
+            adapter.addTyping(errorMsg)
+            saveResponseToHistory(errorMsg)
+            smoothScrollToBottom()
+            return
+        }
+        
+        val nodeName = parts[1]
+        
+        val processMsg = "Разворачиваю Proxy узел '$nodeName'..."
+        adapter.addTyping(processMsg)
+        saveResponseToHistory(processMsg)
+        
+        // Добавляем шум за развертывание узла (+2)
+        val currentUserId = UserPrefsHelper.getUserId(this) ?: return
+        noiseManager.adjustNoise(2.0)
+        
+        // Применяем Proxy эффект
+        noiseManager.applyProxyEffect(currentUserId)
+        
+        // Сбрасываем шум на Proxy узле (уменьшаем на 10)
+        val proxyUserId = "${currentUserId}_Proxy"
+        val resetMsg = "Сбрасываю шум на Proxy узле..."
+        adapter.addTyping(resetMsg)
+        saveResponseToHistory(resetMsg)
+        
+        // Отправляем запрос на уменьшение шума на Proxy узле
+        val request = bas.app.shift.models.NoiseAdjustRequest(delta = -10.0)
+        RetrofitClient.noiseApi.adjustUserNoise(proxyUserId, request)
+            .enqueue(object : Callback<bas.app.shift.models.NoiseAdjustResponse> {
+                override fun onResponse(call: Call<bas.app.shift.models.NoiseAdjustResponse>, response: Response<bas.app.shift.models.NoiseAdjustResponse>) {
+                    if (response.isSuccessful) {
+                        val resetSuccessMsg = "Шум на Proxy узле сброшен."
+                        adapter.addTyping(resetSuccessMsg)
+                        saveResponseToHistory(resetSuccessMsg)
+                    } else {
+                        val resetErrorMsg = "Предупреждение: не удалось сбросить шум на Proxy узле (${response.code()})"
+                        adapter.addTyping(resetErrorMsg)
+                        saveResponseToHistory(resetErrorMsg)
+                    }
+                    
+                    // Показываем сообщение об успешном развертывании
+                    showProxyDeploySuccess(nodeName, currentUserId)
+                }
+                
+                override fun onFailure(call: Call<bas.app.shift.models.NoiseAdjustResponse>, t: Throwable) {
+                    val resetErrorMsg = "Предупреждение: не удалось сбросить шум на Proxy узле (${t.message})"
+                    adapter.addTyping(resetErrorMsg)
+                    saveResponseToHistory(resetErrorMsg)
+                    
+                    // Показываем сообщение об успешном развертывании
+                    showProxyDeploySuccess(nodeName, currentUserId)
+                }
+            })
+    }
+    
+    private fun showProxyDeploySuccess(nodeName: String, currentUserId: String) {
+        val successMsg = """
+            === PROXY УЗЕЛ РАЗВЕРНУТ ===
+            
+            Узел '$nodeName' успешно развернут и активен.
+            Эффект "Узел Proxy установлен и работает" применен.
+            
+            Теперь при выполнении команд, генерирующих положительный шум,
+            шум будет автоматически делиться пополам между вашим ID
+            и ID узла (${currentUserId}_Proxy).
+            
+            Узел будет активен 24 часа, после чего эффект автоматически истечет.
+        """.trimIndent()
+        
+        adapter.addTyping(successMsg)
+        saveResponseToHistory(successMsg)
+        
+        smoothScrollToBottom()
+    }
+    
+    private fun handleCrossLinkCommand(fullCommand: String) {
+        val executingMsg = "Выполняю: CROSS.LINK"
+        adapter.addTyping(executingMsg)
+        saveResponseToHistory(executingMsg)
+        
+        // Проверяем, есть ли уже Cross-Link эффект
+        val hasCrossLinkEffect = noiseManager.hasCrossLinkEffect()
+        
+        if (hasCrossLinkEffect) {
+            val errorMsg = "Ошибка: Cross-Link связь уже установлена. Сначала разорвите существующую связь."
+            adapter.addTyping(errorMsg)
+            saveResponseToHistory(errorMsg)
+            smoothScrollToBottom()
+            return
+        }
+        
+        // Парсим параметр partner_id
+        val parts = fullCommand.split(" ")
+        if (parts.size < 2) {
+            val errorMsg = "Ошибка: Не указан параметр <partner_id>. Используйте: CROSS.LINK <partner_id>"
+            adapter.addTyping(errorMsg)
+            saveResponseToHistory(errorMsg)
+            smoothScrollToBottom()
+            return
+        }
+        
+        val partnerId = parts[1]
+        
+        val processMsg = "Инициирую связку с партнером '$partnerId'..."
+        adapter.addTyping(processMsg)
+        saveResponseToHistory(processMsg)
+        
+        // Получаем профиль партнера
+        RetrofitClient.userProfileApi.getUserProfile(partnerId)
+            .enqueue(object : Callback<bas.app.shift.models.User> {
+                override fun onResponse(call: Call<bas.app.shift.models.User>, response: Response<bas.app.shift.models.User>) {
+                    if (response.isSuccessful && response.body() != null) {
+                        val partnerProfile = response.body()!!
+                        val currentUserId = UserPrefsHelper.getUserId(this@TerminalActivity) ?: return
+                        val currentUserProfile = UserPrefsHelper.getUserData(this@TerminalActivity) ?: return
+                        
+                        // Применяем Cross-Link эффект для обоих пользователей
+                        noiseManager.applyCrossLinkEffect(
+                            currentUserId, 
+                            partnerId, 
+                            currentUserProfile.characterName, 
+                            partnerProfile.characterName
+                        )
+                        
+                        val successMsg = """
+                            === CROSS-LINK СВЯЗЬ УСТАНОВЛЕНА ===
+                            
+                            Связь с ${partnerProfile.characterName} успешно установлена.
+                            Эффект "Связь с ${partnerProfile.characterName} установлена, шум делится пополам" применен.
+                            
+                            Теперь при выполнении команд, генерирующих положительный шум,
+                            шум будет автоматически делиться пополам между вами
+                            и вашим партнером.
+                            
+                            Связь будет активна 24 часа, после чего эффект автоматически истечет.
+                        """.trimIndent()
+                        
+                        adapter.addTyping(successMsg)
+                        saveResponseToHistory(successMsg)
+                    } else {
+                        val errorMsg = "Ошибка: Партнер с ID '$partnerId' не найден (${response.code()})"
+                        adapter.addTyping(errorMsg)
+                        saveResponseToHistory(errorMsg)
+                    }
+                    smoothScrollToBottom()
+                }
+                
+                override fun onFailure(call: Call<bas.app.shift.models.User>, t: Throwable) {
+                    val errorMsg = "Ошибка: Не удалось найти партнера '$partnerId' (${t.message})"
+                    adapter.addTyping(errorMsg)
+                    saveResponseToHistory(errorMsg)
+                    smoothScrollToBottom()
+                }
+            })
+    }
+    
+    private fun handleProxyStatusCommand() {
+        val executingMsg = "Выполняю: SHIFT.PROXY.STATUS"
+        adapter.addTyping(executingMsg)
+        saveResponseToHistory(executingMsg)
+        
+        // Проверяем, есть ли активный Proxy эффект
+        val hasProxyEffect = noiseManager.hasProxyEffect()
+        
+        if (!hasProxyEffect) {
+            val errorMsg = "Ошибка: Proxy узел не развернут. Используйте SHIFT.PROXY.DEPLOY для развертывания узла."
+            adapter.addTyping(errorMsg)
+            saveResponseToHistory(errorMsg)
+            smoothScrollToBottom()
+            return
+        }
+        
+        val processMsg = "Проверяю статус Proxy узла..."
+        adapter.addTyping(processMsg)
+        saveResponseToHistory(processMsg)
+        
+        val currentUserId = UserPrefsHelper.getUserId(this) ?: return
+        val proxyUserId = "${currentUserId}_Proxy"
+        
+        // Запрашиваем шум Proxy узла
+        RetrofitClient.noiseApi.getUserNoise(proxyUserId)
+            .enqueue(object : Callback<NoiseState> {
+                override fun onResponse(call: Call<NoiseState>, response: Response<NoiseState>) {
+                    if (response.isSuccessful && response.body() != null) {
+                        val noiseState = response.body()!!
+                        val localLevel = NoiseHelper.getNoiseLevel(noiseState.localNoise)
+                        val resultMsg = """
+                            === СТАТУС PROXY УЗЛА ===
+                            
+                            ID узла: $proxyUserId
+                            Локальный уровень шума узла: $localLevel
+                            Локальное значение шума узла: ${String.format("%.2f", noiseState.localNoise)}
+                            
+                            Proxy узел активен и функционирует.
+                            Шум автоматически распределяется между основным
+                            пользователем и узлом при выполнении команд.
+                        """.trimIndent()
+                        
+                        adapter.addTyping(resultMsg)
+                        saveResponseToHistory(resultMsg)
+                    } else {
+                        val errorMsg = "Ошибка получения данных Proxy узла: ${response.code()}"
+                        adapter.addTyping(errorMsg)
+                        saveResponseToHistory(errorMsg)
+                    }
+                    smoothScrollToBottom()
+                }
+                
+                override fun onFailure(call: Call<NoiseState>, t: Throwable) {
+                    val errorMsg = "Ошибка подключения к Proxy узлу: ${t.message}"
                     adapter.addTyping(errorMsg)
                     saveResponseToHistory(errorMsg)
                     smoothScrollToBottom()

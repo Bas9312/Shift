@@ -20,6 +20,9 @@ import bas.app.shift.models.User
 import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraHiddenRequest
 import bas.app.shift.models.Effect
+import bas.app.shift.models.PointRequest
+import bas.app.shift.models.PointType
+import bas.app.shift.services.LocationService
 import bas.app.shift.ui.terminal.TerminalActivity
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -42,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private var isMgUser = false
     private var isExtrasensory = false
     private var currentAura: Aura? = null
+    private var isRitualButtonBlocked = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -197,6 +201,10 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, FamiliarActivity::class.java))
         }
 
+        binding.btnRitual.setOnClickListener {
+            performRitual()
+        }
+
         // Кнопки для МГ пользователей
         binding.btnAuraEditor.setOnClickListener {
             startActivity(Intent(this, AuraEditorActivity::class.java))
@@ -302,12 +310,17 @@ class MainActivity : AppCompatActivity() {
                 // Проверяем наличие фамильяра
                 val hasFamiliar = !user.familiar.isNullOrEmpty()
                 binding.btnFamiliar.visibility = if (hasFamiliar) View.VISIBLE else View.GONE
+                
+                // Проверяем дисциплину "Ритуалистика" (id = 2)
+                val hasRitualism = user.disciplines.any { it.id == 2 }
+                binding.btnRitual.visibility = if (hasRitualism) View.VISIBLE else View.GONE
             } else {
                 // Если профиль не загружен, скрываем все кнопки
                 binding.openTerminalButton.visibility = View.GONE
                 binding.openAuraButton.visibility = View.GONE
                 binding.btnScanArtifact.visibility = View.GONE
                 binding.btnFamiliar.visibility = View.GONE
+                binding.btnRitual.visibility = View.GONE
             }
             
             binding.btnOpenProfile.visibility = View.VISIBLE
@@ -694,6 +707,78 @@ class MainActivity : AppCompatActivity() {
             textView.maxLines = 20 // Увеличиваем лимит строк для полного отображения эффектов
             textView.ellipsize = android.text.TextUtils.TruncateAt.END // Добавляем многоточие если текст обрезается
             binding.effectsList.addView(effectView)
+        }
+    }
+
+    private fun performRitual() {
+        if (isRitualButtonBlocked) {
+            Toast.makeText(this, "Кнопка заблокирована. Попробуйте позже.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Получаем текущую локацию
+        val location = LocationService.getCurrentLocation()
+        if (location == null) {
+            Toast.makeText(this, "Не удалось получить текущую локацию", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Получаем данные пользователя
+        val user = UserPrefsHelper.getUserData(this)
+        if (user == null) {
+            Toast.makeText(this, "Ошибка: данные пользователя не найдены", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Блокируем кнопку
+        isRitualButtonBlocked = true
+        binding.btnRitual.isEnabled = false
+        binding.btnRitual.text = "Ритуал выполняется..."
+
+        // Создаем точку SHRINKING_CIRCLE
+        val pointRequest = PointRequest(
+            lat = location.latitude,
+            lng = location.longitude,
+            pointId = "ritual_${System.currentTimeMillis()}",
+            type = PointType.SHRINKING_CIRCLE.serverValue,
+            radius = 50.0, // Радиус 50 метров
+            description = "Здесь случилась сильная магия",
+            ownerId = user.userId,
+            expireAt = null, // Точка не истекает
+            textToShowOnEnter = "Здесь прошёл ритуал"
+        )
+
+        // Отправляем запрос на сервер
+        GlobalScope.launch(Dispatchers.IO) {
+            try {
+                val response = RetrofitClient.shiftApi.createPoint(pointRequest)
+                if (response.isSuccessful) {
+                    runOnUiThread {
+                        Toast.makeText(this@MainActivity, "Точка создана. Не забудьте написать МГ", Toast.LENGTH_LONG).show()
+                        
+                        // Разблокируем кнопку через 30 минут
+                        binding.btnRitual.postDelayed({
+                            isRitualButtonBlocked = false
+                            binding.btnRitual.isEnabled = true
+                            binding.btnRitual.text = "Я провёл ритуал"
+                        }, 30 * 60 * 1000) // 30 минут в миллисекундах
+                    }
+                } else {
+                    runOnUiThread {
+                        Toast.makeText(this@MainActivity, "Ошибка создания точки: ${response.code()}", Toast.LENGTH_SHORT).show()
+                        isRitualButtonBlocked = false
+                        binding.btnRitual.isEnabled = true
+                        binding.btnRitual.text = "Я провёл ритуал"
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this@MainActivity, "Ошибка сети: ${e.message}", Toast.LENGTH_SHORT).show()
+                    isRitualButtonBlocked = false
+                    binding.btnRitual.isEnabled = true
+                    binding.btnRitual.text = "Я провёл ритуал"
+                }
+            }
         }
     }
 

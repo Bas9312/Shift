@@ -91,6 +91,7 @@ class LocationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(applicationContext)
         LogHelper.d("LocationService создан")
         
@@ -776,6 +777,7 @@ class LocationService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        instance = null
         stopLocationUpdates()
         LogHelper.d("LocationService уничтожен")
     }
@@ -800,5 +802,11 @@ class LocationService : Service() {
         private const val POINTS_CHANNEL_ID = "points_notifications_channel"
         private const val NOTIFICATION_ID = 1001
         public var locationSource: BehaviorSubject<Location> = BehaviorSubject.create()
+        
+        private var instance: LocationService? = null
+        
+        fun getCurrentLocation(): Location? {
+            return instance?.currentLocation
+        }
     }
 } 
