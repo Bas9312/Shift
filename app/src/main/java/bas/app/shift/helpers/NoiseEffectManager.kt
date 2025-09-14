@@ -270,6 +270,8 @@ class NoiseEffectManager(private val context: Context) {
                 if (effectResponse.isSuccessful) {
                     withContext(Dispatchers.Main) {
                         LogHelper.d("NoiseEffectManager: Proxy effect applied successfully")
+                        // Обновляем профиль пользователя после применения эффекта
+                        refreshUserProfile(userId)
                     }
                 } else {
                     withContext(Dispatchers.Main) {
@@ -320,7 +322,7 @@ class NoiseEffectManager(private val context: Context) {
                     name = "Магическая связь позитивная",
                     description = "Связь с шумомантом $partnerName2 через модуль Cross-Vault",
                     imageUrl = "http://shift96.ru/static/images/magic_link_positive.png",
-                    external = false,
+                    external = true,
                     numberOfStars = null
                 )
                 
@@ -329,7 +331,7 @@ class NoiseEffectManager(private val context: Context) {
                     name = "Магическая связь позитивная",
                     description = "Связь с шумомантом $partnerName1 через модуль Cross-Vault",
                     imageUrl = "http://shift96.ru/static/images/magic_link_positive.png",
-                    external = false,
+                    external = true,
                     numberOfStars = null
                 )
                 
@@ -354,12 +356,46 @@ class NoiseEffectManager(private val context: Context) {
                 withContext(Dispatchers.Main) {
                     if (response1.isSuccessful && response2.isSuccessful) {
                         LogHelper.d("NoiseEffectManager: Cross-Link effects applied successfully")
+                        // Обновляем только профиль текущего пользователя
+                        refreshUserProfile(userId1)
                     } else {
                         LogHelper.e("NoiseEffectManager: Failed to apply Cross-Link effects: ${response1.code()}, ${response2.code()}")
                     }
                 }
             } catch (e: Exception) {
                 LogHelper.e("NoiseEffectManager: Error applying Cross-Link effects: ${e.message}")
+            }
+        }
+    }
+    
+    /**
+     * Обновляет профиль пользователя из API и сохраняет в локальный кэш
+     */
+    private fun refreshUserProfile(userId: String) {
+        // Обновляем только профиль текущего пользователя
+        val currentUserId = UserPrefsHelper.getUserId(context)
+        if (userId != currentUserId) {
+            LogHelper.d("NoiseEffectManager: Skipping profile refresh for user $userId (not current user)")
+            return
+        }
+        
+        scope.launch {
+            try {
+                val call = RetrofitClient.userProfileApi.getUserProfile(userId)
+                val profileResponse = call.execute()
+                
+                if (profileResponse.isSuccessful && profileResponse.body() != null) {
+                    val userProfile = profileResponse.body()!!
+                    // Сохраняем обновленный профиль в локальный кэш
+                    withContext(Dispatchers.Main) {
+                        UserPrefsHelper.saveUserData(context, userProfile)
+                        LogHelper.d("NoiseEffectManager: User profile refreshed successfully for user $userId")
+                    }
+                } else {
+                    LogHelper.e("NoiseEffectManager: Failed to refresh user profile: ${profileResponse.code()}")
+                }
+            } catch (e: Exception) {
+                LogHelper.e("NoiseEffectManager: Error refreshing user profile: ${e.message}")
             }
         }
     }

@@ -697,7 +697,10 @@ class MainActivity : AppCompatActivity() {
     private fun displayEffects(effects: List<Effect>) {
         binding.effectsList.removeAllViews()
         
-        effects.forEach { effect ->
+        // Сортируем эффекты по ID в убывающем порядке (новые сверху)
+        val sortedEffects = effects.sortedByDescending { it.id }
+        
+        sortedEffects.forEach { effect ->
             val effectView = android.view.LayoutInflater.from(this).inflate(android.R.layout.simple_list_item_1, null)
             val textView = effectView.findViewById<android.widget.TextView>(android.R.id.text1)
             textView.text = effect.textToShowPlayers

@@ -63,7 +63,9 @@ class ProfileFragment : Fragment() {
         val effectsLayout = binding.profileEffectsList
         effectsLayout.removeAllViews()
         if (user.effects?.isNotEmpty() == true) {
-            user.effects?.forEach { effect ->
+            // Сортируем эффекты по ID в убывающем порядке (новые сверху)
+            val sortedEffects = user.effects!!.sortedByDescending { it.id }
+            sortedEffects.forEach { effect ->
                 val tv = TextView(requireContext())
                 tv.text = effect.textToShowPlayers
                 tv.textSize = 16f
