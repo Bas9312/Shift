@@ -90,6 +90,8 @@ class ConsoleAdapter(
     private fun graduallyFill(full: String, pos: Int) {
         var i = 0
         val h = Handler(Looper.getMainLooper())
+        var lastScrollTime = 0L
+        var lastScrollLength = 0
         
         val step = object : Runnable {
             override fun run() {
@@ -97,8 +99,13 @@ class ConsoleAdapter(
                     data[pos] = Line(full.take(i), Line.Type.RSP)
                     notifyItemChanged(pos)
                     
-                    // Скроллим при каждом обновлении текста
-                    onScrollCallback?.invoke()
+                    // Скроллим только если текст значительно увеличился (каждые 10 символов)
+                    val currentTime = System.currentTimeMillis()
+                    if (i - lastScrollLength >= 10 && currentTime - lastScrollTime > 300) {
+                        onScrollCallback?.invoke()
+                        lastScrollTime = currentTime
+                        lastScrollLength = i
+                    }
                     
                     i++
                     h.postDelayed(this, 25)       // 40 симв/сек

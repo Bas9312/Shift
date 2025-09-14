@@ -141,13 +141,28 @@ class TerminalActivity : AppCompatActivity() {
     private fun smoothScrollToBottomIfNeeded() {
         val layoutManager = binding.consoleList.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager
         if (layoutManager != null) {
-            val lastVisiblePosition = layoutManager.findLastVisibleItemPosition()
             val totalItemCount = adapter.itemCount
             
-            // Скроллим только если последний элемент не виден полностью
-            if (lastVisiblePosition < totalItemCount - 1) {
-                binding.consoleList.post {
-                    binding.consoleList.scrollToPosition(totalItemCount - 1)
+            if (totalItemCount > 0) {
+                val lastVisiblePosition = layoutManager.findLastVisibleItemPosition()
+                val lastCompletelyVisiblePosition = layoutManager.findLastCompletelyVisibleItemPosition()
+                
+                // Скроллим только если последний элемент не полностью виден
+                if (lastCompletelyVisiblePosition < totalItemCount - 1) {
+                    binding.consoleList.post {
+                        // Скроллим к самому низу списка, не центрируя элемент
+                        val lastView = layoutManager.findViewByPosition(totalItemCount - 1)
+                        if (lastView != null) {
+                            // Скроллим так, чтобы последний элемент был внизу экрана
+                            val scrollY = lastView.bottom - binding.consoleList.height
+                            if (scrollY > 0) {
+                                binding.consoleList.scrollBy(0, scrollY)
+                            }
+                        } else {
+                            // Если view еще не создан, используем scrollToPosition как fallback
+                            binding.consoleList.scrollToPosition(totalItemCount - 1)
+                        }
+                    }
                 }
             }
         }
@@ -284,7 +299,10 @@ class TerminalActivity : AppCompatActivity() {
                 vibrator()
             }
             4 -> showRedScrim()
-            5 -> demonJumpScare()
+            5 -> {
+                showRedScrim()
+                demonJumpScare()
+            }
         }
     }
 
