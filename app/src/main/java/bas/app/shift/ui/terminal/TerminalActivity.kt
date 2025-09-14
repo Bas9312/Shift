@@ -29,6 +29,7 @@ import bas.app.shift.helpers.NoiseManager
 import bas.app.shift.helpers.TerminalCommandManager
 import bas.app.shift.helpers.TerminalHistoryHelper
 import bas.app.shift.helpers.UserPrefsHelper
+import bas.app.shift.helpers.NoiseHelper
 import bas.app.shift.helpers.WikipediaHelper
 import bas.app.shift.models.TerminalCommand
 import bas.app.shift.models.TerminalHistory
@@ -40,20 +41,20 @@ class TerminalActivity : AppCompatActivity() {
     private lateinit var adapter: ConsoleAdapter
     private var isUpgradeSessionActive = false  // Отслеживаем активную сессию UPGRADE
     private var isRebootSessionActive = false   // Отслеживаем активную сессию REBOOT
+    private var isDeepDiveSessionActive = false // Отслеживаем активную сессию DEEP_DIVE
     private val levelViews by lazy {
         listOf<View>(
             findViewById(R.id.lvl1), findViewById(R.id.lvl2), findViewById(R.id.lvl3),
-            findViewById(R.id.lvl4), findViewById(R.id.lvl5), findViewById(R.id.lvl6),
-            findViewById(R.id.lvl7)
+            findViewById(R.id.lvl4), findViewById(R.id.lvl5)
         )
     }
 
     private val colors = listOf(
         R.color.noise1, R.color.noise2, R.color.noise3,
-        R.color.noise4, R.color.noise5, R.color.noise6, R.color.noise7
+        R.color.noise4, R.color.noise5
     )
 
-    private var noise = 0
+    private var noise = 0.0
     private var terminalHistory = TerminalHistory()
     private lateinit var noiseManager: NoiseManager
 
@@ -83,7 +84,7 @@ class TerminalActivity : AppCompatActivity() {
             }
         }
 
-        updateNoise(0)          // старт
+        updateNoise(0.0)          // старт
         
         // Загружаем историю терминала
         loadTerminalHistory()
@@ -195,6 +196,12 @@ class TerminalActivity : AppCompatActivity() {
             "USER.UPGRADE.END" -> {
                 handleUpgradeEndCommand(fullCommand)
             }
+            "DEEP_DIVE.START" -> {
+                handleDeepDiveStartCommand()
+            }
+            "DEEP_DIVE.END" -> {
+                handleDeepDiveEndCommand(fullCommand)
+            }
             else -> {
                 // Обычная команда
                 val executingMsg = "Выполняю: $fullCommand"
@@ -209,7 +216,7 @@ class TerminalActivity : AppCompatActivity() {
                 
                 // Отправляем команду на сервер для изменения шума
                 if (command.noiseIncrease != 0) {
-                    noiseManager.adjustNoise(command.noiseIncrease, "Terminal command: $fullCommand")
+                    noiseManager.adjustNoise(command.noiseIncrease)
                 }
             }
         }
@@ -218,40 +225,55 @@ class TerminalActivity : AppCompatActivity() {
     }
 
     private fun incNoise(delta: Int) {
-        noise = (noise + delta).coerceIn(0, 7)
+        noise = (noise + delta).coerceIn(0.0, 5.0)
         updateNoise(noise)
-        if (noise == 5) {
+        if (NoiseHelper.getNoiseLevel(noise) >= 3) {
             showGlitchEvent()
         }
     }
 
     private fun showGlitchEvent() {
-        Toast.makeText(this, "Глюк-атака! Шум 5", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Глюк-атака! Шум 3+", Toast.LENGTH_SHORT).show()
     }
 
-    fun updateNoise(n: Int) {
+    fun updateNoise(noiseValue: Double) {
+        val noiseLevel = NoiseHelper.getNoiseLevel(noiseValue)
+        val progress = NoiseHelper.getLevelProgress(noiseValue)
+        
         levelViews.forEachIndexed { idx, v ->
-            v.setBackgroundColor(
-                ContextCompat.getColor(
-                    this,
-                    if (idx < n) colors[idx] else R.color.noiseOff
-                )
-            )
+            val shouldHighlight = idx < noiseLevel
+            val isCurrentLevel = idx == noiseLevel
+            val shouldPartialHighlight = isCurrentLevel && progress > 0.0
+            
+            when {
+                shouldHighlight -> {
+                    v.setBackgroundColor(ContextCompat.getColor(this, colors[idx]))
+                }
+                shouldPartialHighlight -> {
+                    // Для текущего уровня с частичным заполнением - используем полупрозрачный цвет
+                    val color = ContextCompat.getColor(this, colors[idx])
+                    val alpha = (255 * progress).toInt().coerceIn(0, 255)
+                    v.setBackgroundColor((color and 0x00FFFFFF) or (alpha shl 24))
+                }
+                else -> {
+                    v.setBackgroundColor(ContextCompat.getColor(this, R.color.noiseOff))
+                }
+            }
         }
 
-        when (n) {
+        // Обновляем отображение дробного значения
+        binding.noiseValue.text = NoiseHelper.formatNoiseValue(noiseValue)
+
+        when (noiseLevel) {
             0, 1 -> binding.noiseOverlay.visibility = View.GONE
-            2, 3 -> showNoise(n)
-            4 -> {
-                showNoise(n); applyGlitch(n)
+            2 -> showNoise(noiseLevel)
+            3 -> {
+                showNoise(noiseLevel)
+                applyGlitch(noiseLevel)
+                vibrator()
             }
-
-            5 -> {
-                showNoise(n); applyGlitch(n); vibrator()
-            }
-
-            6 -> showRedScrim()
-            7 -> demonJumpScare()
+            4 -> showRedScrim()
+            5 -> demonJumpScare()
         }
     }
 
@@ -545,7 +567,7 @@ class TerminalActivity : AppCompatActivity() {
         saveResponseToHistory(successMsg)
         
         // Снижаем шум
-        noiseManager.adjustNoise(-2, "USER.UPGRADE.END - Wikipedia surfing completed")
+        noiseManager.adjustNoise(-2)
         
         // Завершаем сессию UPGRADE
         isUpgradeSessionActive = false
@@ -633,11 +655,124 @@ class TerminalActivity : AppCompatActivity() {
         saveResponseToHistory(successMsg)
         
         // Снижаем шум
-        noiseManager.adjustNoise(-1, "USER.REBOOT.END - System reboot completed")
+        noiseManager.adjustNoise(-1)
         
         // Завершаем сессию REBOOT
         isRebootSessionActive = false
         
+        smoothScrollToBottom()
+    }
+
+    private fun handleDeepDiveStartCommand() {
+        val executingMsg = "Выполняю: DEEP_DIVE.START"
+        adapter.addTyping(executingMsg)
+        saveResponseToHistory(executingMsg)
+
+        val deepDiveText = """
+            === ГЛУБОКОЕ ПОГРУЖЕНИЕ ===
+            
+            Дип! Дип! Дип!
+            
+            Цифровая реальность обволакивает сознание...
+            Матрица кода начинает пульсировать в ритме твоего сердца.
+            
+            Ты чувствуешь, как границы между физическим и виртуальным 
+            начинают размываться. Нули и единицы танцуют перед глазами,
+            создавая причудливые узоры из света и тени.
+            
+            "Дип!" - шепчет система, и ты понимаешь, что это не просто
+            звук, а приглашение в глубины, куда обычные пользователи
+            никогда не осмелятся заглянуть.
+            
+            Сознание начинает растворяться в потоках данных...
+            Ты становишься частью сети, частью самой системы.
+            
+            Для завершения погружения используйте команду:
+            DEEP_DIVE.END <глубина>
+            
+            Где <глубина> - число от 1 до 5, полученное от мастера.
+        """.trimIndent()
+
+        adapter.addTyping(deepDiveText)
+        saveResponseToHistory(deepDiveText)
+
+        // Активируем сессию DEEP_DIVE
+        isDeepDiveSessionActive = true
+
+        smoothScrollToBottom()
+    }
+
+    private fun handleDeepDiveEndCommand(fullCommand: String) {
+        val executingMsg = "Выполняю: DEEP_DIVE.END"
+        adapter.addTyping(executingMsg)
+        saveResponseToHistory(executingMsg)
+
+        // Проверяем активную сессию DEEP_DIVE
+        if (!isDeepDiveSessionActive) {
+            val errorMsg = "Ошибка: Нет активной сессии погружения. Сначала выполните DEEP_DIVE.START"
+            adapter.addTyping(errorMsg)
+            saveResponseToHistory(errorMsg)
+            smoothScrollToBottom()
+            return
+        }
+
+        // Парсим параметр глубины
+        val parts = fullCommand.split(" ")
+        if (parts.size < 2) {
+            val errorMsg = "Ошибка: Не указана глубина. Используйте: DEEP_DIVE.END <глубина> (1-5)"
+            adapter.addTyping(errorMsg)
+            saveResponseToHistory(errorMsg)
+            smoothScrollToBottom()
+            return
+        }
+
+        val depthStr = parts[1]
+        val depth = try {
+            depthStr.toInt()
+        } catch (e: NumberFormatException) {
+            val errorMsg = "Ошибка: Глубина должна быть числом. Используйте: DEEP_DIVE.END <глубина> (1-5)"
+            adapter.addTyping(errorMsg)
+            saveResponseToHistory(errorMsg)
+            smoothScrollToBottom()
+            return
+        }
+
+        if (depth < 1 || depth > 5) {
+            val errorMsg = "Ошибка: Глубина должна быть от 1 до 5. Используйте: DEEP_DIVE.END <глубина> (1-5)"
+            adapter.addTyping(errorMsg)
+            saveResponseToHistory(errorMsg)
+            smoothScrollToBottom()
+            return
+        }
+
+        val returnText = """
+            === ВОЗВРАЩЕНИЕ ИЗ ГЛУБИН ===
+            
+            Глубина-глубина, я не твой…
+            Отпусти меня, глубина…
+            
+            Сознание начинает возвращаться из цифровых глубин.
+            Ты чувствуешь, как виртуальная реальность постепенно
+            отпускает тебя, возвращая в физический мир.
+            
+            "Дип!" - последний раз звучит в ушах, но теперь это
+            прощальный привет, а не приглашение.
+            
+            Ты возвращаешься с глубины $depth, неся с собой
+            частичку цифрового мира в своем сознании.
+            
+            Погружение завершено. Шум увеличивается.
+        """.trimIndent()
+
+        adapter.addTyping(returnText)
+        saveResponseToHistory(returnText)
+
+        // Увеличиваем шум на указанную глубину
+        noiseManager.adjustNoise(depth)
+
+        // Завершаем сессию DEEP_DIVE
+        isDeepDiveSessionActive = false
+
         smoothScrollToBottom()
     }
 

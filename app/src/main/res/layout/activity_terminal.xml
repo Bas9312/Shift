@@ -57,9 +57,7 @@
             android:orientation="vertical"
             android:gravity="bottom">
 
-            <!-- 7 цветных «палочек» -->
-            <include layout="@layout/item_noise" android:id="@+id/lvl7"/>
-            <include layout="@layout/item_noise" android:id="@+id/lvl6"/>
+            <!-- 5 цветных «палочек» -->
             <include layout="@layout/item_noise" android:id="@+id/lvl5"/>
             <include layout="@layout/item_noise" android:id="@+id/lvl4"/>
             <include layout="@layout/item_noise" android:id="@+id/lvl3"/>
@@ -67,6 +65,18 @@
             <include layout="@layout/item_noise" android:id="@+id/lvl1"/>
         </LinearLayout>
     </androidx.cardview.widget.CardView>
+
+    <!-- TextView для отображения дробного значения шума -->
+    <TextView
+        android:id="@+id/noiseValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0.0"
+        android:textColor="#C8E1FF"
+        android:textSize="12sp"
+        android:layout_marginEnd="8dp"
+        app:layout_constraintTop_toBottomOf="@id/topBar"
+        app:layout_constraintEnd_toStartOf="@id/noiseCard" />
 
     <!-- список консольных строк -->
     <androidx.recyclerview.widget.RecyclerView

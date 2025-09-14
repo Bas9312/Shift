@@ -12,9 +12,9 @@ import retrofit2.Response
 
 class NoiseManager(private val context: Context) {
     
-    private var currentNoise = 0
+    private var currentNoise = 0.0
     private var userId: String? = null
-    private var onNoiseUpdateListener: ((Int) -> Unit)? = null
+    private var onNoiseUpdateListener: ((Double) -> Unit)? = null
     private var onCommandSuccessListener: (() -> Unit)? = null
     
     private val handler = Handler(Looper.getMainLooper())
@@ -24,7 +24,7 @@ class NoiseManager(private val context: Context) {
         this.userId = userId
     }
     
-    fun setOnNoiseUpdateListener(listener: (Int) -> Unit) {
+    fun setOnNoiseUpdateListener(listener: (Double) -> Unit) {
         this.onNoiseUpdateListener = listener
     }
     
@@ -70,10 +70,10 @@ class NoiseManager(private val context: Context) {
             })
     }
     
-    fun adjustNoise(delta: Int, reason: String? = null) {
+    fun adjustNoise(delta: Int) {
         val currentUserId = userId ?: return
         
-        val request = NoiseAdjustRequest(delta = delta, reason = reason)
+        val request = NoiseAdjustRequest(delta = delta)
         
         RetrofitClient.noiseApi.adjustUserNoise(currentUserId, request)
             .enqueue(object : Callback<bas.app.shift.models.NoiseAdjustResponse> {
@@ -83,10 +83,10 @@ class NoiseManager(private val context: Context) {
                 ) {
                     if (response.isSuccessful && response.body() != null) {
                         val adjustResponse = response.body()!!
-                        currentNoise = adjustResponse.localAfter
+                        currentNoise = adjustResponse.local.after
                         onNoiseUpdateListener?.invoke(currentNoise)
                         onCommandSuccessListener?.invoke()
-                        LogHelper.d("NoiseManager: Noise adjusted: ${adjustResponse.localBefore} -> ${adjustResponse.localAfter}")
+                        LogHelper.d("NoiseManager: Noise adjusted: ${adjustResponse.local.before} -> ${adjustResponse.local.after}")
                     } else {
                         LogHelper.e("NoiseManager: Error adjusting noise: ${response.code()}")
                     }
@@ -98,7 +98,7 @@ class NoiseManager(private val context: Context) {
             })
     }
     
-    fun getCurrentNoise(): Int = currentNoise
+    fun getCurrentNoise(): Double = currentNoise
     
     fun cleanup() {
         stopPeriodicNoiseUpdate()

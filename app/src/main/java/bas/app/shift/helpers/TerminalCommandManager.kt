@@ -44,6 +44,10 @@ object TerminalCommandManager {
         TerminalCommand("USER", "USER.UPGRADE.END", "<статьи>", "Завершить вики-серфинг: отправить путь из статей", -2),
         TerminalCommand("USER", "USER.FORMAT", "", "Сброс шума (ОПАСНО!)", -10),
         
+        // DEEP_DIVE группа
+        TerminalCommand("DEEP_DIVE", "DEEP_DIVE.START", "", "Начать глубокое погружение в цифровую реальность", 0),
+        TerminalCommand("DEEP_DIVE", "DEEP_DIVE.END", "<глубина>", "Завершить погружение: вернуться с указанной глубины", 0),
+        
         // HELP команда
         TerminalCommand("SYSTEM", "HELP", "", "Показать все доступные команды", 0)
     )
