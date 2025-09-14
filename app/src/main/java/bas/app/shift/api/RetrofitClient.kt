@@ -44,5 +44,30 @@ object RetrofitClient {
     val userProfileApi: UserProfileApi = retrofit.create(UserProfileApi::class.java)
     val artifactApi: ArtifactApi = retrofit.create(ArtifactApi::class.java)
     val effectApi: EffectApi = retrofit.create(EffectApi::class.java)
+    val noiseApi: NoiseApi = retrofit.create(NoiseApi::class.java)
     val chatApi: ChatApi = chatRetrofit.create(ChatApi::class.java)
+    
+    // Wikipedia API с отдельным OkHttpClient и User-Agent
+    private val wikipediaOkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        })
+        .addInterceptor { chain ->
+            val request = chain.request().newBuilder()
+                .header("User-Agent", "ShiftApp/1.0 (https://shift96.ru; support@shift96.ru) okhttp")
+                .build()
+            chain.proceed(request)
+        }
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
+    
+    private val wikipediaRetrofit = Retrofit.Builder()
+        .baseUrl("https://ru.wikipedia.org/")
+        .client(wikipediaOkHttpClient)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+    
+    val wikipediaApi: WikipediaApi = wikipediaRetrofit.create(WikipediaApi::class.java)
 }

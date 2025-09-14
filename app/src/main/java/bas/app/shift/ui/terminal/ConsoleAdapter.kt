@@ -18,6 +18,12 @@ data class Line(val text: String, val type: Type) {
 class ConsoleAdapter(
     private val data: MutableList<Line>
 ) : RecyclerView.Adapter<ConsoleAdapter.Holder>() {
+    
+    private var onScrollCallback: (() -> Unit)? = null
+    
+    fun setOnScrollCallback(callback: () -> Unit) {
+        this.onScrollCallback = callback
+    }
 
     inner class Holder(val binding: ItemConsoleLineBinding)
         : RecyclerView.ViewHolder(binding.root)
@@ -34,7 +40,32 @@ class ConsoleAdapter(
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val line = data[position]
         val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
-        holder.binding.tvLine.text = "[$time]  ${line.text}"
+        val fullText = "[$time]  ${line.text}"
+        
+        // Создаем SpannableString для поддержки кликабельных ссылок
+        val spannable = android.text.SpannableString(fullText)
+        
+        // Находим и делаем кликабельными ссылки Wikipedia
+        val urlPattern = "https://ru\\.wikipedia\\.org/wiki/[^\\s]+"
+        val regex = urlPattern.toRegex()
+        val matches = regex.findAll(fullText)
+        
+        matches.forEach { matchResult ->
+            val start = matchResult.range.first
+            val end = matchResult.range.last + 1
+            val url = matchResult.value
+            
+            // Добавляем кликабельную ссылку
+            spannable.setSpan(
+                android.text.style.URLSpan(url),
+                start,
+                end,
+                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        
+        holder.binding.tvLine.text = spannable
+        holder.binding.tvLine.movementMethod = android.text.method.LinkMovementMethod.getInstance()
         holder.binding.tvLine.setTextColor(
             ContextCompat.getColor(
                 holder.itemView.context,
@@ -52,19 +83,28 @@ class ConsoleAdapter(
     fun addTyping(text: String) {
         data += Line("", Line.Type.TYPING)        // пустая
         notifyItemInserted(data.lastIndex)
+        onScrollCallback?.invoke()  // скроллим сразу при добавлении
         graduallyFill(text, data.lastIndex)
     }
 
     private fun graduallyFill(full: String, pos: Int) {
         var i = 0
         val h = Handler(Looper.getMainLooper())
+        
         val step = object : Runnable {
             override fun run() {
                 if (i <= full.length) {
                     data[pos] = Line(full.take(i), Line.Type.RSP)
                     notifyItemChanged(pos)
+                    
+                    // Скроллим при каждом обновлении текста
+                    onScrollCallback?.invoke()
+                    
                     i++
                     h.postDelayed(this, 25)       // 40 симв/сек
+                } else {
+                    // Финальный скроллинг в конце печати
+                    onScrollCallback?.invoke()
                 }
             }
         }

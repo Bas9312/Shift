@@ -296,7 +296,7 @@ class MainActivity : AppCompatActivity() {
                 binding.openAuraButton.visibility = if (hasExtrasensory) View.VISIBLE else View.GONE
                 
                 // Проверяем дисциплину "Шумомантия"
-                val hasNoisemancy = user.disciplines.any { it.name.equals("Шумомантия", ignoreCase = true) }
+                val hasNoisemancy = user.disciplines.any { it.id == 9 }
                 binding.openTerminalButton.visibility = if (hasNoisemancy) View.VISIBLE else View.GONE
                 
                 // Проверяем наличие фамильяра
