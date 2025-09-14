@@ -19,7 +19,6 @@ object DateTimeHelper {
         return try {
             // Парсим дату с сервера (в UTC-2)
             val serverFormat = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
-            serverFormat.timeZone = TimeZone.getTimeZone("UTC-2")
             val date = serverFormat.parse(expireAt)
             
             LogHelper.d("DateTimeHelper: Parsed date: $date")
@@ -46,7 +45,6 @@ object DateTimeHelper {
         
         return try {
             val serverFormat = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
-            serverFormat.timeZone = TimeZone.getTimeZone("UTC-2")
             val expireDate = serverFormat.parse(expireAt)
             
             if (expireDate != null) {
