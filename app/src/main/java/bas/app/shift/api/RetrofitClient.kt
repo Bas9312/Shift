@@ -39,6 +39,12 @@ object RetrofitClient {
         .addConverterFactory(GsonConverterFactory.create(gson))
         .build()
 
+    private val messagesRetrofit = Retrofit.Builder()
+        .baseUrl(BASE_URL)
+        .client(okHttpClient)
+        .addConverterFactory(GsonConverterFactory.create(gson))
+        .build()
+
     val shiftApi: ShiftApi = retrofit.create(ShiftApi::class.java)
     val auraApi: AuraApi = retrofit.create(AuraApi::class.java)
     val userProfileApi: UserProfileApi = retrofit.create(UserProfileApi::class.java)
@@ -46,6 +52,7 @@ object RetrofitClient {
     val effectApi: EffectApi = retrofit.create(EffectApi::class.java)
     val noiseApi: NoiseApi = retrofit.create(NoiseApi::class.java)
     val chatApi: ChatApi = chatRetrofit.create(ChatApi::class.java)
+    val messagesApi: MessagesApi = messagesRetrofit.create(MessagesApi::class.java)
     
     // Wikipedia API с отдельным OkHttpClient и User-Agent
     private val wikipediaOkHttpClient = OkHttpClient.Builder()

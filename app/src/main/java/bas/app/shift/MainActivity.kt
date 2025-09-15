@@ -201,6 +201,10 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, FamiliarActivity::class.java))
         }
 
+        binding.btnMessagesChat.setOnClickListener {
+            startActivity(Intent(this, bas.app.shift.ui.MessagesChatActivity::class.java))
+        }
+
         binding.btnRitual.setOnClickListener {
             performRitual()
         }

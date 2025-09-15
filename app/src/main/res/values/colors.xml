@@ -26,5 +26,14 @@
     <!-- Цвета для эффектов -->
     <color name="effects_background">#FFF3E0</color> <!-- Светло-оранжевый -->
     <color name="effects_border">#FF9800</color> <!-- Оранжевый для границы -->
+    
+    <!-- Цвета для чата -->
+    <color name="background_dark">#121212</color>
+    <color name="surface_dark">#1E1E1E</color>
+    <color name="surface_light">#2D2D2D</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B3B3B3</color>
+    <color name="primary_light">#BB86FC</color>
+    <color name="primary_dark">#6200EE</color>
 
 </resources>

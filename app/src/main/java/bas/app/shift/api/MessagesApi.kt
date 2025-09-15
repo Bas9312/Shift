@@ -1,0 +1,39 @@
+package bas.app.shift.api
+
+import bas.app.shift.models.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import retrofit2.Call
+import retrofit2.Response
+import retrofit2.http.*
+
+interface MessagesApi {
+    
+    // Создать новое сообщение
+    @Multipart
+    @POST("messages_api/messages")
+    fun createMessage(
+        @Header("X-User-Id") userId: String,
+        @Part("text") text: RequestBody,
+        @Part("recipient_id") recipientId: RequestBody,
+        @Part("tags") tags: RequestBody?,
+        @Part files: List<MultipartBody.Part>?
+    ): Call<CreateMessageResponse>
+    
+    // Получить список сообщений
+    @GET("messages_api/messages")
+    fun getMessages(
+        @Header("X-User-Id") userId: String,
+        @Query("limit") limit: Int = 10,
+        @Query("offset") offset: Int = 0,
+        @Query("tags") tags: String? = null,
+        @Query("type") type: String? = null
+    ): Call<GetMessagesResponse>
+    
+    // Пометить сообщение как прочитанное
+    @PUT("messages_api/messages/{id}/read")
+    fun markAsRead(
+        @Header("X-User-Id") userId: String,
+        @Path("id") messageId: Int
+    ): Call<MarkAsReadResponse>
+}

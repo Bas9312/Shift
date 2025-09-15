@@ -116,12 +116,28 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.MessagesChatActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.AuraQrActivity"
             android:exported="false" />
 
         <activity
             android:name=".ui.EffectEditorActivity"
             android:exported="false" />
+
+        <service
+            android:name=".services.MessagesService"
+            android:exported="false" />
+
+        <receiver
+            android:name=".receivers.MessagesReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="bas.app.shift.NEW_MESSAGES" />
+            </intent-filter>
+        </receiver>
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"

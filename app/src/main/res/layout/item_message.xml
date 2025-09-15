@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp"
+    android:gravity="start">
+
+    <!-- Контейнер сообщения -->
+    <LinearLayout
+        android:id="@+id/messageContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:background="@drawable/bg_message_bubble"
+        android:padding="12dp"
+        android:maxWidth="280dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp">
+
+        <!-- Заголовок сообщения (отправитель и время) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="4dp">
+
+            <TextView
+                android:id="@+id/tvSender"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Отправитель"
+                android:textSize="12sp"
+                android:textColor="#666666"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="12:34"
+                android:textSize="10sp"
+                android:textColor="#666666" />
+
+        </LinearLayout>
+
+        <!-- Текст сообщения -->
+        <TextView
+            android:id="@+id/tvContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Текст сообщения"
+            android:textSize="14sp"
+            android:textColor="#000000"
+            android:lineSpacingExtra="2dp" />
+
+        <!-- Вложения -->
+        <LinearLayout
+            android:id="@+id/attachmentsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp"
+            android:visibility="gone">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvAttachments"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
+
+        </LinearLayout>
+
+        <!-- Теги -->
+        <LinearLayout
+            android:id="@+id/tagsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Теги: "
+                android:textSize="10sp"
+                android:textColor="#666666" />
+
+            <TextView
+                android:id="@+id/tvTags"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1, 3, 5"
+                android:textSize="10sp"
+                android:textColor="#2196F3" />
+
+        </LinearLayout>
+
+        <!-- Статус прочтения -->
+        <TextView
+            android:id="@+id/tvReadStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginTop="4dp"
+            android:text="✓"
+            android:textSize="10sp"
+            android:textColor="#666666"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</LinearLayout>
