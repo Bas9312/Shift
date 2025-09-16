@@ -377,7 +377,7 @@ class MessagesChatActivity : AppCompatActivity() {
                         // Помечаем исходное сообщение как прочитанное и обновляем UI
                         if (selectedMessageForReply != null) {
                             android.util.Log.d("MessagesChat", "Marking message ${selectedMessageForReply!!.id} as read after reply")
-                            val updatedMessage = realMessage.copy(readStatus = "read")
+                            val updatedMessage = selectedMessageForReply!!.copy(readStatus = "read")
                             messagesAdapter.updateMessage(updatedMessage)
                         }
                         

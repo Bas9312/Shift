@@ -163,8 +163,11 @@ class MessagesAdapter(
                 tagsContainer.visibility = View.GONE
             }
             
-            // Отображаем статус прочтения для всех сообщений
-            if (message.readStatus == "read") {
+            // Отображаем статус прочтения
+            if (currentUserId.startsWith("MG_") && isCurrentUser) {
+                // Для МГ пользователей: на своих сообщениях галочки не показываем
+                tvReadStatus.visibility = View.GONE
+            } else if (message.readStatus == "read") {
                 tvReadStatus.visibility = View.VISIBLE
                 tvReadStatus.text = "✓✓"
                 tvReadStatus.setTextColor(itemView.context.getColor(R.color.primary_light))
