@@ -8,10 +8,11 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import bas.app.shift.R
 import bas.app.shift.databinding.ItemConsoleLineBinding
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-data class Line(val text: String, val type: Type) {
+data class Line(val text: String, val type: Type, val ts: Long = System.currentTimeMillis()) {
     enum class Type { CMD, RSP, ERR, SYS, TYPING }
 }
 
@@ -39,7 +40,7 @@ class ConsoleAdapter(
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val line = data[position]
-        val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+        val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(line.ts))
         val fullText = "[$time]  ${line.text}"
         
         // Создаем SpannableString для поддержки кликабельных ссылок
@@ -81,7 +82,7 @@ class ConsoleAdapter(
     }
 
     fun addTyping(text: String) {
-        data += Line("", Line.Type.TYPING)        // пустая
+        data += Line("", Line.Type.TYPING)        // пустая с фиксированным ts
         notifyItemInserted(data.lastIndex)
         onScrollCallback?.invoke()  // скроллим сразу при добавлении
         graduallyFill(text, data.lastIndex)
@@ -96,7 +97,8 @@ class ConsoleAdapter(
         val step = object : Runnable {
             override fun run() {
                 if (i <= full.length) {
-                    data[pos] = Line(full.take(i), Line.Type.RSP)
+                    val ts = data.getOrNull(pos)?.ts ?: System.currentTimeMillis()
+                    data[pos] = Line(full.take(i), Line.Type.RSP, ts)
                     notifyItemChanged(pos)
                     
                     // Скроллим только если текст значительно увеличился (каждые 10 символов)

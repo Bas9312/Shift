@@ -97,6 +97,10 @@ class TerminalActivity : AppCompatActivity() {
         // Инициализируем NoiseManager
         initNoiseManager()
 
+        // Восстанавливаем активную сессию UPGRADE из преференсов (если была начата ранее)
+        val prefs = getSharedPreferences("terminal_prefs", MODE_PRIVATE)
+        isUpgradeSessionActive = prefs.getBoolean("upgrade_session_active", false)
+
         binding.topBar.setNavigationOnClickListener {
             finish()
         }
@@ -465,6 +469,9 @@ class TerminalActivity : AppCompatActivity() {
                 
                 // Активируем сессию UPGRADE
                 isUpgradeSessionActive = true
+                // Сохраняем флаг активной сессии в преференсы
+                val prefs = getSharedPreferences("terminal_prefs", MODE_PRIVATE)
+                prefs.edit().putBoolean("upgrade_session_active", true).apply()
             },
             onError = { error ->
                 val errorMsg = "Ошибка получения страниц Wikipedia: $error"
@@ -609,6 +616,9 @@ class TerminalActivity : AppCompatActivity() {
         
         // Завершаем сессию UPGRADE
         isUpgradeSessionActive = false
+        // Сбрасываем флаг активной сессии в преференсах
+        val prefs = getSharedPreferences("terminal_prefs", MODE_PRIVATE)
+        prefs.edit().putBoolean("upgrade_session_active", false).apply()
         
         smoothScrollToBottom()
     }
