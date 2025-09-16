@@ -36,4 +36,20 @@ interface MessagesApi {
         @Header("X-User-Id") userId: String,
         @Path("id") messageId: Int
     ): Call<MarkAsReadResponse>
+    
+    // Получить список чатов (только для МГ пользователей)
+    @GET("messages_api/chats")
+    fun getChats(
+        @Header("X-User-Id") userId: String
+    ): Call<GetChatsResponse>
+    
+    // Получить историю чата с конкретным пользователем (только для МГ)
+    @GET("messages_api/chats/{peerId}/history")
+    fun getChatHistory(
+        @Header("X-User-Id") userId: String,
+        @Path("peerId") peerId: String,
+        @Query("limit") limit: Int = 100,
+        @Query("offset") offset: Int = 0,
+        @Query("tags") tags: String? = null
+    ): Call<GetMessagesResponse>
 }

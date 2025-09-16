@@ -45,9 +45,9 @@ object TerminalHistoryHelper {
         prefs.edit().remove(KEY_HISTORY).apply()
     }
     
-    fun addCommandToHistory(context: Context, command: String) {
+    fun addCommandToHistory(context: Context, command: String, timestamp: java.time.LocalTime = java.time.LocalTime.now()) {
         val currentHistory = loadHistory(context)
-        val newHistory = currentHistory.addCommand(command)
+        val newHistory = currentHistory.addCommand(command, timestamp)
         
         // Ограничиваем размер истории
         val limitedHistory = if (newHistory.commands.size > MAX_HISTORY_SIZE) {
@@ -61,9 +61,9 @@ object TerminalHistoryHelper {
         saveHistory(context, limitedHistory)
     }
     
-    fun addResponseToHistory(context: Context, response: String) {
+    fun addResponseToHistory(context: Context, response: String, timestamp: java.time.LocalTime = java.time.LocalTime.now()) {
         val currentHistory = loadHistory(context)
-        val newHistory = currentHistory.addResponse(response)
+        val newHistory = currentHistory.addResponse(response, timestamp)
         saveHistory(context, newHistory)
     }
 }

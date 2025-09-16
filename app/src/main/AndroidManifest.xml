@@ -120,6 +120,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.ChatsListActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.AuraQrActivity"
             android:exported="false" />
 

@@ -14,7 +14,7 @@
         android:background="?attr/colorPrimary"
         android:theme="@style/ThemeOverlay.Material3.Dark.ActionBar"
         app:title="Чат с МГ"
-        app:navigationIcon="@drawable/ic_arrow_back" />
+        app:navigationIcon="@drawable/ic_arrow_back_24" />
 
     <!-- Список сообщений -->
     <androidx.recyclerview.widget.RecyclerView
@@ -36,20 +36,20 @@
         android:elevation="4dp">
 
         <!-- Кнопка прикрепления файла -->
-        <com.google.android.material.button.MaterialButton
+        <ImageButton
             android:id="@+id/btnAttach"
-            style="@style/Widget.Material3.Button.IconButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            app:icon="@drawable/ic_attach_file" />
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_attach_file"
+            android:layout_gravity="center_vertical"
+            android:contentDescription="Прикрепить файл" />
 
         <!-- Поле ввода сообщения -->
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginEnd="8dp"
             android:hint="Введите сообщение..."
             app:boxBackgroundMode="outline">
 
@@ -62,12 +62,14 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Кнопка отправки -->
-        <com.google.android.material.button.MaterialButton
+        <ImageButton
             android:id="@+id/btnSend"
-            style="@style/Widget.Material3.Button.IconButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_send" />
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="center_vertical"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_send"
+            android:contentDescription="Отправить сообщение" />
 
     </LinearLayout>
 

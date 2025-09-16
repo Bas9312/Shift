@@ -80,6 +80,41 @@ data class MarkAsReadResponse(
     val success: Boolean
 )
 
+// Модель чата для списка
+data class Chat(
+    @SerializedName("chat_id")
+    val chatId: String,
+    @SerializedName("interlocutor")
+    val interlocutor: String,
+    @SerializedName("interlocutor_name")
+    val interlocutorName: String?,
+    @SerializedName("interlocutor_player_name")
+    val interlocutorPlayerName: String?,
+    @SerializedName("last_message")
+    val lastMessage: LastMessage?,
+    @SerializedName("unread_count")
+    val unreadCount: Int = 0
+)
+
+// Модель последнего сообщения в чате
+data class LastMessage(
+    val id: Int,
+    @SerializedName("sender_id")
+    val senderId: String,
+    @SerializedName("recipient_id")
+    val recipientId: String,
+    val content: String,
+    @SerializedName("created_at")
+    val createdAt: String,
+    @SerializedName("read_status")
+    val readStatus: String,
+    val tags: List<Int>? = null,
+    val attachments: List<MessageAttachment>? = null
+)
+
+// Ответ на запрос списка чатов
+typealias GetChatsResponse = List<Chat>
+
 // Ошибка API
 data class ApiError(
     val error: String

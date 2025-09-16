@@ -8,6 +8,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import bas.app.shift.R
 import bas.app.shift.models.Message
+import bas.app.shift.models.Disciplines
 import bas.app.shift.helpers.UserPrefsHelper
 import java.text.SimpleDateFormat
 import java.util.*
@@ -30,6 +31,8 @@ class MessagesAdapter(
     }
 
     fun addMessage(message: Message) {
+        // При stackFromEnd = true, новые сообщения добавляются в конец списка (позиция 0)
+        // Но нужно добавить в правильном порядке - новые сообщения должны быть внизу
         messages.add(message)
         notifyItemInserted(messages.size - 1)
     }
@@ -92,7 +95,11 @@ class MessagesAdapter(
             // Отображаем теги, если они есть
             if (message.tags.isNotEmpty()) {
                 tagsContainer.visibility = View.VISIBLE
-                tvTags.text = message.tags.joinToString(", ")
+                // Преобразуем ID тегов в названия дисциплин
+                val disciplineNames = message.tags.mapNotNull { tagId ->
+                    Disciplines.DISCIPLINES.find { it.id == tagId }?.name
+                }
+                tvTags.text = disciplineNames.joinToString(", ")
             } else {
                 tagsContainer.visibility = View.GONE
             }

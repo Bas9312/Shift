@@ -26,5 +26,5 @@ data class ArtifactRequest(
 )
 
 data class ArtifactUpdateRequest(
-    @SerializedName("binding_to_name") val bindingToName: String?
+    @SerializedName("binding_to_name") val bindingToName: String
 ) 

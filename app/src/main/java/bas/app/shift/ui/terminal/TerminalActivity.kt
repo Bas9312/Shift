@@ -124,9 +124,9 @@ class TerminalActivity : AppCompatActivity() {
         smoothScrollToBottom()
     }
     
-    private fun addLineImmediate(text: String, type: Line.Type) {
+    private fun addLineImmediate(text: String, type: Line.Type, timestamp: java.time.LocalTime = java.time.LocalTime.now()) {
         // Для истории и других случаев - показываем сразу
-        adapter.add(Line(text, type))
+        adapter.add(Line(text, type, timestamp))
         smoothScrollToBottom()
     }
     
@@ -174,8 +174,10 @@ class TerminalActivity : AppCompatActivity() {
 
     /** обработка команд терминала */
     private fun sendToServer(cmd: String) {
+        val commandTimestamp = java.time.LocalTime.now()
+        
         // Сохраняем команду в историю
-        saveCommandToHistory(cmd)
+        saveCommandToHistory(cmd, commandTimestamp)
         
         val availableModules = getAvailableModules()
         val command = TerminalCommandManager.findCommand(cmd, availableModules)
@@ -183,7 +185,7 @@ class TerminalActivity : AppCompatActivity() {
         Handler(Looper.getMainLooper()).postDelayed({
             if (command != null) {
                 // Обрабатываем найденную команду
-                processCommand(command, cmd)
+                processCommand(command, cmd, commandTimestamp)
             } else {
                 // Неизвестная команда
                 val errorMsg = "ОШИБКА: Неизвестная команда '$cmd'"
@@ -193,20 +195,20 @@ class TerminalActivity : AppCompatActivity() {
                 adapter.addTyping(helpMsg)
                 
                 // Сохраняем ответы в историю
-                saveResponseToHistory(errorMsg)
-                saveResponseToHistory(helpMsg)
+                saveResponseToHistory(errorMsg, commandTimestamp)
+                saveResponseToHistory(helpMsg, commandTimestamp)
                 
                 smoothScrollToBottom()
             }
         }, 300)
     }
     
-    private fun processCommand(command: TerminalCommand, fullCommand: String) {
+    private fun processCommand(command: TerminalCommand, fullCommand: String, commandTimestamp: java.time.LocalTime) {
         when (command.name) {
             "HELP" -> {
                 val helpText = TerminalCommandManager.getHelpText(getAvailableModules())
                 addLine(helpText, Line.Type.RSP)
-                saveResponseToHistory(helpText)
+                saveResponseToHistory(helpText, commandTimestamp)
             }
             "USER.REBOOT.START" -> {
                 handleRebootStartCommand()
@@ -250,8 +252,8 @@ class TerminalActivity : AppCompatActivity() {
                 adapter.addTyping(processMsg)
                 
                 // Сохраняем ответы в историю
-                saveResponseToHistory(executingMsg)
-                saveResponseToHistory(processMsg)
+                saveResponseToHistory(executingMsg, commandTimestamp)
+                saveResponseToHistory(processMsg, commandTimestamp)
                 
                 // Отправляем команду на сервер для изменения шума
                 if (command.noiseIncrease != 0) {
@@ -369,21 +371,21 @@ class TerminalActivity : AppCompatActivity() {
         terminalHistory = TerminalHistoryHelper.loadHistory(this)
         
         // Восстанавливаем историю команд и ответов сразу, без печати
-        terminalHistory.commands.forEach { command ->
-            addLineImmediate(command, Line.Type.CMD)
+        terminalHistory.commands.forEach { commandItem ->
+            addLineImmediate(commandItem.text, Line.Type.CMD, commandItem.timestamp)
         }
         
-        terminalHistory.responses.forEach { response ->
-            addLineImmediate(response, Line.Type.RSP)
+        terminalHistory.responses.forEach { responseItem ->
+            addLineImmediate(responseItem.text, Line.Type.RSP, responseItem.timestamp)
         }
     }
     
-    private fun saveCommandToHistory(command: String) {
-        TerminalHistoryHelper.addCommandToHistory(this, command)
+    private fun saveCommandToHistory(command: String, timestamp: java.time.LocalTime = java.time.LocalTime.now()) {
+        TerminalHistoryHelper.addCommandToHistory(this, command, timestamp)
     }
     
-    private fun saveResponseToHistory(response: String) {
-        TerminalHistoryHelper.addResponseToHistory(this, response)
+    private fun saveResponseToHistory(response: String, timestamp: java.time.LocalTime = java.time.LocalTime.now()) {
+        TerminalHistoryHelper.addResponseToHistory(this, response, timestamp)
     }
     
     private fun initNoiseManager() {

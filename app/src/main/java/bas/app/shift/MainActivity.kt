@@ -24,6 +24,7 @@ import bas.app.shift.models.PointRequest
 import bas.app.shift.models.PointType
 import bas.app.shift.services.LocationService
 import bas.app.shift.ui.terminal.TerminalActivity
+import bas.app.shift.ui.ChatsListActivity
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -202,7 +203,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnMessagesChat.setOnClickListener {
-            startActivity(Intent(this, bas.app.shift.ui.MessagesChatActivity::class.java))
+            val userId = UserPrefsHelper.getUserId(this)
+            if (userId?.startsWith("MG_") == true) {
+                // Для МГ пользователей - показываем список чатов
+                startActivity(Intent(this, ChatsListActivity::class.java))
+            } else {
+                // Для обычных пользователей - сразу открываем чат с МГ
+                startActivity(Intent(this, bas.app.shift.ui.MessagesChatActivity::class.java))
+            }
         }
 
         binding.btnRitual.setOnClickListener {

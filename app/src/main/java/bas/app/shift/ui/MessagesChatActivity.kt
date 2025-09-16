@@ -19,9 +19,11 @@ import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityMessagesChatBinding
 import bas.app.shift.databinding.DialogRecipientSelectionBinding
 import bas.app.shift.databinding.DialogTagsSelectionBinding
+import bas.app.shift.databinding.DialogDisciplineSelectionBinding
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.*
 import bas.app.shift.ui.adapters.MessagesAdapter
+import bas.app.shift.ui.adapters.DisciplinesAdapter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -46,6 +48,8 @@ class MessagesChatActivity : AppCompatActivity() {
     private val pollingScope = CoroutineScope(Dispatchers.Main)
     private var lastMessageId: Int = -1
     private var currentTempId: Int = -1
+    private var pendingMessageText: String = ""
+    private var pendingFiles: MutableList<Uri> = mutableListOf()
     
     companion object {
         private const val REQUEST_CODE_PICK_FILES = 1001
@@ -65,17 +69,35 @@ class MessagesChatActivity : AppCompatActivity() {
             return
         }
         
-        // Определяем получателя по логике
-        selectedRecipient = if (userId.startsWith("MG_")) {
-            "user-123"
-        } else {
-            "MG_Bas"
+        // Получаем реципиента из Intent или определяем по логике
+        selectedRecipient = intent.getStringExtra("recipient_id") ?: run {
+            if (userId.startsWith("MG_")) {
+                // Для МГ пользователей - если нет реципиента, перенаправляем на список чатов
+                Toast.makeText(this, "Выберите чат из списка", Toast.LENGTH_SHORT).show()
+                finish()
+                return
+            } else {
+                // Для обычных пользователей - всегда МГ
+                "MG_Bas"
+            }
+        }
+        
+        android.util.Log.d("MessagesChat", "Initialized: userId=$userId, selectedRecipient=$selectedRecipient")
+        
+        // Обновляем заголовок если есть имя реципиента
+        val recipientName = intent.getStringExtra("recipient_name")
+        if (!recipientName.isNullOrEmpty()) {
+            supportActionBar?.title = "Чат с $recipientName"
         }
         
         initViews()
         setupRecyclerView()
         loadMessages()
-        startPolling()
+        
+        // Запускаем периодическое обновление только для обычных пользователей
+        if (!userId.startsWith("MG_")) {
+            startPolling()
+        }
     }
     
     private fun initViews() {
@@ -99,7 +121,10 @@ class MessagesChatActivity : AppCompatActivity() {
         }
         messagesAdapter.setCurrentUserId(userId)
         
-        binding.rvMessages.layoutManager = LinearLayoutManager(this)
+        binding.rvMessages.layoutManager = LinearLayoutManager(this).apply {
+            // Переворачиваем RecyclerView чтобы новые сообщения были снизу
+            stackFromEnd = true
+        }
         binding.rvMessages.adapter = messagesAdapter
     }
     
@@ -108,19 +133,34 @@ class MessagesChatActivity : AppCompatActivity() {
             showLoading(true)
         }
         
-        RetrofitClient.messagesApi.getMessages(
-            userId = userId,
-            limit = 50,
-            offset = 0,
-            type = "private"
-        ).enqueue(object : retrofit2.Callback<List<Message>> {
+        val call = if (userId.startsWith("MG_")) {
+            // Для МГ пользователей используем новый API истории чата
+            android.util.Log.d("MessagesChat", "Loading chat history: userId=$userId, peerId=$selectedRecipient")
+            RetrofitClient.messagesApi.getChatHistory(
+                userId = userId,
+                peerId = selectedRecipient,
+                limit = 100,
+                offset = 0
+            )
+        } else {
+            // Для обычных пользователей используем старый API
+            RetrofitClient.messagesApi.getMessages(
+                userId = userId,
+                limit = 50,
+                offset = 0,
+                type = "private"
+            )
+        }
+        
+        call.enqueue(object : retrofit2.Callback<List<Message>> {
             override fun onResponse(call: retrofit2.Call<List<Message>>, response: retrofit2.Response<List<Message>>) {
                 if (response.isSuccessful) {
                     val messages = response.body() ?: emptyList()
                     
                     if (showLoader) {
-                        // Первая загрузка - обновляем все сообщения
-                        messagesAdapter.updateMessages(messages)
+                        // Первая загрузка - переворачиваем порядок сообщений (от старых к новым)
+                        val reversedMessages = messages.reversed()
+                        messagesAdapter.updateMessages(reversedMessages)
                         if (messages.isNotEmpty()) {
                             lastMessageId = messages.maxByOrNull { it.id }?.id ?: -1
                         }
@@ -179,6 +219,18 @@ class MessagesChatActivity : AppCompatActivity() {
             return
         }
         
+        // Проверяем, является ли пользователь МГ
+        if (!userId.startsWith("MG_")) {
+            // Для не-МГ пользователей показываем диалог выбора дисциплины
+            showDisciplineSelectionDialog(text, selectedFiles.toList())
+            return
+        }
+        
+        // Для МГ пользователей отправляем сразу
+        sendMessageWithTags(text, selectedFiles.toList(), selectedTags)
+    }
+    
+    private fun sendMessageWithTags(text: String, files: List<Uri>, tags: List<Int>) {
         // Очищаем поле ввода
         binding.etMessage.text?.clear()
         
@@ -191,7 +243,7 @@ class MessagesChatActivity : AppCompatActivity() {
             content = text,
             createdAt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date()),
             readStatus = "unread",
-            tags = selectedTags
+            tags = tags
         )
         
         messagesAdapter.addMessage(tempMessage)
@@ -206,13 +258,13 @@ class MessagesChatActivity : AppCompatActivity() {
         parts.add(MultipartBody.Part.createFormData("recipient_id", selectedRecipient))
         
         // Добавляем теги, если они есть
-        if (selectedTags.isNotEmpty()) {
-            val tagsString = selectedTags.joinToString(",")
+        if (tags.isNotEmpty()) {
+            val tagsString = tags.joinToString(",")
             parts.add(MultipartBody.Part.createFormData("tags", tagsString))
         }
         
         // Добавляем файлы, если они есть
-        selectedFiles.forEach { uri ->
+        files.forEach { uri ->
             val file = File(uri.path ?: "")
             if (file.exists()) {
                 val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
@@ -273,6 +325,21 @@ class MessagesChatActivity : AppCompatActivity() {
                 selectedFiles.clear()
             }
         })
+    }
+    
+    private fun showDisciplineSelectionDialog(text: String, files: List<Uri>) {
+        val disciplineNames = Disciplines.DISCIPLINES.map { it.name }.toTypedArray()
+        
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Выберите дисциплину")
+            .setItems(disciplineNames) { _, which ->
+                val selectedDiscipline = Disciplines.DISCIPLINES[which]
+                android.util.Log.d("DisciplineDialog", "Selected: ${selectedDiscipline.name} (ID: ${selectedDiscipline.id})")
+                // Отправляем сообщение с выбранной дисциплиной как тегом
+                sendMessageWithTags(text, files, listOf(selectedDiscipline.id))
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
     
     private fun markMessageAsRead(message: Message) {
@@ -354,6 +421,8 @@ class MessagesChatActivity : AppCompatActivity() {
     private fun scrollToBottom() {
         binding.rvMessages.post {
             if (messagesAdapter.itemCount > 0) {
+                // При stackFromEnd = true, последний элемент находится в позиции 0
+                // Но теперь новые сообщения добавляются в конец, поэтому скроллим к последней позиции
                 binding.rvMessages.smoothScrollToPosition(messagesAdapter.itemCount - 1)
             }
         }
@@ -389,11 +458,17 @@ class MessagesChatActivity : AppCompatActivity() {
     
     override fun onPause() {
         super.onPause()
-        stopPolling()
+        // Останавливаем polling только для обычных пользователей
+        if (!userId.startsWith("MG_")) {
+            stopPolling()
+        }
     }
     
     override fun onResume() {
         super.onResume()
-        startPolling()
+        // Запускаем polling только для обычных пользователей
+        if (!userId.startsWith("MG_")) {
+            startPolling()
+        }
     }
 }

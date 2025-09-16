@@ -191,7 +191,7 @@ class ArtifactDetailsFragment : Fragment() {
     }
 
     private fun updateArtifactBinding() {
-        val bindingToName = selectedBindingUser?.characterName
+        val bindingToName = selectedBindingUser?.characterName ?: ""
         
         val updateRequest = ArtifactUpdateRequest(bindingToName)
         

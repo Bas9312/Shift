@@ -9,10 +9,12 @@ import androidx.recyclerview.widget.RecyclerView
 import bas.app.shift.R
 import bas.app.shift.databinding.ItemConsoleLineBinding
 import java.text.SimpleDateFormat
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 
-data class Line(val text: String, val type: Type, val ts: Long = System.currentTimeMillis()) {
+data class Line(val text: String, val type: Type, val timestamp: LocalTime = LocalTime.now()) {
     enum class Type { CMD, RSP, ERR, SYS, TYPING }
 }
 
@@ -40,7 +42,7 @@ class ConsoleAdapter(
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val line = data[position]
-        val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(line.ts))
+        val time = line.timestamp.format(DateTimeFormatter.ofPattern("HH:mm"))
         val fullText = "[$time]  ${line.text}"
         
         // Создаем SpannableString для поддержки кликабельных ссылок
@@ -82,7 +84,7 @@ class ConsoleAdapter(
     }
 
     fun addTyping(text: String) {
-        data += Line("", Line.Type.TYPING)        // пустая с фиксированным ts
+        data += Line("", Line.Type.TYPING, LocalTime.now())        // пустая с фиксированным timestamp
         notifyItemInserted(data.lastIndex)
         onScrollCallback?.invoke()  // скроллим сразу при добавлении
         graduallyFill(text, data.lastIndex)
@@ -97,8 +99,8 @@ class ConsoleAdapter(
         val step = object : Runnable {
             override fun run() {
                 if (i <= full.length) {
-                    val ts = data.getOrNull(pos)?.ts ?: System.currentTimeMillis()
-                    data[pos] = Line(full.take(i), Line.Type.RSP, ts)
+                    val timestamp = data.getOrNull(pos)?.timestamp ?: LocalTime.now()
+                    data[pos] = Line(full.take(i), Line.Type.RSP, timestamp)
                     notifyItemChanged(pos)
                     
                     // Скроллим только если текст значительно увеличился (каждые 10 символов)
