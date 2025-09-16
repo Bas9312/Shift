@@ -14,14 +14,44 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class MessagesAdapter(
-    private val onMessageClick: (Message) -> Unit = {}
+    private val onMessageClick: (Message) -> Unit = {},
+    private val onMessageLongClick: (Message) -> Unit = {}
 ) : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>() {
 
     private var messages = mutableListOf<Message>()
     private var currentUserId: String = ""
+    private var selectedMessageId: Int? = null
+    private var interlocutorName: String? = null
+    private var interlocutorId: String? = null
 
     fun setCurrentUserId(userId: String) {
         currentUserId = userId
+    }
+    
+    fun setInterlocutorName(name: String?) {
+        interlocutorName = name
+        android.util.Log.d("MessagesAdapter", "setInterlocutorName called with: $name")
+    }
+    
+    fun setInterlocutorId(id: String?) {
+        interlocutorId = id
+        android.util.Log.d("MessagesAdapter", "setInterlocutorId called with: $id")
+    }
+    
+    fun selectMessage(messageId: Int) {
+        selectedMessageId = messageId
+        notifyDataSetChanged()
+    }
+    
+    fun clearSelection() {
+        selectedMessageId = null
+        notifyDataSetChanged()
+    }
+    
+    fun getSelectedMessage(): Message? {
+        return selectedMessageId?.let { id ->
+            messages.find { it.id == id }
+        }
     }
 
     fun updateMessages(newMessages: List<Message>) {
@@ -82,9 +112,38 @@ class MessagesAdapter(
         fun bind(message: Message) {
             // Определяем, является ли текущий пользователь отправителем
             val isCurrentUser = message.senderId == currentUserId
+            val isSelected = selectedMessageId == message.id
+            
+            // Для МГ пользователей: все сообщения от МГ считаются "своими" для подсвечивания
+            val isFromMG = message.senderId.startsWith("MG_")
+            val shouldHighlightAsOwn = if (currentUserId.startsWith("MG_")) {
+                isFromMG // Если мы МГ, то все МГ сообщения подсвечиваем как свои
+            } else {
+                isCurrentUser // Если мы не МГ, то только свои сообщения
+            }
+            
+            // Подсвечиваем выбранное сообщение (будет установлен в конце)
             
             // Настраиваем отображение отправителя
-            tvSender.text = if (isCurrentUser) "Вы" else message.senderId
+            val senderName = if (isCurrentUser) {
+                "Вы"
+            } else {
+                // Для МГ пользователей проверяем, является ли отправитель собеседником
+                if (currentUserId.startsWith("MG_")) {
+                    // Если это сообщение от собеседника (с кем открыт чат), показываем имя
+                    if (message.senderId == interlocutorId) {
+                        interlocutorName ?: message.senderId
+                    } else {
+                        // Если от другого МГ, показываем ID
+                        message.senderId
+                    }
+                } else {
+                    // Для обычных пользователей показываем ID
+                    message.senderId
+                }
+            }
+            tvSender.text = senderName
+            android.util.Log.d("MessagesAdapter", "bind message ${message.id}: currentUserId=$currentUserId, message.senderId=${message.senderId}, isCurrentUser=$isCurrentUser, isFromMG=$isFromMG, shouldHighlightAsOwn=$shouldHighlightAsOwn, interlocutorId=$interlocutorId, interlocutorName=$interlocutorName, senderName=$senderName")
             
             // Форматируем время
             tvTime.text = formatTime(message.createdAt)
@@ -104,16 +163,15 @@ class MessagesAdapter(
                 tagsContainer.visibility = View.GONE
             }
             
-            // Отображаем статус прочтения для отправленных сообщений
-            if (isCurrentUser) {
+            // Отображаем статус прочтения для всех сообщений
+            if (message.readStatus == "read") {
                 tvReadStatus.visibility = View.VISIBLE
-                tvReadStatus.text = if (message.readStatus == "read") "✓✓" else "✓"
-                tvReadStatus.setTextColor(
-                    if (message.readStatus == "read") 
-                        itemView.context.getColor(R.color.primary_light)
-                    else 
-                        itemView.context.getColor(R.color.text_secondary)
-                )
+                tvReadStatus.text = "✓✓"
+                tvReadStatus.setTextColor(itemView.context.getColor(R.color.primary_light))
+            } else if (message.readStatus == "unread") {
+                tvReadStatus.visibility = View.VISIBLE
+                tvReadStatus.text = "✓"
+                tvReadStatus.setTextColor(itemView.context.getColor(R.color.text_secondary))
             } else {
                 tvReadStatus.visibility = View.GONE
             }
@@ -129,19 +187,32 @@ class MessagesAdapter(
             // Настраиваем выравнивание сообщения
             val parentLayout = itemView as LinearLayout
             
-            if (isCurrentUser) {
-                // Сообщение от текущего пользователя - справа
+            if (shouldHighlightAsOwn) {
+                // Сообщение от МГ (если мы МГ) или от нас - справа, синий фон
                 parentLayout.gravity = android.view.Gravity.END
                 messageContainer.setBackgroundResource(R.drawable.bg_message_bubble_sent)
             } else {
-                // Сообщение от другого пользователя - слева
+                // Сообщение от обычного пользователя - слева, белый фон
                 parentLayout.gravity = android.view.Gravity.START
-                messageContainer.setBackgroundResource(R.drawable.bg_message_bubble)
+                // Устанавливаем фон с учетом выбора
+                messageContainer.setBackgroundResource(
+                    if (isSelected) R.drawable.bg_message_bubble_selected
+                    else R.drawable.bg_message_bubble
+                )
             }
             
-            // Обработчик клика по сообщению
+            // Обработчики кликов по сообщению
             itemView.setOnClickListener {
                 onMessageClick(message)
+            }
+            
+            // Обработчик длинного клика на контейнере сообщения (только для сообщений от других пользователей)
+            messageContainer.setOnLongClickListener {
+                android.util.Log.d("MessagesAdapter", "Long click on message: ${message.id}, isCurrentUser: $isCurrentUser")
+                if (!isCurrentUser) {
+                    onMessageLongClick(message)
+                }
+                true
             }
         }
         

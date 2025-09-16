@@ -47,9 +47,11 @@ class MessagesChatActivity : AppCompatActivity() {
     private var pollingJob: Job? = null
     private val pollingScope = CoroutineScope(Dispatchers.Main)
     private var lastMessageId: Int = -1
+    private var selectedMessageForReply: Message? = null
     private var currentTempId: Int = -1
     private var pendingMessageText: String = ""
     private var pendingFiles: MutableList<Uri> = mutableListOf()
+    private var interlocutorName: String? = null
     
     companion object {
         private const val REQUEST_CODE_PICK_FILES = 1001
@@ -83,11 +85,15 @@ class MessagesChatActivity : AppCompatActivity() {
         }
         
         android.util.Log.d("MessagesChat", "Initialized: userId=$userId, selectedRecipient=$selectedRecipient")
+        android.util.Log.d("MessagesChat", "userId starts with MG_: ${userId.startsWith("MG_")}")
         
         // Обновляем заголовок если есть имя реципиента
         val recipientName = intent.getStringExtra("recipient_name")
+        android.util.Log.d("MessagesChat", "recipient_name from intent: $recipientName")
         if (!recipientName.isNullOrEmpty()) {
             supportActionBar?.title = "Чат с $recipientName"
+            interlocutorName = recipientName
+            android.util.Log.d("MessagesChat", "interlocutorName set to: $interlocutorName")
         }
         
         initViews()
@@ -112,14 +118,67 @@ class MessagesChatActivity : AppCompatActivity() {
         binding.btnAttach.setOnClickListener {
             checkPermissionsAndPickFiles()
         }
+        
+        // Инициализируем состояние кнопки отправки
+        updateSendButtonState()
+    }
+    
+    private fun selectMessageForReply(message: Message) {
+        android.util.Log.d("MessagesChat", "selectMessageForReply called for message: ${message.id}")
+        selectedMessageForReply = message
+        messagesAdapter.selectMessage(message.id)
+        updateSendButtonState()
+        
+        // Показываем уведомление о выборе сообщения
+        android.widget.Toast.makeText(
+            this, 
+            "Выбрано сообщение для ответа. Тег: ${getDisciplineName(message.tags.firstOrNull())}", 
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+    }
+    
+    private fun clearMessageSelection() {
+        selectedMessageForReply = null
+        messagesAdapter.clearSelection()
+        updateSendButtonState()
+    }
+    
+    private fun updateSendButtonState() {
+        if (userId.startsWith("MG_")) {
+            // Для МГ пользователей кнопка видна только при выбранном сообщении
+            val isVisible = selectedMessageForReply != null
+            binding.btnSend.visibility = if (isVisible) android.view.View.VISIBLE else android.view.View.GONE
+            binding.btnSend.isEnabled = isVisible
+        } else {
+            // Для обычных пользователей кнопка всегда видна и активна
+            binding.btnSend.visibility = android.view.View.VISIBLE
+            binding.btnSend.isEnabled = true
+            binding.btnSend.alpha = 1.0f
+        }
+    }
+    
+    private fun getDisciplineName(tagId: Int?): String {
+        return tagId?.let { id ->
+            Disciplines.DISCIPLINES.find { it.id == id }?.name ?: "Неизвестная дисциплина"
+        } ?: "Без тега"
     }
     
     private fun setupRecyclerView() {
-        messagesAdapter = MessagesAdapter { message ->
-            // Обработка клика по сообщению
-            markMessageAsRead(message)
-        }
+        messagesAdapter = MessagesAdapter(
+            onMessageClick = { message ->
+                // Обработка клика по сообщению
+            },
+            onMessageLongClick = { message ->
+                // Обработка длинного клика по сообщению (только для МГ)
+                if (userId.startsWith("MG_")) {
+                    selectMessageForReply(message)
+                }
+            }
+        )
         messagesAdapter.setCurrentUserId(userId)
+        messagesAdapter.setInterlocutorName(interlocutorName)
+        messagesAdapter.setInterlocutorId(selectedRecipient)
+        android.util.Log.d("MessagesChat", "Adapter configured with interlocutorName: $interlocutorName, interlocutorId: $selectedRecipient")
         
         binding.rvMessages.layoutManager = LinearLayoutManager(this).apply {
             // Переворачиваем RecyclerView чтобы новые сообщения были снизу
@@ -226,8 +285,15 @@ class MessagesChatActivity : AppCompatActivity() {
             return
         }
         
-        // Для МГ пользователей отправляем сразу
-        sendMessageWithTags(text, selectedFiles.toList(), selectedTags)
+        // Для МГ пользователей проверяем, выбрано ли сообщение для ответа
+        if (selectedMessageForReply == null) {
+            Toast.makeText(this, "Выберите сообщение для ответа (длинное нажатие)", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // Используем теги из выбранного сообщения
+        val replyTags = selectedMessageForReply?.tags ?: emptyList()
+        sendMessageWithTags(text, selectedFiles.toList(), replyTags)
     }
     
     private fun sendMessageWithTags(text: String, files: List<Uri>, tags: List<Int>) {
@@ -263,6 +329,11 @@ class MessagesChatActivity : AppCompatActivity() {
             parts.add(MultipartBody.Part.createFormData("tags", tagsString))
         }
         
+        // Добавляем answer_to, если отвечаем на сообщение
+        if (selectedMessageForReply != null) {
+            parts.add(MultipartBody.Part.createFormData("answer_to", selectedMessageForReply!!.id.toString()))
+        }
+        
         // Добавляем файлы, если они есть
         files.forEach { uri ->
             val file = File(uri.path ?: "")
@@ -278,6 +349,7 @@ class MessagesChatActivity : AppCompatActivity() {
             text = textBody,
             recipientId = recipientBody,
             tags = null,
+            answerTo = null,
             files = parts
         ).enqueue(object : retrofit2.Callback<CreateMessageResponse> {
             override fun onResponse(call: retrofit2.Call<CreateMessageResponse>, response: retrofit2.Response<CreateMessageResponse>) {
@@ -301,6 +373,16 @@ class MessagesChatActivity : AppCompatActivity() {
                         
                         // Обновляем lastMessageId
                         lastMessageId = createdMessage.id
+                        
+                        // Помечаем исходное сообщение как прочитанное и обновляем UI
+                        if (selectedMessageForReply != null) {
+                            android.util.Log.d("MessagesChat", "Marking message ${selectedMessageForReply!!.id} as read after reply")
+                            val updatedMessage = realMessage.copy(readStatus = "read")
+                            messagesAdapter.updateMessage(updatedMessage)
+                        }
+                        
+                        // Очищаем выбор сообщения после успешной отправки
+                        clearMessageSelection()
                     }
                 } else {
                     val errorMessage = when (response.code()) {
@@ -340,24 +422,6 @@ class MessagesChatActivity : AppCompatActivity() {
             }
             .setNegativeButton("Отмена", null)
             .show()
-    }
-    
-    private fun markMessageAsRead(message: Message) {
-        if (message.readStatus == "unread" && message.senderId != userId) {
-            RetrofitClient.messagesApi.markAsRead(userId, message.id)
-                .enqueue(object : retrofit2.Callback<MarkAsReadResponse> {
-                    override fun onResponse(call: retrofit2.Call<MarkAsReadResponse>, response: retrofit2.Response<MarkAsReadResponse>) {
-                        if (response.isSuccessful) {
-                            val updatedMessage = message.copy(readStatus = "read")
-                            messagesAdapter.updateMessage(updatedMessage)
-                        }
-                    }
-                    
-                    override fun onFailure(call: retrofit2.Call<MarkAsReadResponse>, t: Throwable) {
-                        // Игнорируем ошибки при пометке как прочитанное
-                    }
-                })
-        }
     }
     
     private fun checkPermissionsAndPickFiles() {

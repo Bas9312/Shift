@@ -17,6 +17,7 @@ interface MessagesApi {
         @Part("text") text: RequestBody,
         @Part("recipient_id") recipientId: RequestBody,
         @Part("tags") tags: RequestBody?,
+        @Part("answer_to") answerTo: RequestBody?,
         @Part files: List<MultipartBody.Part>?
     ): Call<CreateMessageResponse>
     

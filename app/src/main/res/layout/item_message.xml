@@ -18,7 +18,10 @@
         android:padding="12dp"
         android:maxWidth="280dp"
         android:layout_marginStart="8dp"
-        android:layout_marginEnd="8dp">
+        android:layout_marginEnd="8dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:longClickable="true">
 
         <!-- Заголовок сообщения (отправитель и время) -->
         <LinearLayout
@@ -107,9 +110,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginEnd="4dp"
             android:text="✓"
-            android:textSize="10sp"
+            android:textSize="12sp"
             android:textColor="#666666"
             android:visibility="gone" />
 

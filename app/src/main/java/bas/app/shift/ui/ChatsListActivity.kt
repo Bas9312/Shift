@@ -2,6 +2,8 @@ package bas.app.shift.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -25,6 +27,8 @@ class ChatsListActivity : AppCompatActivity() {
     private lateinit var binding: ActivityChatsListBinding
     private lateinit var adapter: ChatsAdapter
     private var userId: String? = null
+    private var refreshHandler: Handler? = null
+    private var refreshRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +38,39 @@ class ChatsListActivity : AppCompatActivity() {
         setupToolbar()
         setupRecyclerView()
         loadChats()
+        startPeriodicRefresh()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        stopPeriodicRefresh()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        startPeriodicRefresh()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopPeriodicRefresh()
+    }
+
+    private fun startPeriodicRefresh() {
+        refreshHandler = Handler(Looper.getMainLooper())
+        refreshRunnable = object : Runnable {
+            override fun run() {
+                loadChats()
+                refreshHandler?.postDelayed(this, 30000) // 30 секунд
+            }
+        }
+        refreshHandler?.post(refreshRunnable!!)
+    }
+
+    private fun stopPeriodicRefresh() {
+        refreshHandler?.removeCallbacks(refreshRunnable!!)
+        refreshHandler = null
+        refreshRunnable = null
     }
 
     private fun setupToolbar() {
@@ -95,7 +132,18 @@ class ChatsListActivity : AppCompatActivity() {
     private fun openChat(chat: Chat) {
         val intent = Intent(this, MessagesChatActivity::class.java).apply {
             putExtra("recipient_id", chat.interlocutor)
-            putExtra("recipient_name", chat.interlocutor)
+            // Формируем имя в том же формате, что и в списке чатов
+            val displayName = when {
+                !chat.interlocutorName.isNullOrEmpty() && !chat.interlocutorPlayerName.isNullOrEmpty() -> 
+                    "${chat.interlocutorName} / ${chat.interlocutorPlayerName}"
+                !chat.interlocutorName.isNullOrEmpty() -> 
+                    chat.interlocutorName
+                !chat.interlocutorPlayerName.isNullOrEmpty() -> 
+                    chat.interlocutorPlayerName
+                else -> 
+                    chat.interlocutor
+            }
+            putExtra("recipient_name", displayName)
         }
         startActivity(intent)
     }
