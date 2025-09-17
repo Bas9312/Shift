@@ -28,6 +28,7 @@ class AuraCanvasView @JvmOverloads constructor(
 ) : View(context, attrs) {
     private var aura: Aura? = null
     private var humanBitmap: Bitmap? = null
+    private var auraImageBitmap: Bitmap? = null
     private val markBitmaps = ConcurrentHashMap<String, Bitmap?>() // url -> bitmap
     private val imageLoader = ImageLoader(context)
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -75,6 +76,21 @@ class AuraCanvasView @JvmOverloads constructor(
 
     fun setAura(aura: Aura?) {
         this.aura = aura
+        
+        // Загружаем aura_image если есть
+        if (aura?.auraImage != null && aura.auraImage.isNotEmpty()) {
+            scope.launch {
+                val bmp = loadBitmap(aura.auraImage)
+                if (bmp != null) {
+                    auraImageBitmap = bmp
+                    invalidate()
+                }
+            }
+        } else {
+            // Если aura_image нет, сбрасываем кеш
+            auraImageBitmap = null
+        }
+        
         // Кешируем картинки меток
         aura?.marks?.forEach { mark ->
             if (!markBitmaps.containsKey(mark.imageUrl)) {
@@ -132,9 +148,9 @@ class AuraCanvasView @JvmOverloads constructor(
 
         val centerX = width / 2f
         val centerY = height / 2f
-        val humanBitmap = humanBitmap
-        val humanWidth = (humanBitmap?.width?.toFloat() ?: 0f) * 0.6f
-        val humanHeight = (humanBitmap?.height?.toFloat() ?: 0f) * 0.6f
+        val imageToDraw = auraImageBitmap ?: humanBitmap
+        val humanWidth = (imageToDraw?.width?.toFloat() ?: 0f) * 0.6f
+        val humanHeight = (imageToDraw?.height?.toFloat() ?: 0f) * 0.6f
         val humanRadius = max(humanWidth, humanHeight) / 2f
         val auraRadius = humanRadius * 1.7f
 
@@ -205,9 +221,10 @@ class AuraCanvasView @JvmOverloads constructor(
             markTouchAreas.clear()
         }
 
-        // Человек (в уменьшенном размере, по центру) - показываем только если аура не скрыта
+        // Человек или кастомное изображение (в уменьшенном размере, по центру) - показываем только если аура не скрыта
         if (shouldShowElements) {
-            humanBitmap?.let {
+            val imageToDraw = auraImageBitmap ?: humanBitmap
+            imageToDraw?.let {
                 val left = centerX - humanWidth / 2f
                 val top = centerY - humanHeight / 2f
                 canvas.drawBitmap(it, null, RectF(left, top, left + humanWidth, top + humanHeight), null)

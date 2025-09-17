@@ -11,7 +11,9 @@ data class Aura(
     val auraHidden: Boolean,
     @SerializedName("aura_problems")
     val auraProblems: List<AuraProblem>?,
-    val marks: List<AuraMark>?
+    val marks: List<AuraMark>?,
+    @SerializedName("aura_image")
+    val auraImage: String?
 )
 
 data class AuraHiddenRequest(
