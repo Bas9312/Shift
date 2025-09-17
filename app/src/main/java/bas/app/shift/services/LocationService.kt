@@ -33,6 +33,8 @@ import android.os.Handler
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.models.User
+import bas.app.shift.models.Message
+import bas.app.shift.models.Chat
 import bas.app.shift.ui.FamiliarFoundActivity
 import bas.app.shift.ui.ProfileActivity
 import com.bugfender.sdk.p
@@ -45,9 +47,11 @@ class LocationService : Service() {
     private val locationUpdateInterval = 30000L // 30 секунд
     private val pointsCheckInterval = 30000L // 10 секунд для проверки точек
     private val profileUpdateInterval = 60000L // 1 минута для обновления профиля
+    private val messagesCheckInterval = 30000L // 30 секунд для проверки сообщений
     private var lastLocationUpdate = 0L
     private var lastPointsCheck = 0L
     private var lastProfileUpdate = 0L
+    private var lastMessagesCheck = 0L
     private var isActive = false
     private var currentLocation: Location? = null
     private var pointsInRange = mutableSetOf<String>() // Точки, в которых мы находимся
@@ -70,6 +74,17 @@ class LocationService : Service() {
                 handler.postDelayed(this, profileUpdateInterval)
             } else {
                 LogHelper.d("LocationService: Обновление профиля остановлено, не планируем следующую")
+            }
+        }
+    }
+
+    private val messagesCheckRunnable = object : Runnable {
+        override fun run() {
+            if (isActive) {
+                checkForNewMessages()
+                handler.postDelayed(this, messagesCheckInterval)
+            } else {
+                LogHelper.d("LocationService: Проверка сообщений остановлена, не планируем следующую")
             }
         }
     }
@@ -158,6 +173,9 @@ class LocationService : Service() {
             // Запускаем обновление профиля
             handler.post(profileUpdateRunnable)
             
+            // Запускаем проверку сообщений
+            handler.post(messagesCheckRunnable)
+            
             isActive = true
             LogHelper.d("Обновление геолокации, проверка точек и обновление профиля запущены")
         } catch (e: Exception) {
@@ -181,6 +199,7 @@ class LocationService : Service() {
         fusedLocationProviderClient.removeLocationUpdates(locationCallback)
         handler.removeCallbacks(pointsCheckRunnable)
         handler.removeCallbacks(profileUpdateRunnable)
+        handler.removeCallbacks(messagesCheckRunnable)
         isActive = false
         
         // Останавливаем Foreground Service
@@ -791,6 +810,202 @@ class LocationService : Service() {
             this,
             Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun checkForNewMessages() {
+        val userId = UserPrefsHelper.getUserId(this@LocationService)
+        if (userId.isNullOrEmpty()) return
+        
+        try {
+            if (userId.startsWith("MG_")) {
+                // Для MG пользователей используем getChats для получения списка чатов
+                val chatsResponse = RetrofitClient.messagesApi.getChats(userId)
+                chatsResponse.enqueue(object : retrofit2.Callback<List<Chat>> {
+                    override fun onResponse(call: retrofit2.Call<List<Chat>>, response: retrofit2.Response<List<Chat>>) {
+                        if (response.isSuccessful) {
+                            val chats = response.body() ?: emptyList()
+                            checkForNewMessagesInChats(userId, chats)
+                        }
+                    }
+                    
+                    override fun onFailure(call: retrofit2.Call<List<Chat>>, t: Throwable) {
+                        LogHelper.e("LocationService: Ошибка при получении чатов: ${t.message}")
+                    }
+                })
+            } else {
+                // Для обычных пользователей используем getMessages
+                val messagesResponse = RetrofitClient.messagesApi.getMessages(
+                    userId = userId,
+                    limit = 10,
+                    offset = 0,
+                    type = "private"
+                )
+                messagesResponse.enqueue(object : retrofit2.Callback<List<Message>> {
+                    override fun onResponse(call: retrofit2.Call<List<Message>>, response: retrofit2.Response<List<Message>>) {
+                        if (response.isSuccessful) {
+                            val messages = response.body() ?: emptyList()
+                            checkForNewMessagesInList(userId, messages)
+                        }
+                    }
+                    
+                    override fun onFailure(call: retrofit2.Call<List<Message>>, t: Throwable) {
+                        LogHelper.e("LocationService: Ошибка при получении сообщений: ${t.message}")
+                    }
+                })
+            }
+        } catch (e: Exception) {
+            LogHelper.e("LocationService: Ошибка при получении сообщений: ${e.message}")
+        }
+    }
+
+    private fun checkForNewMessagesInChats(userId: String, chats: List<Chat>) {
+        val prefs = getSharedPreferences("messages_cache", MODE_PRIVATE)
+        val lastKnownMessageIds = prefs.getStringSet("last_known_message_ids_$userId", emptySet()) ?: emptySet()
+        
+        val newMessageIds = mutableSetOf<String>()
+        var hasNewMessages = false
+        val newMessageIdsToNotify = mutableSetOf<String>()
+        
+        // Собираем ID всех сообщений из чатов
+        chats.forEach { chat ->
+            chat.lastMessage?.let { message ->
+                val messageId = message.id.toString()
+                newMessageIds.add(messageId)
+                
+                // Проверяем, новое ли это сообщение и не от MG
+                if (!lastKnownMessageIds.contains(messageId) && !message.senderId.startsWith("MG_")) {
+                    hasNewMessages = true
+                    newMessageIdsToNotify.add(messageId)
+                    LogHelper.d("LocationService: Найдено новое сообщение от ${message.senderId}: ${message.content}")
+                }
+            }
+        }
+        
+        // Сохраняем новые ID сообщений
+        prefs.edit().putStringSet("last_known_message_ids_$userId", newMessageIds).apply()
+        
+        if (hasNewMessages) {
+            // Дополнительная проверка: не показываем уведомление, если уже показывали для этих сообщений
+            val notifiedMessageIds = prefs.getStringSet("notified_message_ids_$userId", emptySet()) ?: emptySet()
+            val shouldNotify = newMessageIdsToNotify.any { !notifiedMessageIds.contains(it) }
+            
+            if (shouldNotify) {
+                // Сохраняем ID уведомленных сообщений
+                val updatedNotifiedIds = notifiedMessageIds + newMessageIdsToNotify
+                prefs.edit().putStringSet("notified_message_ids_$userId", updatedNotifiedIds).apply()
+                
+                showMessagesNotification(1, true) // true = открыть список чатов
+            }
+        }
+    }
+
+    private fun checkForNewMessagesInList(userId: String, messages: List<Message>) {
+        val prefs = getSharedPreferences("messages_cache", MODE_PRIVATE)
+        val lastKnownMessageIds = prefs.getStringSet("last_known_message_ids_$userId", emptySet()) ?: emptySet()
+        
+        val newMessageIds = mutableSetOf<String>()
+        var hasNewMessages = false
+        val newMessageIdsToNotify = mutableSetOf<String>()
+        
+        // Проверяем каждое сообщение
+        messages.forEach { message ->
+            val messageId = message.id.toString()
+            newMessageIds.add(messageId)
+            
+            // Проверяем, новое ли это сообщение и не наше
+            if (!lastKnownMessageIds.contains(messageId) && message.senderId != userId) {
+                hasNewMessages = true
+                newMessageIdsToNotify.add(messageId)
+                LogHelper.d("LocationService: Найдено новое сообщение от ${message.senderId}: ${message.content}")
+            }
+        }
+        
+        // Сохраняем новые ID сообщений
+        prefs.edit().putStringSet("last_known_message_ids_$userId", newMessageIds).apply()
+        
+        if (hasNewMessages) {
+            // Дополнительная проверка: не показываем уведомление, если уже показывали для этих сообщений
+            val notifiedMessageIds = prefs.getStringSet("notified_message_ids_$userId", emptySet()) ?: emptySet()
+            val shouldNotify = newMessageIdsToNotify.any { !notifiedMessageIds.contains(it) }
+            
+            if (shouldNotify) {
+                // Сохраняем ID уведомленных сообщений
+                val updatedNotifiedIds = notifiedMessageIds + newMessageIdsToNotify
+                prefs.edit().putStringSet("notified_message_ids_$userId", updatedNotifiedIds).apply()
+                
+                showMessagesNotification(1, false) // false = открыть чат
+            }
+        }
+    }
+
+    private fun showMessagesNotification(unreadCount: Int, isMG: Boolean = false) {
+        val message = if (unreadCount == 1) {
+            "У вас 1 новое сообщение"
+        } else {
+            "У вас $unreadCount новых сообщений"
+        }
+        
+        // Создаем канал уведомлений для Android 8.0+
+        createMessagesNotificationChannel()
+        
+        // Создаем Intent для открытия нужного экрана
+        val intent = if (isMG) {
+            // Для MG пользователей открываем список чатов
+            Intent(this, bas.app.shift.ui.ChatsListActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+        } else {
+            // Для обычных пользователей открываем чат с MG
+            Intent(this, bas.app.shift.ui.MessagesChatActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+        }
+        
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        // Создаем уведомление
+        val notification = NotificationCompat.Builder(this, "messages_channel")
+            .setSmallIcon(R.drawable.ic_notification_icon)
+            .setContentTitle("Новые сообщения")
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+        
+        // Показываем уведомление
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(1, notification)
+        
+        LogHelper.d("LocationService: Показано уведомление о $unreadCount новых сообщениях (isMG: $isMG)")
+    }
+    
+    private fun createMessagesNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "messages_channel",
+                "Сообщения",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Уведомления о новых сообщениях"
+            }
+            
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    // Метод для очистки кэша сообщений (вызывается при смене пользователя)
+    fun clearMessagesCache(userId: String) {
+        val prefs = getSharedPreferences("messages_cache", MODE_PRIVATE)
+        prefs.edit()
+            .remove("last_known_message_ids_$userId")
+            .remove("notified_message_ids_$userId")
+            .apply()
+        LogHelper.d("LocationService: Кэш сообщений очищен для пользователя $userId")
     }
 
     companion object {

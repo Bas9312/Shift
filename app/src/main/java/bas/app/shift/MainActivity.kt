@@ -253,6 +253,22 @@ class MainActivity : AppCompatActivity() {
                     // Запрашиваем разрешения
                     requestLocationPermission()
                 }
+                
+                // Очищаем кэш сообщений только при первом запуске приложения
+                val userId = UserPrefsHelper.getUserId(this@MainActivity)
+                if (userId.isNotEmpty()) {
+                    val prefs = getSharedPreferences("messages_cache", MODE_PRIVATE)
+                    val lastUserId = prefs.getString("last_user_id", "")
+                    
+                    // Очищаем кэш только если сменился пользователь или это первый запуск
+                    if (lastUserId != userId) {
+                        prefs.edit()
+                            .remove("last_known_message_ids_$lastUserId") // Очищаем кэш предыдущего пользователя
+                            .putString("last_user_id", userId) // Сохраняем текущего пользователя
+                            .apply()
+                        LogHelper.d("MainActivity: Кэш сообщений очищен для смены пользователя: $lastUserId -> $userId")
+                    }
+                }
             }
             
             // Запускаем сервис обновления профиля
@@ -353,7 +369,8 @@ class MainActivity : AppCompatActivity() {
         binding.btnScanArtifact.isEnabled = ShiftApplication.instance.isInGame()
         binding.btnFamiliar.isEnabled = ShiftApplication.instance.isInGame()
         binding.btnToggleAuraHidden.isEnabled = ShiftApplication.instance.isInGame()
-        
+        binding.btnMessagesChat.isEnabled = ShiftApplication.instance.isInGame()
+
         // Обновляем кнопку управления аурой для экстрасенсов
         if (isExtrasensory) {
             updateAuraButton()
@@ -667,6 +684,8 @@ class MainActivity : AppCompatActivity() {
                 if (!isFinishing && !isDestroyed) {
                     ShiftApplication.instance.startLocationService()
                     LogHelper.d("MainActivity: Запуск LocationService")
+                    
+                    // Проверка сообщений теперь в LocationService
                     
                     // Запускаем сервис обновления профиля
                     // ProfileUpdateService.startService(this) // Удалено

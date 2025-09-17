@@ -69,6 +69,7 @@ class ShiftApplication : Application(), LifecycleObserver {
         }
     }
 
+
     fun isLocationServiceRunning(): Boolean {
         val activityManager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
         val runningServices = activityManager.getRunningServices(Integer.MAX_VALUE)
