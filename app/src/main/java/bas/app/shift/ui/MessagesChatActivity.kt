@@ -100,10 +100,8 @@ class MessagesChatActivity : AppCompatActivity() {
         setupRecyclerView()
         loadMessages()
         
-        // Запускаем периодическое обновление только для обычных пользователей
-        if (!userId.startsWith("MG_")) {
-            startPolling()
-        }
+        // Запускаем периодическое обновление для всех пользователей
+        startPolling()
     }
     
     private fun initViews() {
@@ -297,6 +295,8 @@ class MessagesChatActivity : AppCompatActivity() {
     }
     
     private fun sendMessageWithTags(text: String, files: List<Uri>, tags: List<Int>) {
+        android.util.Log.d("MessagesChat", "sendMessageWithTags called: text='$text', files=${files.size}, tags=$tags")
+        
         // Очищаем поле ввода
         binding.etMessage.text?.clear()
         
@@ -335,14 +335,35 @@ class MessagesChatActivity : AppCompatActivity() {
         }
         
         // Добавляем файлы, если они есть
+        android.util.Log.d("MessagesChat", "Processing ${files.size} files for upload")
         files.forEach { uri ->
-            val file = File(uri.path ?: "")
-            if (file.exists()) {
-                val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
-                val part = MultipartBody.Part.createFormData("files", file.name, requestFile)
-                parts.add(part)
+            try {
+                android.util.Log.d("MessagesChat", "Processing file URI: $uri")
+                val inputStream = contentResolver.openInputStream(uri)
+                if (inputStream != null) {
+                    // Определяем MIME тип
+                    val mimeType = contentResolver.getType(uri) ?: "image/*"
+                    
+                    // Получаем имя файла
+                    val fileName = getFileName(uri) ?: "file_${System.currentTimeMillis()}"
+                    
+                    android.util.Log.d("MessagesChat", "File details: name=$fileName, mimeType=$mimeType")
+                    
+                    val requestFile = inputStream.readBytes().toRequestBody(mimeType.toMediaTypeOrNull())
+                    val part = MultipartBody.Part.createFormData("files", fileName, requestFile)
+                    parts.add(part)
+                    
+                    android.util.Log.d("MessagesChat", "File added to parts: $fileName")
+                    inputStream.close()
+                } else {
+                    android.util.Log.e("MessagesChat", "Could not open input stream for URI: $uri")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MessagesChat", "Error processing file: ${e.message}")
             }
         }
+        
+        android.util.Log.d("MessagesChat", "Total parts for upload: ${parts.size}")
         
         RetrofitClient.messagesApi.createMessage(
             userId = userId,
@@ -383,6 +404,9 @@ class MessagesChatActivity : AppCompatActivity() {
                         
                         // Очищаем выбор сообщения после успешной отправки
                         clearMessageSelection()
+                        
+                        // Обновляем чат, чтобы получить сообщение с вложениями
+                        loadMessages(false)
                     }
                 } else {
                     val errorMessage = when (response.code()) {
@@ -425,23 +449,49 @@ class MessagesChatActivity : AppCompatActivity() {
     }
     
     private fun checkPermissionsAndPickFiles() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) 
-            != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                REQUEST_CODE_PERMISSIONS
-            )
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ - используем новые разрешения
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) 
+                != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.READ_MEDIA_IMAGES),
+                    REQUEST_CODE_PERMISSIONS
+                )
+            } else {
+                pickFiles()
+            }
         } else {
-            pickFiles()
+            // Android 12 и ниже - используем старое разрешение
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) 
+                != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                    REQUEST_CODE_PERMISSIONS
+                )
+            } else {
+                pickFiles()
+            }
         }
     }
     
     private fun pickFiles() {
-        val intent = Intent(Intent.ACTION_GET_CONTENT)
-        intent.type = "image/*,video/*"
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-        startActivityForResult(Intent.createChooser(intent, "Выберите файлы"), REQUEST_CODE_PICK_FILES)
+        // Сначала пробуем ACTION_PICK с MediaStore
+        val pickIntent = Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+        pickIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        
+        // Альтернативный способ через ACTION_GET_CONTENT
+        val getContentIntent = Intent(Intent.ACTION_GET_CONTENT)
+        getContentIntent.type = "image/*"
+        getContentIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        getContentIntent.putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp"))
+        
+        // Создаем chooser с обоими вариантами
+        val chooserIntent = Intent.createChooser(pickIntent, "Выберите изображения")
+        chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(getContentIntent))
+        
+        startActivityForResult(chooserIntent, REQUEST_CODE_PICK_FILES)
     }
     
     override fun onRequestPermissionsResult(
@@ -461,25 +511,45 @@ class MessagesChatActivity : AppCompatActivity() {
     
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_CODE_PICK_FILES && resultCode == Activity.RESULT_OK) {
-            data?.let { intent ->
-                if (intent.clipData != null) {
-                    // Множественный выбор
-                    val count = intent.clipData!!.itemCount
-                    for (i in 0 until count) {
-                        val uri = intent.clipData!!.getItemAt(i).uri
-                        selectedFiles.add(uri)
+        if (requestCode == REQUEST_CODE_PICK_FILES) {
+            if (resultCode == Activity.RESULT_OK) {
+                data?.let { intent ->
+                    if (intent.clipData != null) {
+                        // Множественный выбор
+                        val count = intent.clipData!!.itemCount
+                        for (i in 0 until count) {
+                            val uri = intent.clipData!!.getItemAt(i).uri
+                            selectedFiles.add(uri)
+                        }
+                    } else if (intent.data != null) {
+                        // Одиночный выбор
+                        selectedFiles.add(intent.data!!)
                     }
-                } else if (intent.data != null) {
-                    // Одиночный выбор
-                    selectedFiles.add(intent.data!!)
+                    
+                    if (selectedFiles.isNotEmpty()) {
+                        Toast.makeText(this, "Выбрано файлов: ${selectedFiles.size}", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this, "Файлы не выбраны", Toast.LENGTH_SHORT).show()
+                    }
                 }
-                
-                if (selectedFiles.isNotEmpty()) {
-                    Toast.makeText(this, "Выбрано файлов: ${selectedFiles.size}", Toast.LENGTH_SHORT).show()
+            } else if (resultCode == Activity.RESULT_CANCELED) {
+                Toast.makeText(this, "Выбор файлов отменен", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    private fun getFileName(uri: Uri): String? {
+        var fileName: String? = null
+        val cursor = contentResolver.query(uri, null, null, null, null)
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (nameIndex != -1) {
+                    fileName = it.getString(nameIndex)
                 }
             }
         }
+        return fileName
     }
     
     private fun scrollToBottom() {
@@ -522,17 +592,13 @@ class MessagesChatActivity : AppCompatActivity() {
     
     override fun onPause() {
         super.onPause()
-        // Останавливаем polling только для обычных пользователей
-        if (!userId.startsWith("MG_")) {
-            stopPolling()
-        }
+        // Останавливаем polling для всех пользователей
+        stopPolling()
     }
     
     override fun onResume() {
         super.onResume()
-        // Запускаем polling только для обычных пользователей
-        if (!userId.startsWith("MG_")) {
-            startPolling()
-        }
+        // Запускаем polling для всех пользователей
+        startPolling()
     }
 }

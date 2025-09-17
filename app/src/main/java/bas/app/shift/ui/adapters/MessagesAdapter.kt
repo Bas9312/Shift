@@ -108,6 +108,11 @@ class MessagesAdapter(
         private val tvReadStatus: TextView = itemView.findViewById(R.id.tvReadStatus)
         private val tagsContainer: View = itemView.findViewById(R.id.tagsContainer)
         private val attachmentsContainer: View = itemView.findViewById(R.id.attachmentsContainer)
+        private val rvAttachments: RecyclerView = itemView.findViewById(R.id.rvAttachments)
+        private val attachmentsAdapter: AttachmentsAdapter = AttachmentsAdapter { attachment ->
+            // Обработка клика по вложению
+            android.util.Log.d("MessagesAdapter", "Attachment clicked: ${attachment.originalName}")
+        }
 
         fun bind(message: Message) {
             // Определяем, является ли текущий пользователь отправителем
@@ -182,7 +187,9 @@ class MessagesAdapter(
             // Показываем вложения, если они есть
             if (message.attachments.isNotEmpty()) {
                 attachmentsContainer.visibility = View.VISIBLE
-                // TODO: Реализовать отображение вложений
+                rvAttachments.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(itemView.context, androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL, false)
+                rvAttachments.adapter = attachmentsAdapter
+                attachmentsAdapter.updateAttachments(message.attachments)
             } else {
                 attachmentsContainer.visibility = View.GONE
             }

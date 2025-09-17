@@ -38,6 +38,8 @@ import bas.app.shift.api.RetrofitClient
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class TerminalActivity : AppCompatActivity() {
 
@@ -62,6 +64,7 @@ class TerminalActivity : AppCompatActivity() {
     private var noise = 0.0
     private var terminalHistory = TerminalHistory()
     private lateinit var noiseManager: NoiseManager
+    private var lastExecutedCommand: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -204,6 +207,9 @@ class TerminalActivity : AppCompatActivity() {
     }
     
     private fun processCommand(command: TerminalCommand, fullCommand: String, commandTimestamp: java.time.LocalTime) {
+        // Сохраняем команду для отправки в MG
+        lastExecutedCommand = fullCommand
+        
         when (command.name) {
             "HELP" -> {
                 val helpText = TerminalCommandManager.getHelpText(getAvailableModules())
@@ -259,6 +265,9 @@ class TerminalActivity : AppCompatActivity() {
                 if (command.noiseIncrease != 0) {
                     noiseManager.adjustNoise(command.noiseIncrease.toDouble())
                 }
+                
+                // Отправляем команду в MG чат
+                sendToMg()
             }
         }
         
@@ -398,8 +407,7 @@ class TerminalActivity : AppCompatActivity() {
                 updateNoise(noise)
             }
             noiseManager.setOnCommandSuccessListener {
-                // Вызываем sendToMg (пока пустой)
-                sendToMg()
+                // Убираем вызов sendToMg отсюда - будем вызывать из обработчиков команд
             }
             
             // Запускаем периодическое обновление шума
@@ -413,8 +421,68 @@ class TerminalActivity : AppCompatActivity() {
     }
     
     private fun sendToMg() {
-        // TODO: Реализовать отправку MG
-        LogHelper.d("TerminalActivity: sendToMg called")
+        val command = lastExecutedCommand
+        if (command == null) {
+            LogHelper.d("TerminalActivity: No command to send to MG")
+            return
+        }
+        
+        // Проверяем, нужно ли отправлять эту команду
+        if (shouldSkipCommand(command)) {
+            LogHelper.d("TerminalActivity: Skipping command: $command")
+            return
+        }
+        
+        LogHelper.d("TerminalActivity: Sending command to MG: $command")
+        
+        // Отправляем сообщение в чат
+        sendCommandToMg(command)
+    }
+    
+    private fun shouldSkipCommand(command: String): Boolean {
+        return when {
+            command.startsWith("SHIFT.PROXY") -> true
+            command.startsWith("USER.") && !command.startsWith("USER.FORMAT") -> true
+            command.startsWith("UTILS.") -> true
+            command.startsWith("SYSTEM.") -> true
+            else -> false
+        }
+    }
+    
+    private fun sendCommandToMg(command: String) {
+        val userId = UserPrefsHelper.getUserId(this)
+        if (userId.isEmpty()) {
+            LogHelper.e("TerminalActivity: UserId is empty, cannot send to MG")
+            return
+        }
+        
+        val messageText = "Команда в терминале: $command"
+        
+        // Создаем сообщение для отправки
+        val textBody = messageText.toRequestBody("text/plain".toMediaTypeOrNull())
+        val recipientBody = "MG_BAS".toRequestBody("text/plain".toMediaTypeOrNull())
+        val tagsBody = "9".toRequestBody("text/plain".toMediaTypeOrNull())
+        
+        RetrofitClient.messagesApi.createMessage(
+            userId = userId,
+            text = textBody,
+            recipientId = recipientBody,
+            tags = tagsBody,
+            answerTo = null,
+            files = null
+        ).enqueue(object : retrofit2.Callback<bas.app.shift.models.CreateMessageResponse> {
+            override fun onResponse(call: retrofit2.Call<bas.app.shift.models.CreateMessageResponse>, response: retrofit2.Response<bas.app.shift.models.CreateMessageResponse>) {
+                if (response.isSuccessful) {
+                    LogHelper.d("TerminalActivity: Command sent to MG successfully")
+                } else {
+                    LogHelper.e("TerminalActivity: Failed to send command to MG: ${response.code()}")
+                }
+            }
+            
+            override fun onFailure(call: retrofit2.Call<bas.app.shift.models.CreateMessageResponse>, t: Throwable) {
+                LogHelper.e("TerminalActivity: Error sending command to MG: ${t.message}")
+            }
+        })
     }
     
     private fun handleUpgradeStartCommand() {
@@ -481,6 +549,7 @@ class TerminalActivity : AppCompatActivity() {
                 saveResponseToHistory(errorMsg)
             }
         )
+    
         
         smoothScrollToBottom()
     }
@@ -622,6 +691,9 @@ class TerminalActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("terminal_prefs", MODE_PRIVATE)
         prefs.edit().putBoolean("upgrade_session_active", false).apply()
         
+        // Отправляем команду в MG чат
+        sendToMg()
+        
         smoothScrollToBottom()
     }
     
@@ -749,6 +821,9 @@ class TerminalActivity : AppCompatActivity() {
         // Активируем сессию DEEP_DIVE
         isDeepDiveSessionActive = true
 
+        // Отправляем команду в MG чат
+        sendToMg()
+
         smoothScrollToBottom()
     }
 
@@ -822,6 +897,9 @@ class TerminalActivity : AppCompatActivity() {
 
         // Завершаем сессию DEEP_DIVE
         isDeepDiveSessionActive = false
+
+        // Отправляем команду в MG чат
+        sendToMg()
 
         smoothScrollToBottom()
     }
@@ -1089,6 +1167,9 @@ class TerminalActivity : AppCompatActivity() {
                     smoothScrollToBottom()
                 }
             })
+        
+        // Отправляем команду в MG чат
+        sendToMg()
     }
     
     private fun handleProxyStatusCommand() {
