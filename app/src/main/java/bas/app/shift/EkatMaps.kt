@@ -298,7 +298,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         LogHelper.d("Показ базовой информации о точке: ${point.pointId}")
         
         val title = getPointTitle(PointType.fromServerValue(point.type))
-        val message = if (point.type == "USER") "Здесь кто-то есть"
+        val message = if (point.type == "USER") "Здесь кто-то есть (мастер или игротех)"
         else getString(R.string.point_basic_radius, point.radius) + "\n" +
                 getString(R.string.point_basic_description, point.description ?: getString(R.string.point_no_description)) + "\n" +
                 if (point.textToShowOnEnter.isNullOrEmpty()) "" else "При входе: ${point.textToShowOnEnter}"
@@ -783,7 +783,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     private fun getPointTitle(type: PointType): String {
         val title = when (type) {
-            PointType.USER -> "Пользователь"
+            PointType.USER -> "Кто-то в игре"
             PointType.FAMILIAR -> "Фамильяр"
             PointType.HIDDEN_EFFECT_AREA -> "Скрытая зона эффекта"
             PointType.FAKE_FAMILIAR_BITER -> "'Фамильяр'"
