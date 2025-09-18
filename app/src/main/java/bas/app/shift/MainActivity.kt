@@ -56,6 +56,7 @@ class MainActivity : AppCompatActivity() {
 
         setupToolbar()
         setupButtons()
+        setAppVersionLabel()
         
         // Запрашиваем разрешения последовательно
         checkPermissionsSequentially()
@@ -63,6 +64,16 @@ class MainActivity : AppCompatActivity() {
         // Проверяем состояние игры и запускаем сервис если нужно
         checkAndStartLocationService()
 
+    }
+
+    private fun setAppVersionLabel() {
+        try {
+            val pInfo = packageManager.getPackageInfo(packageName, 0)
+            val versionName = pInfo.versionName ?: ""
+            binding.tvVersion.text = "v$versionName"
+        } catch (e: Exception) {
+            binding.tvVersion.text = ""
+        }
     }
 
     override fun onStart() {

@@ -120,9 +120,6 @@ class NoiseManager(private val context: Context) {
                     LogHelper.e("NoiseManager: Cross-Link effect active but partner name not found")
                     adjustNoiseForUser(currentUserId, delta)
                 }
-            } else {
-                // Обычная отправка шума
-                adjustNoiseForUser(currentUserId, delta)
             }
         adjustNoiseForUser(currentUserId, currentDelta)
     }
