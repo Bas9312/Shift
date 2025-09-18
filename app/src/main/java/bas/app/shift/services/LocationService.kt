@@ -352,10 +352,12 @@ class LocationService : Service() {
     private fun showNotification(title: String, text: String, notificationId: Int) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
-        val intent = Intent(this, MainActivity::class.java)
+        val intent = Intent(this, bas.app.shift.ui.NotificationDetailActivity::class.java)
+        intent.putExtra(bas.app.shift.ui.NotificationDetailActivity.EXTRA_TITLE, title)
+        intent.putExtra(bas.app.shift.ui.NotificationDetailActivity.EXTRA_TEXT, text)
         val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_IMMUTABLE
+            this, notificationId, intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         
         // Создаем стиль для большого текста
@@ -365,7 +367,7 @@ class LocationService : Service() {
         
         val notification = NotificationCompat.Builder(this, POINTS_CHANNEL_ID)
             .setContentTitle(title)
-            .setContentText(text) // Краткий текст для свернутого состояния
+            .setContentText(text.take(80)) // Краткий текст для свернутого состояния
             .setStyle(bigTextStyle) // Расширенный стиль для полного текста
             .setSmallIcon(R.drawable.ic_notification_icon)
             .setContentIntent(pendingIntent)

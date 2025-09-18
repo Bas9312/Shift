@@ -155,6 +155,8 @@ class MessagesAdapter(
             
             // Отображаем содержимое сообщения
             tvContent.text = message.content
+            // Включаем возможность копирования текста
+            tvContent.setTextIsSelectable(true)
             
             // Отображаем теги, если они есть
             if (message.tags.isNotEmpty()) {
