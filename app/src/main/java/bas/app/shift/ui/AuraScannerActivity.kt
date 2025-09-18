@@ -51,15 +51,20 @@ class AuraScannerActivity : AppCompatActivity() {
     }
 
     private fun startScanner() {
-        // Настраиваем сканер
+        // Настраиваем сканер с улучшенными параметрами
         val integrator = IntentIntegrator(this)
         integrator.setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
-        integrator.setPrompt("Наведите камеру на QR-код ауры")
-        integrator.setCameraId(0)
-        integrator.setBeepEnabled(false)
-        integrator.setBarcodeImageEnabled(false)
+        integrator.setPrompt("Наведите камеру на QR-код ауры\n\n💡 Совет: Тапните по экрану для фокусировки")
+        integrator.setCameraId(0) // Используем заднюю камеру
+        integrator.setBeepEnabled(false) // Отключаем звук
+        integrator.setBarcodeImageEnabled(false) // Не сохраняем изображение
         integrator.setOrientationLocked(true) // Блокируем поворот экрана
         integrator.setCaptureActivity(CustomScannerActivity::class.java)
+        
+        // Дополнительные настройки для лучшего качества сканирования
+        integrator.setTimeout(30000) // 30 секунд таймаут
+        integrator.setTorchEnabled(false) // Отключаем фонарик
+        
         integrator.initiateScan()
     }
 
