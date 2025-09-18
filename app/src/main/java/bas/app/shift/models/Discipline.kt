@@ -11,5 +11,7 @@ object Disciplines {
         NamedEntity(7, "Ментальная магия"),
         NamedEntity(8, "Биомагия и Микродозинг"),
         NamedEntity(9, "ШЖ╫■┐ьЮ≈╒╬м╤нт&╜╓я"),
+        NamedEntity(10, "Общие вопросы"),
+        NamedEntity(11, "Городские загадки"),
     )
 }

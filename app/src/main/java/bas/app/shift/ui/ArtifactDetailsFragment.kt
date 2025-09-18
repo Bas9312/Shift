@@ -82,6 +82,9 @@ class ArtifactDetailsFragment : Fragment() {
     private fun showArtifact(artifact: Artifact) {
         currentArtifact = artifact
         
+        // Проверяем, что binding не null и view еще не уничтожена
+        if (_binding == null || !isAdded) return
+        
         // Название
         binding.artifactName.text = artifact.name
         // Уровень
@@ -201,7 +204,9 @@ class ArtifactDetailsFragment : Fragment() {
                     if (response.isSuccessful && response.body() != null) {
                         val updatedArtifact = response.body()!!
                         currentArtifact = updatedArtifact
-                        binding.artifactBindingToName.text = if (updatedArtifact.bindingToName.isNullOrBlank()) "не привязан" else updatedArtifact.bindingToName
+                        if (_binding != null && isAdded) {
+                            binding.artifactBindingToName.text = if (updatedArtifact.bindingToName.isNullOrBlank()) "не привязан" else updatedArtifact.bindingToName
+                        }
                         Toast.makeText(context, "Привязка обновлена", Toast.LENGTH_SHORT).show()
                     } else {
                         showError("Ошибка обновления привязки: ${response.code()}")

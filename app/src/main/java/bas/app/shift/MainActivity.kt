@@ -20,6 +20,7 @@ import bas.app.shift.models.User
 import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraHiddenRequest
 import bas.app.shift.models.Effect
+import bas.app.shift.models.FamiliarData
 import bas.app.shift.models.PointRequest
 import bas.app.shift.models.PointType
 import bas.app.shift.services.LocationService
@@ -336,7 +337,8 @@ class MainActivity : AppCompatActivity() {
                 binding.openTerminalButton.visibility = if (hasNoisemancy) View.VISIBLE else View.GONE
                 
                 // Проверяем наличие фамильяра
-                val hasFamiliar = !user.familiar.isNullOrEmpty()
+                val hasFamiliar = !user.familiar.isNullOrEmpty() && FamiliarData.getNameById(user.familiar) != user.familiar
+
                 binding.btnFamiliar.visibility = if (hasFamiliar) View.VISIBLE else View.GONE
                 
                 // Проверяем дисциплину "Ритуалистика" (id = 2)
@@ -370,6 +372,8 @@ class MainActivity : AppCompatActivity() {
         binding.btnFamiliar.isEnabled = ShiftApplication.instance.isInGame()
         binding.btnToggleAuraHidden.isEnabled = ShiftApplication.instance.isInGame()
         binding.btnMessagesChat.isEnabled = ShiftApplication.instance.isInGame()
+        binding.btnOpenMap.isEnabled = ShiftApplication.instance.isInGame()
+        binding.btnRitual.isEnabled = ShiftApplication.instance.isInGame()
 
         // Обновляем кнопку управления аурой для экстрасенсов
         if (isExtrasensory) {

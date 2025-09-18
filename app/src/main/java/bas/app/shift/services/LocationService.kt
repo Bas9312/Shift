@@ -41,6 +41,7 @@ import com.bugfender.sdk.p
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import kotlinx.coroutines.*
 
 class LocationService : Service() {
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
@@ -56,6 +57,7 @@ class LocationService : Service() {
     private var currentLocation: Location? = null
     private var pointsInRange = mutableSetOf<String>() // Точки, в которых мы находимся
     private val handler = Handler(Looper.getMainLooper())
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val pointsCheckRunnable = object : Runnable {
         override fun run() {
             if (isActive) {
@@ -152,10 +154,8 @@ class LocationService : Service() {
         
         try {
             // Запускаем как Foreground Service для Android 8.0+
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForeground(NOTIFICATION_ID, createNotification())
-            }
-            
+            startForeground(NOTIFICATION_ID, createNotification())
+
             val locationRequest = LocationRequest.Builder(10000)
                 .setMinUpdateIntervalMillis(10000)
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
@@ -219,41 +219,43 @@ class LocationService : Service() {
         
         //LogHelper.d("LocationService: Проверяем точки в радиусе, текущая локация: ${location.latitude}, ${location.longitude}")
         
-        try {
-            val points = ServerService.getPoints()
-            val newPointsInRange = mutableSetOf<String>()
-            
-            points.forEach { point ->
-                // Для обычных пользователей: пропускаем точки типа POINT_WITH_TEXT
+        serviceScope.launch {
+            try {
+                val points = ServerService.getPoints()
+                val newPointsInRange = mutableSetOf<String>()
                 
-                val distance = calculateDistance(
-                    location.latitude, location.longitude,
-                    point.lat, point.lng
-                )
-                
-                // Для фамильяров используем расстояние 30 метров вместо радиуса точки
-                val checkDistance = if (point.type == "FAMILIAR") 50.0 else point.radius
-                
-                if (distance <= checkDistance) {
-                    newPointsInRange.add(point.pointId)
+                points.forEach { point ->
+                    // Для обычных пользователей: пропускаем точки типа POINT_WITH_TEXT
                     
-                    // Если мы только что вошли в точку
-                    if (!pointsInRange.contains(point.pointId)) {
-                        onEnterPoint(point)
+                    val distance = calculateDistance(
+                        location.latitude, location.longitude,
+                        point.lat, point.lng
+                    )
+                    
+                    // Для фамильяров используем расстояние 30 метров вместо радиуса точки
+                    val checkDistance = if (point.type == "FAMILIAR") 50.0 else point.radius
+                    
+                    if (distance <= checkDistance) {
+                        newPointsInRange.add(point.pointId)
+                        
+                        // Если мы только что вошли в точку
+                        if (!pointsInRange.contains(point.pointId)) {
+                            onEnterPoint(point)
+                        }
                     }
                 }
+                
+                // Проверяем точки, из которых мы вышли
+                val exitedPoints = pointsInRange - newPointsInRange
+                exitedPoints.forEach { pointId ->
+                    onExitPoint(pointId)
+                }
+                
+                pointsInRange = newPointsInRange
+                
+            } catch (e: Exception) {
+                LogHelper.e("Ошибка при проверке точек: ${e.message}")
             }
-            
-            // Проверяем точки, из которых мы вышли
-            val exitedPoints = pointsInRange - newPointsInRange
-            exitedPoints.forEach { pointId ->
-                onExitPoint(pointId)
-            }
-            
-            pointsInRange = newPointsInRange
-            
-        } catch (e: Exception) {
-            LogHelper.e("Ошибка при проверке точек: ${e.message}")
         }
     }
     
@@ -798,6 +800,7 @@ class LocationService : Service() {
         super.onDestroy()
         instance = null
         stopLocationUpdates()
+        serviceScope.cancel()
         LogHelper.d("LocationService уничтожен")
     }
 

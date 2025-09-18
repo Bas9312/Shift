@@ -174,10 +174,10 @@ class ProfileFragment : Fragment() {
         // Инструмент
         binding.profileInstrument.text = user.instrument ?: "Инструмент не указан"
         // Фамильяр
-        val familiarName = if (user.familiar != null) {
-            FamiliarData.getNameById(user.familiar!!)
+        val familiarName = if (!user.familiar.isNullOrEmpty()) {
+            FamiliarData.getNameById(user.familiar)
         } else {
-            "Фамильяр не указан"
+            "Нет фамильяра"
         }
         binding.profileFamiliar.text = familiarName
         // Прочее

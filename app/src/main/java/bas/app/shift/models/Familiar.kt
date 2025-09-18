@@ -22,7 +22,7 @@ object FamiliarData {
     )
     
     fun getNameById(id: String): String {
-        return familiars[id] ?: "Неизвестный фамильяр"
+        return familiars[id] ?: id
     }
     
     fun getImageNameById(id: String, imageIndex: Int = 1): String {

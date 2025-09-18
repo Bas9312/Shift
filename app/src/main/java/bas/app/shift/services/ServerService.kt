@@ -56,22 +56,20 @@ object ServerService {
         // TODO: Реализовать отправку уведомления о выходе из зоны скрытого эффекта
     }
 
-    fun getPoints(): List<Point> {
+    suspend fun getPoints(): List<Point> {
         //LogHelper.d("Получение точек с сервера")
-        return runBlocking {
-            try {
-                val userId = UserPrefsHelper.getUserId(ShiftApplication.instance)
-                val response = api.getPoints(userId)
-                if (response.isSuccessful) {
-                    response.body()?.points ?: emptyList()
-                } else {
-                    LogHelper.e("Ошибка при получении точек: ${response.code()}")
-                    emptyList()
-                }
-            } catch (e: Exception) {
-                LogHelper.e("Ошибка при получении точек: ${e.message}")
+        return try {
+            val userId = UserPrefsHelper.getUserId(ShiftApplication.instance)
+            val response = api.getPoints(userId)
+            if (response.isSuccessful) {
+                response.body()?.points ?: emptyList()
+            } else {
+                LogHelper.e("Ошибка при получении точек: ${response.code()}")
                 emptyList()
             }
+        } catch (e: Exception) {
+            LogHelper.e("Ошибка при получении точек: ${e.message}")
+            emptyList()
         }
     }
 

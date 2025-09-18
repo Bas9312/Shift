@@ -17,6 +17,7 @@ import android.widget.Spinner
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import bas.app.shift.databinding.ActivityEkatMapsBinding
 import bas.app.shift.databinding.DialogCreatePointBinding
 import bas.app.shift.models.FamiliarData
@@ -596,30 +597,36 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     private fun updatePointsFromServer() {
         LogHelper.d("Обновление точек с сервера")
-        val serverPoints = ServerService.getPoints()
-        if (serverPoints.isEmpty()) {
-            LogHelper.d("Сервер не вернул точки")
-            // Если сервер не вернул точки, используем тестовые
-            //addTestPoints()
-        } else {
-            LogHelper.d("Получено ${serverPoints.size} точек с сервера")
-            // Удаляем все существующие точки
-            pointsOfInterest.values.forEach { (_, circle, marker) ->
-                circle?.remove() // Круг может быть null для USER точек
-                marker?.remove()
-            }
-            pointsOfInterest.clear()
+        lifecycleScope.launch {
+            try {
+                val serverPoints = ServerService.getPoints()
+                if (serverPoints.isEmpty()) {
+                    LogHelper.d("Сервер не вернул точки")
+                    // Если сервер не вернул точки, используем тестовые
+                    //addTestPoints()
+                } else {
+                    LogHelper.d("Получено ${serverPoints.size} точек с сервера")
+                    // Удаляем все существующие точки
+                    pointsOfInterest.values.forEach { (_, circle, marker) ->
+                        circle?.remove() // Круг может быть null для USER точек
+                        marker?.remove()
+                    }
+                    pointsOfInterest.clear()
 
-            // Добавляем новые точки с сервера
-            serverPoints.forEach { point ->
-                addPoint(point)
-            }
+                    // Добавляем новые точки с сервера
+                    serverPoints.forEach { point ->
+                        addPoint(point)
+                    }
 
-            // Обновляем карту только если есть текущая локация
-            if (currentLocation != null) {
-                updateForLocation()
-            } else {
-                LogHelper.d("Локация недоступна, маркеры будут добавлены позже")
+                    // Обновляем карту только если есть текущая локация
+                    if (currentLocation != null) {
+                        updateForLocation()
+                    } else {
+                        LogHelper.d("Локация недоступна, маркеры будут добавлены позже")
+                    }
+                }
+            } catch (e: Exception) {
+                LogHelper.e("Ошибка при обновлении точек с сервера: ${e.message}")
             }
         }
     }
