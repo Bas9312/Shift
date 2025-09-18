@@ -52,6 +52,7 @@ class MessagesChatActivity : AppCompatActivity() {
     private var pendingMessageText: String = ""
     private var pendingFiles: MutableList<Uri> = mutableListOf()
     private var interlocutorName: String? = null
+    private var isScreenActive = false
     
     companion object {
         private const val REQUEST_CODE_PICK_FILES = 1001
@@ -572,10 +573,14 @@ class MessagesChatActivity : AppCompatActivity() {
     }
     
     private fun startPolling() {
-        pollingJob = pollingScope.launch {
-            while (true) {
-                delay(10000) // 10 секунд
-                loadMessages(showLoader = false) // Без лоадера для периодических обновлений
+        if (pollingJob == null) {
+            pollingJob = pollingScope.launch {
+                while (true) {
+                    if (isScreenActive) {
+                        delay(30000) // 10 секунд
+                        loadMessages(showLoader = false) // Без лоадера для периодических обновлений
+                    }
+                }
             }
         }
     }
@@ -593,12 +598,14 @@ class MessagesChatActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         // Останавливаем polling для всех пользователей
+        isScreenActive = false
         stopPolling()
     }
     
     override fun onResume() {
         super.onResume()
         // Запускаем polling для всех пользователей
+        isScreenActive = true
         startPolling()
     }
 }
