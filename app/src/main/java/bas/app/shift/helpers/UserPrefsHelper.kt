@@ -2,6 +2,7 @@ package bas.app.shift.helpers
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.system.Os.remove
 import androidx.core.content.edit
 import bas.app.shift.models.User
 import com.google.gson.Gson
@@ -20,7 +21,7 @@ object UserPrefsHelper {
 
     fun setUserId(context: Context, userId: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit() { putString(KEY_USER_ID, userId) }
+        prefs.edit(commit = true) { putString(KEY_USER_ID, userId) }
     }
 
     fun saveUserData(context: Context, user: User) {
@@ -62,12 +63,7 @@ object UserPrefsHelper {
 
     fun clearUserData(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit(commit = true) {
-            remove(KEY_USER_ID)
-            remove(KEY_USER_DATA)
-            remove(KEY_USER_NAME)
-            remove(KEY_SHOW_ON_MAP)
-        }
+        prefs.edit().clear().commit()
     }
 
     fun getShowOnMap(context: Context): Boolean {

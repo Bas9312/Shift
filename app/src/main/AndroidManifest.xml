@@ -84,6 +84,10 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
+        <activity
+            android:name=".ui.ImageViewerActivity"
+            android:exported="false"/>
+
         <service
             android:name=".services.LocationService"
             android:exported="false"

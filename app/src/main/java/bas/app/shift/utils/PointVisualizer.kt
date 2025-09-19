@@ -15,7 +15,7 @@ object PointVisualizer {
         PointType.OPEN_PROBLEM to Color.parseColor("#F44336"),    // Красный
         PointType.APPROACHING_BITER to Color.parseColor("#9C27B0"), // Фиолетовый
         PointType.SHRINKING_CIRCLE to Color.parseColor("#1FEB3B"), // Желтый
-        PointType.DEMON_BLACK_CIRCLE to Color.parseColor("#2196F3"), // Желтый
+        PointType.DEMON_BLACK_CIRCLE to Color.parseColor("#000000"), // Желтый
         PointType.APPROACHING_VIRTUAL to Color.parseColor("#8FEB3B") // Желтый
     )
 
