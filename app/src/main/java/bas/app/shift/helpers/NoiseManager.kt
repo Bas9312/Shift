@@ -16,6 +16,7 @@ class NoiseManager(private val context: Context) {
     private var previousNoise = 0.0
     private var userId: String? = null
     private var onNoiseUpdateListener: ((Double) -> Unit)? = null
+    private var onGlobalNoiseUpdateListener: ((Double) -> Unit)? = null
     private var onCommandSuccessListener: (() -> Unit)? = null
     private val noiseEffectManager = NoiseEffectManager(context)
     
@@ -28,6 +29,10 @@ class NoiseManager(private val context: Context) {
     
     fun setOnNoiseUpdateListener(listener: (Double) -> Unit) {
         this.onNoiseUpdateListener = listener
+    }
+    
+    fun setOnGlobalNoiseUpdateListener(listener: (Double) -> Unit) {
+        this.onGlobalNoiseUpdateListener = listener
     }
     
     fun setOnCommandSuccessListener(listener: () -> Unit) {
@@ -65,7 +70,8 @@ class NoiseManager(private val context: Context) {
                         // Эффекты проверяются только при adjustNoise, где у нас есть точные before/after значения
                         
                         onNoiseUpdateListener?.invoke(currentNoise)
-                        LogHelper.d("NoiseManager: Current noise updated from $previousNoise to $currentNoise (periodic fetch)")
+                        onGlobalNoiseUpdateListener?.invoke(noiseState.globalNoise)
+                        LogHelper.d("NoiseManager: Current noise updated from $previousNoise to $currentNoise, global: ${noiseState.globalNoise} (periodic fetch)")
                     } else {
                         LogHelper.e("NoiseManager: Error fetching noise: ${response.code()}")
                     }
@@ -151,6 +157,7 @@ class NoiseManager(private val context: Context) {
                             }
                             
                             onNoiseUpdateListener?.invoke(currentNoise)
+                            onGlobalNoiseUpdateListener?.invoke(adjustResponse.global.after)
                             onCommandSuccessListener?.invoke()
                         }
                         

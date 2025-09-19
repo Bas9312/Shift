@@ -48,7 +48,6 @@ class TerminalActivity : AppCompatActivity() {
     private lateinit var adapter: ConsoleAdapter
     private var isUpgradeSessionActive = false  // Отслеживаем активную сессию UPGRADE
     private var isRebootSessionActive = false   // Отслеживаем активную сессию REBOOT
-    private var isDeepDiveSessionActive = false // Отслеживаем активную сессию DEEP_DIVE
     private val levelViews by lazy {
         listOf<View>(
             findViewById(R.id.lvl1), findViewById(R.id.lvl2), findViewById(R.id.lvl3),
@@ -62,6 +61,7 @@ class TerminalActivity : AppCompatActivity() {
     )
 
     private var noise = 0.0
+    private var globalNoise = 0.0
     private var terminalHistory = TerminalHistory()
     private lateinit var noiseManager: NoiseManager
     private var lastExecutedCommand: String? = null
@@ -263,7 +263,7 @@ class TerminalActivity : AppCompatActivity() {
                 
                 // Отправляем команду на сервер для изменения шума
                 if (command.noiseIncrease != 0) {
-                    noiseManager.adjustNoise(command.noiseIncrease.toDouble())
+                    adjustNoiseAndUpdateGlobal(command.noiseIncrease.toDouble())
                 }
                 
                 // Отправляем команду в MG чат
@@ -406,6 +406,10 @@ class TerminalActivity : AppCompatActivity() {
                 noise = newNoise
                 updateNoise(noise)
             }
+            noiseManager.setOnGlobalNoiseUpdateListener { newGlobalNoise ->
+                globalNoise = newGlobalNoise
+                updateGlobalNoiseDisplay()
+            }
             noiseManager.setOnCommandSuccessListener {
                 // Убираем вызов sendToMg отсюда - будем вызывать из обработчиков команд
             }
@@ -415,9 +419,41 @@ class TerminalActivity : AppCompatActivity() {
             
             // Получаем текущий шум сразу
             noiseManager.fetchCurrentNoise()
+            
+            // Глобальный шум будет обновляться автоматически через NoiseManager
         } else {
             LogHelper.e("TerminalActivity: UserId is empty, cannot initialize NoiseManager")
         }
+    }
+    
+    private fun updateGlobalNoiseDisplay() {
+        val roundedNoise = String.format("%.2f", globalNoise)
+        binding.globalNoiseValue.text = "Global $roundedNoise"
+        
+        // Устанавливаем цвет в зависимости от уровня шума
+        val color = when {
+            globalNoise >= 4.0 -> Color.parseColor("#FF0000") // Ярко-алый
+            globalNoise >= 3.0 -> Color.parseColor("#FF4444") // Красный
+            globalNoise >= 2.0 -> Color.parseColor("#FFAA00") // Желтый
+            else -> Color.parseColor("#C8E1FF") // Обычный цвет
+        }
+        
+        binding.globalNoiseValue.setTextColor(color)
+    }
+    
+    private fun adjustNoiseAndUpdateGlobal(delta: Double) {
+        noiseManager.adjustNoise(delta)
+        // Глобальный шум обновится автоматически через callback в NoiseManager
+    }
+    
+    private fun isDeepDiveSessionActive(): Boolean {
+        val prefs = getSharedPreferences("terminal_prefs", MODE_PRIVATE)
+        return prefs.getBoolean("isDeepDiveSessionActive", false)
+    }
+    
+    private fun setDeepDiveSessionActive(active: Boolean) {
+        val prefs = getSharedPreferences("terminal_prefs", MODE_PRIVATE)
+        prefs.edit().putBoolean("isDeepDiveSessionActive", active).apply()
     }
     
     private fun sendToMg() {
@@ -683,7 +719,7 @@ class TerminalActivity : AppCompatActivity() {
         saveResponseToHistory(successMsg)
         
         // Снижаем шум
-        noiseManager.adjustNoise(-2.0)
+        adjustNoiseAndUpdateGlobal(-2.0)
         
         // Завершаем сессию UPGRADE
         isUpgradeSessionActive = false
@@ -692,7 +728,7 @@ class TerminalActivity : AppCompatActivity() {
         prefs.edit().putBoolean("upgrade_session_active", false).apply()
         
         // Отправляем команду в MG чат
-        sendToMg()
+        //sendToMg()
         
         smoothScrollToBottom()
     }
@@ -777,7 +813,7 @@ class TerminalActivity : AppCompatActivity() {
         saveResponseToHistory(successMsg)
         
         // Снижаем шум
-        noiseManager.adjustNoise(-1.0)
+        adjustNoiseAndUpdateGlobal(-1.0)
         
         // Завершаем сессию REBOOT
         isRebootSessionActive = false
@@ -819,7 +855,7 @@ class TerminalActivity : AppCompatActivity() {
         saveResponseToHistory(deepDiveText)
 
         // Активируем сессию DEEP_DIVE
-        isDeepDiveSessionActive = true
+        setDeepDiveSessionActive(true)
 
         // Отправляем команду в MG чат
         sendToMg()
@@ -833,7 +869,7 @@ class TerminalActivity : AppCompatActivity() {
         saveResponseToHistory(executingMsg)
 
         // Проверяем активную сессию DEEP_DIVE
-        if (!isDeepDiveSessionActive) {
+        if (!isDeepDiveSessionActive()) {
             val errorMsg = "Ошибка: Нет активной сессии погружения. Сначала выполните DEEP_DIVE.START"
             adapter.addTyping(errorMsg)
             saveResponseToHistory(errorMsg)
@@ -893,13 +929,13 @@ class TerminalActivity : AppCompatActivity() {
         saveResponseToHistory(returnText)
 
         // Увеличиваем шум на указанную глубину
-        noiseManager.adjustNoise(depth.toDouble())
+        adjustNoiseAndUpdateGlobal(depth.toDouble())
 
         // Завершаем сессию DEEP_DIVE
-        isDeepDiveSessionActive = false
+        setDeepDiveSessionActive(false)
 
         // Отправляем команду в MG чат
-        sendToMg()
+        //sendToMg()
 
         smoothScrollToBottom()
     }
@@ -1027,7 +1063,7 @@ class TerminalActivity : AppCompatActivity() {
         
         // Добавляем шум за развертывание узла (+2)
         val currentUserId = UserPrefsHelper.getUserId(this) ?: return
-        noiseManager.adjustNoise(2.0)
+        adjustNoiseAndUpdateGlobal(2.0)
         
         // Применяем Proxy эффект
         noiseManager.applyProxyEffect(currentUserId)
