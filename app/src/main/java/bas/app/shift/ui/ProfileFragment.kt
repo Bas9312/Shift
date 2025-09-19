@@ -32,17 +32,22 @@ class ProfileFragment : Fragment() {
     ): View {
         _binding = FragmentProfileBinding.inflate(inflater, container, false)
         
-        // Настраиваем кнопку показа ауры экстрасенсу
-        binding.btnShowAuraToExtrasensory.setOnClickListener {
-            val intent = Intent(requireContext(), AuraQrActivity::class.java)
-            // Передаем ID пользователя, чью ауру показываем
-            intent.putExtra("user_id", currentUserId)
-            startActivity(intent)
+        // Проверяем, что binding создан успешно
+        if (_binding != null) {
+            // Настраиваем кнопку показа ауры экстрасенсу
+            binding.btnShowAuraToExtrasensory.setOnClickListener {
+                if (isAdded && context != null) {
+                    val intent = Intent(context, AuraQrActivity::class.java)
+                    // Передаем ID пользователя, чью ауру показываем
+                    intent.putExtra("user_id", currentUserId)
+                    startActivity(intent)
+                }
+            }
+            
+            // Скрываем кнопки редактирования в режиме просмотра
+            binding.btnEditInstrument.visibility = View.GONE
+            binding.btnEditFamiliar.visibility = View.GONE
         }
-        
-        // Скрываем кнопки редактирования в режиме просмотра
-        binding.btnEditInstrument.visibility = View.GONE
-        binding.btnEditFamiliar.visibility = View.GONE
         
         return binding.root
     }
@@ -53,6 +58,16 @@ class ProfileFragment : Fragment() {
     }
 
     fun showProfile(user: User) {
+        // Проверяем, что binding не null и view еще не уничтожена
+        if (_binding == null) {
+            LogHelper.w("ProfileFragment: showProfile вызван, но binding еще не создан")
+            return
+        }
+        if (!isAdded) {
+            LogHelper.w("ProfileFragment: showProfile вызван, но фрагмент уже не добавлен")
+            return
+        }
+        
         // Сохраняем ID текущего пользователя
         currentUserId = user.userId
         
@@ -66,33 +81,39 @@ class ProfileFragment : Fragment() {
             // Сортируем эффекты по ID в убывающем порядке (новые сверху)
             val sortedEffects = user.effects!!.sortedByDescending { it.id }
             sortedEffects.forEach { effect ->
-                val tv = TextView(requireContext())
-                tv.text = effect.textToShowPlayers
-                tv.textSize = 16f
-                tv.setPadding(0, 8, 0, 8)
-                tv.setSingleLine(false) // Разрешаем многострочный текст
-                tv.maxLines = 15 // Увеличиваем лимит строк для полного отображения эффектов
-                tv.ellipsize = android.text.TextUtils.TruncateAt.END // Добавляем многоточие если текст обрезается
-                effectsLayout.addView(tv)
+                if (isAdded && context != null) {
+                    val tv = TextView(context)
+                    tv.text = effect.textToShowPlayers
+                    tv.textSize = 16f
+                    tv.setPadding(0, 8, 0, 8)
+                    tv.setSingleLine(false) // Разрешаем многострочный текст
+                    tv.maxLines = 15 // Увеличиваем лимит строк для полного отображения эффектов
+                    tv.ellipsize = android.text.TextUtils.TruncateAt.END // Добавляем многоточие если текст обрезается
+                    effectsLayout.addView(tv)
+                }
             }
         } else {
-            val tv = TextView(requireContext())
-            tv.text = getString(R.string.no_effects)
-            tv.textSize = 16f
-            tv.setPadding(0, 8, 0, 8)
-            effectsLayout.addView(tv)
+            if (isAdded && context != null) {
+                val tv = TextView(context)
+                tv.text = getString(R.string.no_effects)
+                tv.textSize = 16f
+                tv.setPadding(0, 8, 0, 8)
+                effectsLayout.addView(tv)
+            }
         }
         
         // Показываем кнопку редактирования эффектов только для MG пользователей
-        val currentUserId = UserPrefsHelper.getUserId(requireContext())
+        val currentUserId = if (isAdded && context != null) UserPrefsHelper.getUserId(requireContext()) else null
         val isMgUser = currentUserId?.startsWith("MG", ignoreCase = true) == true
         
         if (isMgUser) {
             binding.btnEditEffects.visibility = View.VISIBLE
             binding.btnEditEffects.setOnClickListener {
-                val intent = Intent(requireContext(), EffectEditorActivity::class.java)
-                intent.putExtra("userId", user.userId)
-                startActivityForResult(intent, REQUEST_CODE_EDIT_EFFECTS)
+                if (isAdded && context != null) {
+                    val intent = Intent(context, EffectEditorActivity::class.java)
+                    intent.putExtra("userId", user.userId)
+                    startActivityForResult(intent, REQUEST_CODE_EDIT_EFFECTS)
+                }
             }
         } else {
             binding.btnEditEffects.visibility = View.GONE
@@ -107,42 +128,54 @@ class ProfileFragment : Fragment() {
         disciplinesLayout.removeAllViews()
         if (user.disciplines.isNotEmpty()) {
             user.disciplines.forEach { discipline ->
-                val tv = TextView(requireContext())
-                tv.text = discipline.name
-                disciplinesLayout.addView(tv)
+                if (isAdded && context != null) {
+                    val tv = TextView(context)
+                    tv.text = discipline.name
+                    disciplinesLayout.addView(tv)
+                }
             }
         } else {
-            val tv = TextView(requireContext())
-            tv.text = "Нет дисциплин"
-            disciplinesLayout.addView(tv)
+            if (isAdded && context != null) {
+                val tv = TextView(context)
+                tv.text = "Нет дисциплин"
+                disciplinesLayout.addView(tv)
+            }
         }
         // Модули (теперь List<NamedEntity>)
         val modulesLayout = binding.profileModulesList
         modulesLayout.removeAllViews()
         if (user.modules.isNotEmpty()) {
             user.modules.forEach { module ->
-                val tv = TextView(requireContext())
-                tv.text = module.name
-                modulesLayout.addView(tv)
+                if (isAdded && context != null) {
+                    val tv = TextView(context)
+                    tv.text = module.name
+                    modulesLayout.addView(tv)
+                }
             }
         } else {
-            val tv = TextView(requireContext())
-            tv.text = "Нет модулей"
-            modulesLayout.addView(tv)
+            if (isAdded && context != null) {
+                val tv = TextView(context)
+                tv.text = "Нет модулей"
+                modulesLayout.addView(tv)
+            }
         }
         // Способности (теперь List<Ability>)
         val abilitiesLayout = binding.profileAbilitiesList
         abilitiesLayout.removeAllViews()
         if (user.abilities.isNotEmpty()) {
             user.abilities.forEach { ability ->
-                val tv = TextView(requireContext())
-                tv.text = "Тип: ${ability.type}\nОписание: ${ability.description}"
-                abilitiesLayout.addView(tv)
+                if (isAdded && context != null) {
+                    val tv = TextView(context)
+                    tv.text = "Тип: ${ability.type}\nОписание: ${ability.description}"
+                    abilitiesLayout.addView(tv)
+                }
             }
         } else {
-            val tv = TextView(requireContext())
-            tv.text = "Нет способностей"
-            abilitiesLayout.addView(tv)
+            if (isAdded && context != null) {
+                val tv = TextView(context)
+                tv.text = "Нет способностей"
+                abilitiesLayout.addView(tv)
+            }
         }
         // Артефакты (только если есть Артефактология)
         val hasArtifactology = user.disciplines.any { it.id == 1 } // ID дисциплины Артефактология
@@ -153,20 +186,26 @@ class ProfileFragment : Fragment() {
             artifactsLayout.removeAllViews()
             if (user.artifacts.isNotEmpty()) {
                 user.artifacts.forEach { artifact ->
-                    val tv = TextView(requireContext())
-                    tv.text = artifact.name
-                    tv.isClickable = true
-                    tv.setOnClickListener {
-                        val intent = Intent(requireContext(), ArtifactActivity::class.java)
-                        intent.putExtra("artifact_id", artifact.id)
-                        startActivity(intent)
+                    if (isAdded && context != null) {
+                        val tv = TextView(context)
+                        tv.text = artifact.name
+                        tv.isClickable = true
+                        tv.setOnClickListener {
+                            if (isAdded && context != null) {
+                                val intent = Intent(context, ArtifactActivity::class.java)
+                                intent.putExtra("artifact_id", artifact.id)
+                                startActivity(intent)
+                            }
+                        }
+                        artifactsLayout.addView(tv)
                     }
-                    artifactsLayout.addView(tv)
                 }
             } else {
-                val tv = TextView(requireContext())
-                tv.text = "Нет артефактов"
-                artifactsLayout.addView(tv)
+                if (isAdded && context != null) {
+                    val tv = TextView(context)
+                    tv.text = "Нет артефактов"
+                    artifactsLayout.addView(tv)
+                }
             }
         } else {
             artifactsSection.visibility = View.GONE
@@ -185,20 +224,26 @@ class ProfileFragment : Fragment() {
         miscLayout.removeAllViews()
         if (user.misc.isNotEmpty()) {
             user.misc.forEach {
-                val tv = TextView(requireContext())
-                tv.text = it
-                miscLayout.addView(tv)
+                if (isAdded && context != null) {
+                    val tv = TextView(context)
+                    tv.text = it
+                    miscLayout.addView(tv)
+                }
             }
         } else {
-            val tv = TextView(requireContext())
-            tv.text = "Нет особенностей"
-            miscLayout.addView(tv)
+            if (isAdded && context != null) {
+                val tv = TextView(context)
+                tv.text = "Нет особенностей"
+                miscLayout.addView(tv)
+            }
         }
     }
 
     fun showError(msg: String) {
-        Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show()
         LogHelper.e("ProfileFragment $msg")
+        if (isAdded && context != null) {
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+        }
     }
     
     private fun getAuraTypeDisplayName(type: AuraType): String {
@@ -222,7 +267,9 @@ class ProfileFragment : Fragment() {
             // Обновляем профиль после редактирования эффектов
             // Здесь можно добавить логику для перезагрузки данных пользователя
             // Пока что просто показываем сообщение
-            Toast.makeText(requireContext(), "Эффекты обновлены", Toast.LENGTH_SHORT).show()
+            if (isAdded && context != null) {
+                Toast.makeText(context, "Эффекты обновлены", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }

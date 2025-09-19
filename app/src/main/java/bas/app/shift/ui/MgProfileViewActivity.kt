@@ -148,6 +148,8 @@ class MgProfileViewActivity : AppCompatActivity() {
         RetrofitClient.userProfileApi.getUserProfile(userId)
             .enqueue(object : Callback<User> {
                 override fun onResponse(call: Call<User>, response: Response<User>) {
+                    if (isFinishing || isDestroyed) return // Проверяем, что Activity еще активна
+                    
                     if (response.isSuccessful && response.body() != null) {
                         val userServer = response.body()!!
                         profileFragment.showProfile(userServer)
@@ -157,6 +159,7 @@ class MgProfileViewActivity : AppCompatActivity() {
                 }
 
                 override fun onFailure(call: Call<User>, t: Throwable) {
+                    if (isFinishing || isDestroyed) return // Проверяем, что Activity еще активна
                     profileFragment.showError("Ошибка сети: ${t.localizedMessage}")
                 }
             })

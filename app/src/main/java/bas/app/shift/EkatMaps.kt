@@ -57,7 +57,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     private var currentLocation: Location? = null
     private var locationUpdateDisposable: Disposable? = null
-    private lateinit var updatePointsRunnable: Runnable
+    private var updatePointsRunnable: Runnable? = null
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityEkatMapsBinding
     private var cancellationTokenSource = CancellationTokenSource()
@@ -133,7 +133,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     override fun onPause() {
         super.onPause()
         LogHelper.d("onPause: приостановка активности карты")
-        handler.removeCallbacks(updatePointsRunnable)
+        updatePointsRunnable?.let { handler.removeCallbacks(it) }
+
         locationUpdateDisposable?.dispose()
         LogHelper.d("onPause: ресурсы освобождены")
     }
@@ -592,7 +593,9 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 handler.postDelayed(this, pointsUpdateInterval)
             }
         }
-        handler.post(updatePointsRunnable)
+        updatePointsRunnable?.let {
+            handler.post(it)
+        }
     }
 
     private fun updatePointsFromServer() {
