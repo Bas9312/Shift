@@ -786,15 +786,13 @@ class MainActivity : AppCompatActivity() {
 
         // Создаем точку SHRINKING_CIRCLE
         val pointRequest = PointRequest(
+            type = PointType.SHRINKING_CIRCLE.serverValue,
             lat = location.latitude,
             lng = location.longitude,
-            pointId = "ritual_${System.currentTimeMillis()}",
-            type = PointType.SHRINKING_CIRCLE.serverValue,
             radius = 50.0, // Радиус 50 метров
-            description = "Здесь случилась сильная магия",
             ownerId = user.userId,
-            expireAt = null, // Точка не истекает
-            textToShowOnEnter = "Здесь прошёл ритуал"
+            description = "Здесь случилась сильная магия",
+            textToShowOnEnter = "Здесь прошёл ритуал",
         )
 
         // Отправляем запрос на сервер

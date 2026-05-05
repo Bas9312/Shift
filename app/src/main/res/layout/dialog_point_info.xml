@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
 
     <TextView
         android:id="@+id/tvPointTitle"
@@ -59,6 +64,22 @@
         android:layout_marginBottom="16dp"
         android:visibility="gone" />
 
+    <CheckBox
+        android:id="@+id/cbHidden"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/point_hidden_label"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btnSavePoint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/save"
+        android:layout_marginBottom="12dp"
+        android:backgroundTint="@android:color/holo_blue_dark"
+        android:textColor="@android:color/white" />
+
     <Button
         android:id="@+id/btnDeletePoint"
         android:layout_width="match_parent"
@@ -67,4 +88,5 @@
         android:backgroundTint="@android:color/holo_red_dark"
         android:textColor="@android:color/white" />
 
-</LinearLayout>
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

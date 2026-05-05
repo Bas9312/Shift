@@ -37,7 +37,10 @@ object ServerService {
                     show = showOnMap
                 )
                 //LogHelper.d("Отправка геолокации с show = $showOnMap")
-                api.updateUserLocation(userLocation)
+                val response = api.updateUserLocation(userLocation)
+                if (!response.isSuccessful) {
+                    LogHelper.e("Ошибка при отправке геолокации: ${response.code()}")
+                }
             } catch (e: Exception) {
                 LogHelper.e("Ошибка при отправке геолокации: ${e.message}")
             }
@@ -89,6 +92,16 @@ object ServerService {
             api.deletePoint(pointId)
         } catch (e: Exception) {
             LogHelper.e("Ошибка при удалении точки: ${e.message}")
+            throw e
+        }
+    }
+
+    suspend fun updatePointHidden(pointId: String, hidden: Boolean): Response<Point> {
+        LogHelper.d("Обновление hidden для точки $pointId: $hidden")
+        return try {
+            api.updatePointHidden(pointId, bas.app.shift.models.UpdatePointHiddenRequest(hidden))
+        } catch (e: Exception) {
+            LogHelper.e("Ошибка при обновлении hidden: ${e.message}")
             throw e
         }
     }

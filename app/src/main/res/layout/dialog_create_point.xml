@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
 
     <TextView
         android:layout_width="match_parent"
@@ -105,6 +111,82 @@
         android:layout_marginBottom="16dp"
         android:visibility="gone" />
 
+    <CheckBox
+        android:id="@+id/cbCustomRadius"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/point_custom_radius_label"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/tvRadiusValue"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/point_radius_current"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone" />
+
+    <com.google.android.material.slider.Slider
+        android:id="@+id/sliderRadius"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:valueFrom="0"
+        android:valueTo="100"
+        app:labelBehavior="gone"
+        android:layout_marginBottom="16dp"
+        android:visibility="gone" />
+
+    <CheckBox
+        android:id="@+id/cbCustomCreatedAt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/point_custom_created_at_label"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/tvCreatedAtValue"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/point_created_at_current"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/layoutCreatedAtPickers"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp"
+        android:visibility="gone">
+
+        <NumberPicker
+            android:id="@+id/npDay"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1" />
+
+        <NumberPicker
+            android:id="@+id/npHour"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1" />
+
+        <NumberPicker
+            android:id="@+id/npMinute"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1" />
+    </LinearLayout>
+
+    <CheckBox
+        android:id="@+id/cbHidden"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/point_hidden_label"
+        android:layout_marginBottom="16dp" />
+
     <Button
         android:id="@+id/btnCreatePoint"
         android:layout_width="match_parent"
@@ -113,4 +195,5 @@
         android:backgroundTint="@android:color/holo_blue_dark"
         android:textColor="@android:color/white" />
 
-</LinearLayout>
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

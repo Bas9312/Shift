@@ -103,6 +103,11 @@
     <string name="point_expire_label">Истечет через (минут):</string>
     <string name="point_expire_hint">Введите количество минут</string>
     <string name="point_create_button">Добавить точку</string>
+    <string name="point_hidden_label">Скрытая</string>
+    <string name="point_custom_radius_label">Задать радиус вручную</string>
+    <string name="point_radius_current">Текущий радиус: %1$s</string>
+    <string name="point_custom_created_at_label">Задать время создания</string>
+    <string name="point_created_at_current">Время создания: %1$s</string>
     
     <!-- Базовый диалог информации о точке -->
     <string name="point_basic_info_title">Информация о точке</string>

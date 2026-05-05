@@ -113,6 +113,10 @@ class MessagesChatActivity : AppCompatActivity() {
         binding.btnSend.setOnClickListener {
             sendMessage()
         }
+
+        binding.btnMarkRead.setOnClickListener {
+            markSelectedMessageAsRead()
+        }
         
         binding.btnAttach.setOnClickListener {
             checkPermissionsAndPickFiles()
@@ -144,18 +148,73 @@ class MessagesChatActivity : AppCompatActivity() {
     
     private fun updateSendButtonState() {
         if (userId.startsWith("MG_")) {
-            // Для МГ пользователей кнопка видна только при выбранном сообщении
+            // Для МГ пользователей кнопки видны только при выбранном сообщении
             val isVisible = selectedMessageForReply != null
             binding.btnSend.visibility = if (isVisible) android.view.View.VISIBLE else android.view.View.GONE
             binding.btnSend.isEnabled = isVisible
+            binding.btnMarkRead.visibility = if (isVisible) android.view.View.VISIBLE else android.view.View.GONE
+            binding.btnMarkRead.isEnabled = isVisible
         } else {
             // Для обычных пользователей кнопка всегда видна и активна
             binding.btnSend.visibility = android.view.View.VISIBLE
             binding.btnSend.isEnabled = true
             binding.btnSend.alpha = 1.0f
+            binding.btnMarkRead.visibility = android.view.View.GONE
         }
     }
     
+    private fun markSelectedMessageAsRead() {
+        if (!userId.startsWith("MG_")) return
+
+        val message = selectedMessageForReply
+        if (message == null) {
+            Toast.makeText(this, "Выберите сообщение (длинное нажатие)", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (message.readStatus == "read") {
+            clearMessageSelection()
+            Toast.makeText(this, "Сообщение уже прочитано", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Отметить прочитанным?")
+            .setMessage("Сообщение будет отмечено прочитанным без ответа.")
+            .setPositiveButton("Отметить") { _, _ ->
+                RetrofitClient.messagesApi.markAsRead(userId = userId, messageId = message.id)
+                    .enqueue(object : retrofit2.Callback<MarkAsReadResponse> {
+                        override fun onResponse(
+                            call: retrofit2.Call<MarkAsReadResponse>,
+                            response: retrofit2.Response<MarkAsReadResponse>
+                        ) {
+                            if (response.isSuccessful) {
+                                val updated = message.copy(readStatus = "read")
+                                messagesAdapter.updateMessage(updated)
+                                clearMessageSelection()
+                                Toast.makeText(this@MessagesChatActivity, "Отмечено прочитанным", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(
+                                    this@MessagesChatActivity,
+                                    "Ошибка: ${response.code()}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+
+                        override fun onFailure(call: retrofit2.Call<MarkAsReadResponse>, t: Throwable) {
+                            Toast.makeText(
+                                this@MessagesChatActivity,
+                                "Ошибка сети: ${t.message ?: "неизвестная"}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    })
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
+    }
+
     private fun getDisciplineName(tagId: Int?): String {
         return tagId?.let { id ->
             Disciplines.DISCIPLINES.find { it.id == id }?.name ?: "Неизвестная дисциплина"

@@ -61,6 +61,16 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
+        <ImageButton
+            android:id="@+id/btnMarkRead"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="center_vertical"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_check"
+            android:visibility="gone"
+            android:contentDescription="Отметить прочитанным" />
+
         <!-- Кнопка отправки -->
         <ImageButton
             android:id="@+id/btnSend"

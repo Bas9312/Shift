@@ -18,6 +18,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Spinner
 import android.widget.Toast
+import android.widget.NumberPicker
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.text.util.LinkifyCompat
@@ -32,6 +33,8 @@ import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.Point
 import bas.app.shift.models.PointRequest
 import bas.app.shift.models.PointType
+import bas.app.shift.models.vLatOrLat
+import bas.app.shift.models.vLngOrLng
 import bas.app.shift.services.LocationService
 import bas.app.shift.services.ServerService
 import bas.app.shift.utils.PointVisualizer
@@ -49,6 +52,7 @@ import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.Task
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import io.reactivex.disposables.Disposable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +60,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.ln
+import kotlin.math.pow
+import kotlin.math.round
 
 class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
@@ -393,11 +400,39 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             tv.movementMethod = LinkMovementMethod.getInstance()
         }
 
-        // Создаем диалог
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogBinding.root)
-            .setCancelable(true)
-            .create()
+        // Скрытость (по доку приходит 0/1)
+        val initialHidden = point.hidden == 1
+        dialogBinding.cbHidden.isChecked = initialHidden
+
+        // Создаем bottom sheet
+        val dialog = BottomSheetDialog(this)
+        dialog.setContentView(dialogBinding.root)
+        dialog.setCancelable(true)
+
+        dialogBinding.btnSavePoint.setOnClickListener {
+            val newHidden = dialogBinding.cbHidden.isChecked
+            if (newHidden == initialHidden) {
+                dialog.dismiss()
+                return@setOnClickListener
+            }
+
+            scope.launch {
+                try {
+                    val response = ServerService.updatePointHidden(point.pointId, newHidden)
+                    if (response.isSuccessful) {
+                        Toast.makeText(this@EkatMaps, getString(R.string.save), Toast.LENGTH_SHORT).show()
+                        updatePointsFromServer()
+                    } else {
+                        Toast.makeText(this@EkatMaps, "Ошибка при сохранении", Toast.LENGTH_SHORT).show()
+                        LogHelper.e("Ошибка при обновлении hidden: ${response.code()}")
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this@EkatMaps, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                    LogHelper.e("Исключение при обновлении hidden: ${e.message}")
+                }
+            }
+            dialog.dismiss()
+        }
 
         // Обработчик кнопки удаления
         dialogBinding.btnDeletePoint.setOnClickListener {
@@ -431,6 +466,43 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         LogHelper.d("Показ диалога создания точки: ${latLng.latitude}, ${latLng.longitude}")
         
         val dialogBinding = DialogCreatePointBinding.inflate(LayoutInflater.from(this))
+
+        val createdAtFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        val nowCalendar = Calendar.getInstance()
+
+        fun updateRadiusUi() {
+            val isCustom = dialogBinding.cbCustomRadius.isChecked
+            dialogBinding.tvRadiusValue.visibility = if (isCustom) View.VISIBLE else View.GONE
+            dialogBinding.sliderRadius.visibility = if (isCustom) View.VISIBLE else View.GONE
+
+            if (isCustom) {
+                val radius = radiusFromSlider(dialogBinding.sliderRadius.value)
+                dialogBinding.tvRadiusValue.text = getString(R.string.point_radius_current, formatRadius(radius))
+            }
+        }
+
+        fun selectedCreatedAtString(): String {
+            val cal = Calendar.getInstance()
+            // month/year всегда текущие
+            cal.set(Calendar.YEAR, nowCalendar.get(Calendar.YEAR))
+            cal.set(Calendar.MONTH, nowCalendar.get(Calendar.MONTH))
+            cal.set(Calendar.DAY_OF_MONTH, dialogBinding.npDay.value)
+            cal.set(Calendar.HOUR_OF_DAY, dialogBinding.npHour.value)
+            cal.set(Calendar.MINUTE, dialogBinding.npMinute.value)
+            cal.set(Calendar.SECOND, 0)
+            return createdAtFormat.format(cal.time)
+        }
+
+        fun updateCreatedAtUi() {
+            val isCustom = dialogBinding.cbCustomCreatedAt.isChecked
+            dialogBinding.tvCreatedAtValue.visibility = if (isCustom) View.VISIBLE else View.GONE
+            dialogBinding.layoutCreatedAtPickers.visibility = if (isCustom) View.VISIBLE else View.GONE
+
+            if (isCustom) {
+                dialogBinding.tvCreatedAtValue.text =
+                    getString(R.string.point_created_at_current, selectedCreatedAtString())
+            }
+        }
         
         // Показываем координаты
         dialogBinding.tvCoordinates.text = getString(R.string.point_coordinates_label) + " " + String.format("%.6f", latLng.latitude) + ", " + String.format("%.6f", latLng.longitude)
@@ -497,18 +569,56 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+
+        // Радиус: нелинейный слайдер 5м..1500м
+        dialogBinding.sliderRadius.value = sliderFromRadius(DEFAULT_CUSTOM_RADIUS_METERS)
+            .coerceIn(dialogBinding.sliderRadius.valueFrom, dialogBinding.sliderRadius.valueTo)
+        dialogBinding.cbCustomRadius.setOnCheckedChangeListener { _, _ -> updateRadiusUi() }
+        dialogBinding.sliderRadius.addOnChangeListener { _, _, _ -> updateRadiusUi() }
+        updateRadiusUi()
+
+        // createdAt: год/месяц текущие, выбираем день/час/минуту
+        dialogBinding.npDay.minValue = 1
+        dialogBinding.npDay.maxValue = nowCalendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+        dialogBinding.npDay.value = nowCalendar.get(Calendar.DAY_OF_MONTH)
+
+        dialogBinding.npHour.minValue = 0
+        dialogBinding.npHour.maxValue = 23
+        dialogBinding.npHour.value = nowCalendar.get(Calendar.HOUR_OF_DAY)
+
+        dialogBinding.npMinute.minValue = 0
+        dialogBinding.npMinute.maxValue = 59
+        dialogBinding.npMinute.value = nowCalendar.get(Calendar.MINUTE)
+
+        val createdAtChangeListener = NumberPicker.OnValueChangeListener { _, _, _ -> updateCreatedAtUi() }
+        dialogBinding.npDay.setOnValueChangedListener(createdAtChangeListener)
+        dialogBinding.npHour.setOnValueChangedListener(createdAtChangeListener)
+        dialogBinding.npMinute.setOnValueChangedListener(createdAtChangeListener)
+
+        dialogBinding.cbCustomCreatedAt.setOnCheckedChangeListener { _, _ -> updateCreatedAtUi() }
+        updateCreatedAtUi()
         
-        // Создаем диалог
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogBinding.root)
-            .setCancelable(true)
-            .create()
+        // Создаем bottom sheet
+        val dialog = BottomSheetDialog(this)
+        dialog.setContentView(dialogBinding.root)
+        dialog.setCancelable(true)
         
         // Обработчик кнопки создания
         dialogBinding.btnCreatePoint.setOnClickListener {
             val selectedPosition = dialogBinding.spinnerPointType.selectedItemPosition
             val selectedType = pointTypeValues[selectedPosition]
             val textToShowOnEnter = dialogBinding.etTextToShowOnEnter.text.toString()
+            val isHidden = dialogBinding.cbHidden.isChecked
+            val radius: Double? = if (dialogBinding.cbCustomRadius.isChecked) {
+                radiusFromSlider(dialogBinding.sliderRadius.value)
+            } else {
+                null
+            }
+            val createdAt: String? = if (dialogBinding.cbCustomCreatedAt.isChecked) {
+                selectedCreatedAtString()
+            } else {
+                null
+            }
             
             // Определяем описание в зависимости от типа точки
             val description = when (selectedType) {
@@ -559,15 +669,15 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                     LogHelper.d("Создание точки для пользователя: $userId")
                     
                     val pointRequest = PointRequest(
+                        type = selectedType,
                         lat = latLng.latitude,
                         lng = latLng.longitude,
-                        pointId = generatePointId(),
-                        type = selectedType,
-                        radius = 0.0, // Сервер сам рассчитывает радиус
-                        description = description,
+                        radius = radius, // null => серверный дефолт
                         ownerId = userId,
-                        expireAt = expireAt,
-                        textToShowOnEnter = textToShowOnEnter.takeIf { it.isNotEmpty() }
+                        description = description,
+                        textToShowOnEnter = textToShowOnEnter.takeIf { it.isNotEmpty() },
+                        hidden = isHidden,
+                        createdAt = createdAt,
                     )
                     
                     LogHelper.d("Отправка запроса на создание точки: $pointRequest")
@@ -575,6 +685,14 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                     if (response.isSuccessful) {
                         Toast.makeText(this@EkatMaps, "Точка создана", Toast.LENGTH_SHORT).show()
                         LogHelper.d("Точка успешно создана")
+                        // Для маленьких радиусов — автоматически приблизим камеру,
+                        // иначе круг 5–20м выглядит как "точка" на обычном зуме.
+                        withContext(Dispatchers.Main) {
+                            val zoom = zoomForRadiusMeters(radius ?: 0.0)
+                            if (zoom != null) {
+                                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoom))
+                            }
+                        }
                         // Обновляем карту
                         updatePointsFromServer()
                     } else {
@@ -593,6 +711,62 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         
         LogHelper.d("Диалог создания точки показан")
         dialog.show()
+    }
+
+    private fun zoomForRadiusMeters(radiusMeters: Double): Float? {
+        // На зуме ~15–16 круги 5–20м занимают считанные пиксели и "кажутся" неправильными.
+        // Это простая эвристика, чтобы визуально было понятно, что радиус выставился.
+        return when {
+            radiusMeters <= 0.0 -> null
+            radiusMeters <= 20.0 -> 20f
+            radiusMeters <= 50.0 -> 19f
+            radiusMeters <= 100.0 -> 18f
+            radiusMeters <= 200.0 -> 17f
+            else -> null
+        }
+    }
+
+    private fun radiusFromSlider(sliderValue: Float): Double {
+        val min = MIN_RADIUS_METERS
+        val max = MAX_RADIUS_METERS
+        val t = (sliderValue / 100.0).coerceIn(0.0, 1.0)
+        val ratio = max / min
+        val r = min * ratio.pow(t)
+        return roundRadius(r)
+    }
+
+    private fun sliderFromRadius(radiusMeters: Double): Float {
+        val min = MIN_RADIUS_METERS
+        val max = MAX_RADIUS_METERS
+        val r = radiusMeters.coerceIn(min, max)
+        val ratio = max / min
+        val t = ln(r / min) / ln(ratio)
+        return (t * 100.0).toFloat().coerceIn(0f, 100f)
+    }
+
+    private fun roundRadius(radiusMeters: Double): Double {
+        val step = when {
+            radiusMeters <= 20.0 -> 1.0
+            radiusMeters <= 30.0 -> 2.0
+            radiusMeters <= 50.0 -> 3.0
+            radiusMeters <= 100.0 -> 5.0
+            radiusMeters <= 200.0 -> 10.0
+            radiusMeters <= 500.0 -> 25.0
+            radiusMeters <= 1000.0 -> 50.0
+            radiusMeters <= 2000.0 -> 100.0
+            else -> 200.0
+        }
+
+        val snapped = round(radiusMeters / step) * step
+        return snapped.coerceIn(MIN_RADIUS_METERS, MAX_RADIUS_METERS)
+    }
+
+    private fun formatRadius(radiusMeters: Double): String {
+        return if (radiusMeters < 1000.0) {
+            "${radiusMeters.toInt()} м"
+        } else {
+            String.format(Locale.getDefault(), "%.2f км", radiusMeters / 1000.0)
+        }
     }
 
     private fun generatePointId(): String {
@@ -686,6 +860,12 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             LogHelper.d("Обычный пользователь: пропускаем точку POINT_WITH_TEXT: ${point.pointId}")
             return
         }
+
+        // Для обычных пользователей: скрытые точки не показываем на карте
+        if (!isMgUser && point.hidden == 1) {
+            LogHelper.d("Обычный пользователь: пропускаем скрытую точку: ${point.pointId}")
+            return
+        }
         
         // Удаляем старую точку, если она существует
         pointsOfInterest[point.pointId]?.let { (_, circle, marker) ->
@@ -701,7 +881,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         } else {
             mMap.addCircle(
                 PointVisualizer.getCircleOptions(
-                    LatLng(point.vLat, point.vLng),
+                    LatLng(point.vLat ?: point.lat, point.vLng ?: point.lng),
                     point.radius.toFloat(),
                     PointType.fromServerValue(point.type)
                 )
@@ -778,7 +958,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             pointsOfInterest.forEach { (id, pointData) ->
                 val (point, circle, currentMarker) = pointData
                 
-                val virtualCenter = LatLng(point.vLat, point.vLng)
+                val virtualCenter = LatLng(point.vLat ?: point.lat, point.vLng ?: point.lng)
                 val distance = if (point.type == "USER") 0f else calculateDistance(latLng, virtualCenter)
                 
                 if (distance <= point.radius) {
@@ -1051,5 +1231,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     companion object {
         private const val REQUEST_CODE_LOCATION_PERMISSION = 100
+        private const val MIN_RADIUS_METERS = 5.0
+        private const val MAX_RADIUS_METERS = 3000.0
+        private const val DEFAULT_CUSTOM_RADIUS_METERS = 50.0
     }
 }
