@@ -37,7 +37,6 @@ import bas.app.shift.models.Message
 import bas.app.shift.models.Chat
 import bas.app.shift.ui.FamiliarFoundActivity
 import bas.app.shift.ui.ProfileActivity
-import com.bugfender.sdk.p
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -46,7 +45,7 @@ import kotlinx.coroutines.*
 class LocationService : Service() {
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private val locationUpdateInterval = 30000L // 30 секунд
-    private val pointsCheckInterval = 30000L // 10 секунд для проверки точек
+    private val pointsCheckInterval = 30000L // 30 секунд для проверки точек
     private val profileUpdateInterval = 60000L // 1 минута для обновления профиля
     private val messagesCheckInterval = 60000L // 30 секунд для проверки сообщений
     private var lastLocationUpdate = 0L

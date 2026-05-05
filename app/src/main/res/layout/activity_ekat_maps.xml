@@ -33,6 +33,19 @@
         app:backgroundTint="?attr/colorPrimary"
         app:tint="@android:color/white" />
 
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_search_player"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="24dp"
+        android:src="@drawable/ic_search_24"
+        android:visibility="gone"
+        app:backgroundTint="?attr/colorPrimary"
+        app:tint="@android:color/white" />
+
     <!-- Кнопка управления видимостью на карте (только для MG пользователей) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_toggle_visibility"

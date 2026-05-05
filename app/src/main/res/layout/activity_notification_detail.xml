@@ -25,6 +25,8 @@
             android:id="@+id/titleText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:autoLink="web|email|phone"
+            android:linksClickable="true"
             android:textSize="20sp"
             android:textStyle="bold"
             android:paddingBottom="12dp"
@@ -39,6 +41,8 @@
                 android:id="@+id/bodyText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:autoLink="web|email|phone"
+                android:linksClickable="true"
                 android:textSize="16sp"
                 android:lineSpacingExtra="4dp"
                 android:textIsSelectable="true" />

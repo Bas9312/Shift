@@ -8,15 +8,19 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.method.LinkMovementMethod
+import android.text.util.Linkify
 import android.view.LayoutInflater
 import bas.app.shift.helpers.LogHelper
 import android.view.View
+import android.widget.TextView
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Spinner
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.text.util.LinkifyCompat
 import androidx.lifecycle.lifecycleScope
 import bas.app.shift.databinding.ActivityEkatMapsBinding
 import bas.app.shift.databinding.DialogCreatePointBinding
@@ -99,6 +103,13 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         binding.fabMyLocation.setOnClickListener {
             LogHelper.d("EkatMaps: Нажата кнопка возврата к геолокации")
             moveToCurrentLocation()
+        }
+
+        if (isMgUser) {
+            binding.fabSearchPlayer.visibility = View.VISIBLE
+            binding.fabSearchPlayer.setOnClickListener {
+                showPlayersPickerDialog()
+            }
         }
         
         // Настраиваем кнопку управления видимостью для MG пользователей
@@ -303,10 +314,18 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         else getString(R.string.point_basic_radius, point.radius) + "\n" +
                 getString(R.string.point_basic_description, point.description ?: getString(R.string.point_no_description)) + "\n" +
                 if (point.textToShowOnEnter.isNullOrEmpty()) "" else "При входе: ${point.textToShowOnEnter}"
-        
+
+        val tv = TextView(this).apply {
+            text = message
+            setTextIsSelectable(true)
+            setPadding(48, 32, 48, 16)
+            LinkifyCompat.addLinks(this, Linkify.ALL)
+            movementMethod = LinkMovementMethod.getInstance()
+        }
+
         AlertDialog.Builder(this)
             .setTitle(title)
-            .setMessage(message)
+            .setView(tv)
             .setPositiveButton("OK", null)
             .show()
     }
@@ -367,6 +386,12 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         dialogBinding.tvPointCoordinates.text = getString(R.string.point_description_label) + " " + (point.description ?: getString(R.string.point_no_description))
         dialogBinding.tvPointDescription.text = getString(R.string.point_text_on_enter_label) + " " + (point.textToShowOnEnter ?: getString(R.string.point_no_text_on_enter))
         dialogBinding.tvPointTextToShowOnEnter.text = "" // Скрываем это поле, так как оно не всегда нужно
+
+        listOf(dialogBinding.tvPointCoordinates, dialogBinding.tvPointDescription).forEach { tv ->
+            tv.setTextIsSelectable(true)
+            LinkifyCompat.addLinks(tv, Linkify.ALL)
+            tv.movementMethod = LinkMovementMethod.getInstance()
+        }
 
         // Создаем диалог
         val dialog = AlertDialog.Builder(this)
@@ -988,6 +1013,40 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             LogHelper.w("Текущая геолокация недоступна")
             Toast.makeText(this, "Геолокация недоступна", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun showPlayersPickerDialog() {
+        val userPoints = pointsOfInterest.values
+            .map { it.first }
+            .filter { it.type == "USER" }
+            .distinctBy { it.pointId }
+            .sortedBy { (it.description ?: it.pointId).lowercase(Locale.getDefault()) }
+
+        if (userPoints.isEmpty()) {
+            Toast.makeText(this, "Игроки не найдены", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val labels = userPoints.map { point ->
+            point.description?.takeIf { it.isNotBlank() } ?: point.pointId
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("Игроки")
+            .setItems(labels) { dialog, which ->
+                val point = userPoints[which]
+                val latLng = LatLng(point.lat, point.lng)
+                LogHelper.d("MG пользователь: центрируем карту на игроке: ${labels[which]} (${latLng.latitude}, ${latLng.longitude})")
+                mMap.animateCamera(
+                    CameraUpdateFactory.newLatLngZoom(
+                        latLng,
+                        maxOf(mMap.cameraPosition.zoom, 15f)
+                    )
+                )
+                dialog.dismiss()
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     companion object {

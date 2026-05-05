@@ -1,7 +1,10 @@
 package bas.app.shift.ui
 
 import android.os.Bundle
+import android.text.method.LinkMovementMethod
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.text.util.LinkifyCompat
+import android.text.util.Linkify
 import bas.app.shift.databinding.ActivityNotificationDetailBinding
 
 class NotificationDetailActivity : AppCompatActivity() {
@@ -22,6 +25,12 @@ class NotificationDetailActivity : AppCompatActivity() {
 
         binding.titleText.text = title
         binding.bodyText.text = text
+
+        LinkifyCompat.addLinks(binding.titleText, Linkify.ALL)
+        binding.titleText.movementMethod = LinkMovementMethod.getInstance()
+
+        LinkifyCompat.addLinks(binding.bodyText, Linkify.ALL)
+        binding.bodyText.movementMethod = LinkMovementMethod.getInstance()
     }
 
     companion object {

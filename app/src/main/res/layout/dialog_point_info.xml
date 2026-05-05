@@ -34,6 +34,8 @@
         android:id="@+id/tvPointCoordinates"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:autoLink="web|email|phone"
+        android:linksClickable="true"
         android:text="@string/point_description_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp" />
@@ -42,6 +44,8 @@
         android:id="@+id/tvPointDescription"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:autoLink="web|email|phone"
+        android:linksClickable="true"
         android:text="@string/point_text_on_enter_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp" />
