@@ -24,7 +24,6 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import io.reactivex.subjects.BehaviorSubject
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -41,6 +40,9 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class LocationService : Service() {
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
@@ -100,7 +102,7 @@ class LocationService : Service() {
                     ServerService.sendLocation(location)
                     lastLocationUpdate = currentTime
                 }
-                locationSource.onNext(location)
+                _locationSource.value = location
             }
         }
     }
@@ -220,9 +222,12 @@ class LocationService : Service() {
         
         serviceScope.launch {
             try {
-                val points = ServerService.getPoints()
+                // null = сетевой сбой: пропускаем цикл, сохраняя текущие pointsInRange.
+                // Иначе разовый обрыв «вывел» бы игрока из всех зон и сыпал ложными
+                // уведомлениями о входе/выходе на следующем успешном запросе.
+                val points = ServerService.getPoints() ?: return@launch
                 val newPointsInRange = mutableSetOf<String>()
-                
+
                 points.forEach { point ->
                     // Для обычных пользователей: пропускаем точки типа POINT_WITH_TEXT
                     
@@ -880,7 +885,7 @@ class LocationService : Service() {
                 if (!lastKnownMessageIds.contains(messageId) && !message.senderId.startsWith("MG_")) {
                     hasNewMessages = true
                     newMessageIdsToNotify.add(messageId)
-                    LogHelper.d("LocationService: Найдено новое сообщение от ${message.senderId}: ${message.content}")
+                    LogHelper.d("LocationService: Найдено новое сообщение от ${message.senderId} (id=${message.id})")
                 }
             }
         }
@@ -1020,7 +1025,8 @@ class LocationService : Service() {
         private const val CHANNEL_ID = "location_service_channel"
         private const val POINTS_CHANNEL_ID = "points_notifications_channel"
         private const val NOTIFICATION_ID = 1001
-        public var locationSource: BehaviorSubject<Location> = BehaviorSubject.create()
+        private val _locationSource = MutableStateFlow<Location?>(null)
+        val locationSource: StateFlow<Location?> = _locationSource.asStateFlow()
         
         private var instance: LocationService? = null
         

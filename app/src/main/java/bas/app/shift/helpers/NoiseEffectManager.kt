@@ -5,13 +5,17 @@ import bas.app.shift.api.RetrofitClient
 import bas.app.shift.models.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.random.Random
 
 class NoiseEffectManager(private val context: Context) {
-    
-    private val scope = CoroutineScope(Dispatchers.IO)
+
+    // Независимый от экрана scope: применение эффектов шума — это записи на сервер
+    // (создать эффект, добавить проблему ауры, обновить профиль), которые ДОЛЖНЫ завершиться,
+    // даже если игрок закрыл терминал. UI отсюда не трогается. SupervisorJob изолирует сбои.
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     companion object {
         // Константы для текстов эффектов
@@ -35,23 +39,27 @@ class NoiseEffectManager(private val context: Context) {
         
         LogHelper.d("NoiseEffectManager: Checking effects - oldNoise: $oldNoise (level $oldLevel) -> newNoise: $newNoise (level $newLevel)")
         
-        // Проверяем переходы на новые уровни
-        when {
-            oldLevel < 3 && newLevel >= 3 -> {
-                LogHelper.d("NoiseEffectManager: Triggering level 3 effect")
-                checkAndApplyLevel3Effect(userId)
-            }
-            oldLevel < 4 && newLevel >= 4 -> {
-                LogHelper.d("NoiseEffectManager: Triggering level 4 effect")
-                checkAndApplyLevel4Effect(userId)
-            }
-            oldLevel < 5 && newLevel >= 5 -> {
-                LogHelper.d("NoiseEffectManager: Triggering level 5 effect")
-                checkAndApplyLevel5Effect(userId)
-            }
-            else -> {
-                LogHelper.d("NoiseEffectManager: No effect triggered")
-            }
+        // Применяем эффекты ВСЕХ пройденных порогов, а не только первого.
+        // Раньше здесь был `when` (только одна ветка), поэтому скачок шума, например 0 -> 5,
+        // применял лишь эффект уровня 3, а критичные эффекты уровней 4 и 5 терялись.
+        var triggered = false
+        if (oldLevel < 3 && newLevel >= 3) {
+            LogHelper.d("NoiseEffectManager: Triggering level 3 effect")
+            checkAndApplyLevel3Effect(userId)
+            triggered = true
+        }
+        if (oldLevel < 4 && newLevel >= 4) {
+            LogHelper.d("NoiseEffectManager: Triggering level 4 effect")
+            checkAndApplyLevel4Effect(userId)
+            triggered = true
+        }
+        if (oldLevel < 5 && newLevel >= 5) {
+            LogHelper.d("NoiseEffectManager: Triggering level 5 effect")
+            checkAndApplyLevel5Effect(userId)
+            triggered = true
+        }
+        if (!triggered) {
+            LogHelper.d("NoiseEffectManager: No effect triggered")
         }
     }
     

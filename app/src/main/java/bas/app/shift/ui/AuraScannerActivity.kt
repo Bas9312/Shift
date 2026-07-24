@@ -11,10 +11,11 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.models.Aura
 import com.google.zxing.integration.android.IntentIntegrator
 import com.google.zxing.integration.android.IntentResult
-import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -117,7 +118,7 @@ class AuraScannerActivity : AppCompatActivity() {
     }
 
     private fun fetchAura(userId: String) {
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val response = RetrofitClient.auraApi.getAura(userId)
                 withContext(Dispatchers.Main) {
@@ -128,22 +129,18 @@ class AuraScannerActivity : AppCompatActivity() {
                         startActivity(intent)
                         finish()
                     } else {
-                        Toast.makeText(
-                            this@AuraScannerActivity, 
-                            "Аура не найдена или ошибка сервера: ${response.code()}", 
-                            Toast.LENGTH_LONG
-                        ).show()
+                        val errorMessage = when (response.code()) {
+                            404 -> "Аура не найдена"
+                            else -> NetworkErrors.http(response.code())
+                        }
+                        Toast.makeText(this@AuraScannerActivity, errorMessage, Toast.LENGTH_LONG).show()
                         LogHelper.e("AuraScannerActivity: Ошибка получения ауры: ${response.code()}")
                         finish()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        this@AuraScannerActivity, 
-                        "Ошибка сети: ${e.localizedMessage}", 
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(this@AuraScannerActivity, NetworkErrors.network(e), Toast.LENGTH_LONG).show()
                     LogHelper.e("AuraScannerActivity: Ошибка сети: ${e.localizedMessage}")
                     finish()
                 }

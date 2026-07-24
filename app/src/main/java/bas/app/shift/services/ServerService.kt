@@ -59,8 +59,12 @@ object ServerService {
         // TODO: Реализовать отправку уведомления о выходе из зоны скрытого эффекта
     }
 
-    suspend fun getPoints(): List<Point> {
-        //LogHelper.d("Получение точек с сервера")
+    /**
+     * Возвращает список точек, или null при СЕТЕВОЙ ОШИБКЕ (в отличие от пустого списка —
+     * «точек реально нет»). Вызывающий код по null должен сохранить прежнее состояние,
+     * а не «выкидывать» игрока из всех зон при разовом обрыве сети.
+     */
+    suspend fun getPoints(): List<Point>? {
         return try {
             val userId = UserPrefsHelper.getUserId(ShiftApplication.instance)
             val response = api.getPoints(userId)
@@ -68,11 +72,11 @@ object ServerService {
                 response.body()?.points ?: emptyList()
             } else {
                 LogHelper.e("Ошибка при получении точек: ${response.code()}")
-                emptyList()
+                null
             }
         } catch (e: Exception) {
             LogHelper.e("Ошибка при получении точек: ${e.message}")
-            emptyList()
+            null
         }
     }
 

@@ -14,6 +14,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.models.Artifact
 import com.google.zxing.integration.android.IntentIntegrator
 import com.google.zxing.integration.android.IntentResult
@@ -150,22 +151,18 @@ class ArtifactScannerActivity : AppCompatActivity() {
                         startActivity(intent)
                         finish()
                     } else {
-                        Toast.makeText(
-                            this@ArtifactScannerActivity, 
-                            "Артефакт не найден или ошибка сервера: ${response.code()}", 
-                            Toast.LENGTH_LONG
-                        ).show()
+                        val errorMessage = when (response.code()) {
+                            404 -> "Артефакт не найден"
+                            else -> NetworkErrors.http(response.code())
+                        }
+                        Toast.makeText(this@ArtifactScannerActivity, errorMessage, Toast.LENGTH_LONG).show()
                         LogHelper.e("ArtifactScannerActivity: Ошибка получения артефакта: ${response.code()}")
                         finish()
                     }
                 }
-                
+
                 override fun onFailure(call: Call<Artifact>, t: Throwable) {
-                    Toast.makeText(
-                        this@ArtifactScannerActivity, 
-                        "Ошибка сети: ${t.localizedMessage}", 
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(this@ArtifactScannerActivity, NetworkErrors.network(t), Toast.LENGTH_LONG).show()
                     LogHelper.e("ArtifactScannerActivity: Ошибка сети: ${t.localizedMessage}")
                     finish()
                 }

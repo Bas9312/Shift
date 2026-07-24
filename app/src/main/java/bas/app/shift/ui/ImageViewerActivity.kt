@@ -4,8 +4,10 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import bas.app.shift.databinding.ActivityImageViewerBinding
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.engine.DiskCacheStrategy
+import coil3.load
+import coil3.request.crossfade
+import coil3.request.error
+import coil3.request.placeholder
 
 class ImageViewerActivity : AppCompatActivity() {
 
@@ -46,12 +48,11 @@ class ImageViewerActivity : AppCompatActivity() {
                 "https://shift96.ru/messages_api/$imageUrl"
             }
 
-            Glide.with(this)
-                .load(imageSource)
-                .placeholder(android.R.drawable.ic_menu_gallery)
-                .error(android.R.drawable.ic_menu_report_image)
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .into(binding.photoView)
+            binding.photoView.load(imageSource) {
+                placeholder(android.R.drawable.ic_menu_gallery)
+                error(android.R.drawable.ic_menu_report_image)
+                crossfade(true)
+            }
         }
     }
 }

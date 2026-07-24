@@ -12,7 +12,9 @@ import androidx.fragment.app.Fragment
 import bas.app.shift.R
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.FragmentArtifactDetailsBinding
+import bas.app.shift.helpers.DisplayNames
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.Artifact
 import bas.app.shift.models.ArtifactUpdateRequest
@@ -70,11 +72,11 @@ class ArtifactDetailsFragment : Fragment() {
                     if (response.isSuccessful && response.body() != null) {
                         showArtifact(response.body()!!)
                     } else {
-                        showError("Ошибка загрузки артефакта: ${response.code()}")
+                        showError(NetworkErrors.http(response.code()))
                     }
                 }
                 override fun onFailure(call: Call<Artifact>, t: Throwable) {
-                    showError("Ошибка сети: ${t.localizedMessage}")
+                    showError(NetworkErrors.network(t))
                 }
             })
     }
@@ -126,12 +128,12 @@ class ArtifactDetailsFragment : Fragment() {
                         users = userServers
                         showBindingDialog()
                     } else {
-                        showError("Ошибка загрузки списка пользователей")
+                        showError(NetworkErrors.http(response.code()))
                     }
                 }
 
                 override fun onFailure(call: Call<List<ShortUser>>, t: Throwable) {
-                    showError("Ошибка сети при загрузке пользователей")
+                    showError(NetworkErrors.network(t))
                 }
             })
     }
@@ -146,13 +148,7 @@ class ArtifactDetailsFragment : Fragment() {
         
         val filteredUsers = users.filter { user -> !user.userId.startsWith("MG") }
         filteredUsers.forEach { user ->
-            val displayName = if (user.playerName.isNullOrEmpty()) {
-                user.characterName ?: "Без имени"
-            } else if (user.characterName.isNullOrEmpty()) {
-                user.playerName
-            } else {
-                "${user.playerName} / ${user.characterName}"
-            }
+            val displayName = DisplayNames.combinePlayerFirst(user.playerName, user.characterName, "Без имени")
             bindingItems.add(displayName)
         }
 
@@ -209,12 +205,12 @@ class ArtifactDetailsFragment : Fragment() {
                         }
                         Toast.makeText(context, "Привязка обновлена", Toast.LENGTH_SHORT).show()
                     } else {
-                        showError("Ошибка обновления привязки: ${response.code()}")
+                        showError(NetworkErrors.http(response.code()))
                     }
                 }
 
                 override fun onFailure(call: Call<Artifact>, t: Throwable) {
-                    showError("Ошибка сети при обновлении привязки")
+                    showError(NetworkErrors.network(t))
                 }
             })
     }

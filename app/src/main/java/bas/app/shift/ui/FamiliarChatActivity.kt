@@ -7,11 +7,12 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import bas.app.shift.R
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityFamiliarChatBinding
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.ChatMessage
 import bas.app.shift.models.ChatSendRequest
 import bas.app.shift.ui.terminal.ChatAdapter
-import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -67,7 +68,7 @@ class FamiliarChatActivity : AppCompatActivity() {
     }
     
     private fun loadChatHistory() {
-        CoroutineScope(Dispatchers.Main).launch {
+        lifecycleScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) {
                     RetrofitClient.chatApi.getChatHistory(userId, familiar)
@@ -84,23 +85,16 @@ class FamiliarChatActivity : AppCompatActivity() {
                     val errorMessage = when (response.code()) {
                         400 -> "Неверный запрос: ${errorBody ?: "неизвестная ошибка"}"
                         404 -> "Чат не найден"
-                        500 -> "Ошибка сервера"
-                        else -> "Ошибка загрузки истории: ${response.code()}"
+                        else -> NetworkErrors.http(response.code())
                     }
                     Toast.makeText(this@FamiliarChatActivity, errorMessage, Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
-                val errorMessage = when {
-                    e.message?.contains("UnknownServiceException") == true -> "Ошибка сети: HTTP запросы заблокированы"
-                    e.message?.contains("UnknownHostException") == true -> "Ошибка сети: сервер недоступен"
-                    e.message?.contains("SocketTimeoutException") == true -> "Ошибка сети: превышено время ожидания"
-                    else -> "Ошибка: ${e.message ?: "неизвестная ошибка"}"
-                }
-                Toast.makeText(this@FamiliarChatActivity, errorMessage, Toast.LENGTH_LONG).show()
+                Toast.makeText(this@FamiliarChatActivity, NetworkErrors.network(e), Toast.LENGTH_LONG).show()
             }
         }
     }
-    
+
     private fun sendMessage() {
         val text = binding.etMessage.text.toString().trim()
         if (text.isEmpty()) return
@@ -120,7 +114,7 @@ class FamiliarChatActivity : AppCompatActivity() {
         scrollToBottom()
         
         // Отправляем на сервер
-        CoroutineScope(Dispatchers.Main).launch {
+        lifecycleScope.launch {
             try {
                 val request = ChatSendRequest(userId, familiar, text)
                 val response = withContext(Dispatchers.IO) {
@@ -144,23 +138,16 @@ class FamiliarChatActivity : AppCompatActivity() {
                     val errorMessage = when (response.code()) {
                         400 -> "Неверный запрос: ${errorBody ?: "неизвестная ошибка"}"
                         404 -> "Чат не найден"
-                        500 -> "Ошибка сервера"
-                        else -> "Ошибка отправки: ${response.code()}"
+                        else -> NetworkErrors.http(response.code())
                     }
                     Toast.makeText(this@FamiliarChatActivity, errorMessage, Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
-                val errorMessage = when {
-                    e.message?.contains("UnknownServiceException") == true -> "Ошибка сети: HTTP запросы заблокированы"
-                    e.message?.contains("UnknownHostException") == true -> "Ошибка сети: сервер недоступен"
-                    e.message?.contains("SocketTimeoutException") == true -> "Ошибка сети: превышено время ожидания"
-                    else -> "Ошибка: ${e.message ?: "неизвестная ошибка"}"
-                }
-                Toast.makeText(this@FamiliarChatActivity, errorMessage, Toast.LENGTH_LONG).show()
+                Toast.makeText(this@FamiliarChatActivity, NetworkErrors.network(e), Toast.LENGTH_LONG).show()
             }
         }
     }
-    
+
     private fun scrollToBottom() {
         binding.rvChat.post {
             if (chatAdapter.itemCount > 0) {

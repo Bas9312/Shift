@@ -77,10 +77,15 @@ object TerminalCommandManager {
     
     fun findCommand(commandText: String, availableModules: List<Int> = emptyList()): TerminalCommand? {
         val availableCommands = getAvailableCommands(availableModules)
+        // Сопоставляем по ПЕРВОМУ токену (имя команды до пробела), а не по префиксу.
+        // Прежний startsWith по имени ошибочно матчил похожие вводы:
+        // "CROSS.LINKAGE" -> "CROSS.LINK", "USER.REBOOT" -> "USER.REBOOT.START".
+        // Теперь имя должно совпасть точно, при этом аргументы после пробела допускаются
+        // ("CAMERA.FIND 123" -> команда "CAMERA.FIND").
+        val firstToken = commandText.trim().substringBefore(' ')
         return availableCommands.find { command ->
             command.fullCommand.equals(commandText, ignoreCase = true) ||
-            command.name.equals(commandText, ignoreCase = true) ||
-            commandText.startsWith(command.name, ignoreCase = true)
+            command.name.equals(firstToken, ignoreCase = true)
         }
     }
     

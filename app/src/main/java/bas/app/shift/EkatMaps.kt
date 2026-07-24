@@ -53,11 +53,12 @@ import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.Task
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import io.reactivex.disposables.Disposable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.filterNotNull
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.ln
@@ -67,7 +68,7 @@ import kotlin.math.round
 class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     private var currentLocation: Location? = null
-    private var locationUpdateDisposable: Disposable? = null
+    private var locationUpdateJob: Job? = null
     private var updatePointsRunnable: Runnable? = null
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityEkatMapsBinding
@@ -153,7 +154,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         LogHelper.d("onPause: приостановка активности карты")
         updatePointsRunnable?.let { handler.removeCallbacks(it) }
 
-        locationUpdateDisposable?.dispose()
+        locationUpdateJob?.cancel()
         LogHelper.d("onPause: ресурсы освобождены")
     }
 
@@ -769,12 +770,6 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    private fun generatePointId(): String {
-        val pointId = "MG_${System.currentTimeMillis()}"
-        LogHelper.d("Сгенерирован ID точки: $pointId")
-        return pointId
-    }
-
     private val fusedLocationProviderClient: FusedLocationProviderClient by lazy {
         LocationServices.getFusedLocationProviderClient(applicationContext)
     }
@@ -802,23 +797,41 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         lifecycleScope.launch {
             try {
                 val serverPoints = ServerService.getPoints()
-                if (serverPoints.isEmpty()) {
+                if (serverPoints == null) {
+                    // Сетевой сбой: оставляем текущие точки на карте как есть,
+                    // не мигаем и не стираем их из-за разового обрыва.
+                    LogHelper.w("EkatMaps: не удалось получить точки (сеть), оставляем текущие")
+                } else if (serverPoints.isEmpty()) {
                     LogHelper.d("Сервер не вернул точки")
                     // Если сервер не вернул точки, используем тестовые
                     //addTestPoints()
                 } else {
                     LogHelper.d("Получено ${serverPoints.size} точек с сервера")
-                    // Удаляем все существующие точки
-                    pointsOfInterest.values.forEach { (_, circle, marker) ->
-                        circle?.remove() // Круг может быть null для USER точек
-                        marker?.remove()
-                    }
-                    pointsOfInterest.clear()
 
-                    // Добавляем новые точки с сервера
-                    serverPoints.forEach { point ->
-                        addPoint(point)
+                    // Дифф вместо «снести всё и построить заново». Существующие круги/маркеры
+                    // не пересоздаём, а двигаем на месте — это убирает мерцание, «телепортацию»
+                    // маркеров игроков и сброс открытого info-window каждые 10 секунд.
+                    val desired = serverPoints.filter { point ->
+                        when {
+                            !isMgUser && point.type == "POINT_WITH_TEXT" -> false
+                            !isMgUser && point.hidden == 1 -> false
+                            else -> true
+                        }
                     }
+                    val desiredIds = desired.map { it.pointId }.toSet()
+
+                    // Удаляем то, чего больше нет (или что стало скрытым/отфильтрованным)
+                    val toRemove = pointsOfInterest.keys.filter { it !in desiredIds }
+                    toRemove.forEach { id ->
+                        pointsOfInterest[id]?.let { (_, circle, marker) ->
+                            circle?.remove()
+                            marker?.remove()
+                        }
+                        pointsOfInterest.remove(id)
+                    }
+
+                    // Добавляем новые и обновляем существующие на месте
+                    desired.forEach { upsertPoint(it) }
 
                     // Обновляем карту только если есть текущая локация
                     if (currentLocation != null) {
@@ -897,6 +910,36 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         //LogHelper.d("Точка добавлена в список: ${point.pointId} (маркер будет создан позже, круг: ${if (circle != null) "создан" else "не создан для USER"})")
     }
 
+    /**
+     * Добавляет новую точку или обновляет существующую БЕЗ пересоздания:
+     * двигает уже созданные круг и маркер на месте. Так на карте не мерцают элементы
+     * и не сбрасывается открытое info-window при периодическом обновлении.
+     */
+    private fun upsertPoint(point: Point) {
+        val existing = pointsOfInterest[point.pointId]
+        if (existing == null) {
+            addPoint(point)
+            return
+        }
+        val (oldPoint, circle, marker) = existing
+        // Смена типа влияет на цвет круга и иконку маркера — тут проще пересоздать
+        if (oldPoint.type != point.type) {
+            circle?.remove()
+            marker?.remove()
+            pointsOfInterest.remove(point.pointId)
+            addPoint(point)
+            return
+        }
+        // Двигаем существующие круг и маркер на новые координаты
+        val virtualCenter = LatLng(point.vLat ?: point.lat, point.vLng ?: point.lng)
+        circle?.let {
+            it.center = virtualCenter
+            it.radius = point.radius
+        }
+        marker?.let { it.position = LatLng(point.lat, point.lng) }
+        pointsOfInterest[point.pointId] = Triple(point, circle, marker)
+    }
+
     private fun updateForLocation() {
         // Проверяем, есть ли текущая локация
         if (currentLocation == null) {
@@ -911,17 +954,17 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         val currentUserId = UserPrefsHelper.getUserId(this)
         //LogHelper.d("Текущий пользователь: $currentUserId, тип: ${if (isMgUser) "MG" else "обычный"}")
         
-        // Удаляем предыдущий маркер, если он существует
-        currentLocationMarker?.remove()
-        
-        // Создаем новый маркер для текущего местоположения (синий)
-        // Этот маркер показывает реальное местоположение пользователя
-        currentLocationMarker = mMap.addMarker(
-            MarkerOptions()
-                .position(latLng)
-                .title("Ваше местоположение")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
-        )
+        // Двигаем маркер геолокации на месте (раньше он пересоздавался на каждый апдейт → мерцание синей метки)
+        if (currentLocationMarker == null) {
+            currentLocationMarker = mMap.addMarker(
+                MarkerOptions()
+                    .position(latLng)
+                    .title("Ваше местоположение")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+            )
+        } else {
+            currentLocationMarker?.position = latLng
+        }
 
         // Обрабатываем точки интереса
         // Для MG пользователей: показываем все точки, кроме своей собственной USER точки (чтобы не дублировать маркер геолокации)
@@ -1087,25 +1130,21 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         }
 
         // Подписываемся на обновления локации через LocationService
-        locationUpdateDisposable = LocationService.locationSource.subscribe(
-            { location ->
+        locationUpdateJob = lifecycleScope.launch {
+            LocationService.locationSource.filterNotNull().collect { location ->
                 currentLocation = location
                 LogHelper.d("Обновление местоположения через LocationService: ${location.latitude}, ${location.longitude}")
-                
+
                 // Центрируем карту на текущем местоположении при первом получении
                 if (currentLocationMarker == null) {
                     val latLng = LatLng(location.latitude, location.longitude)
                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
                 }
-                
+
                 // Обновляем карту
                 updateForLocation()
-            },
-            { error ->
-                LogHelper.e("Ошибка при получении локации: ${error.message}")
-                Toast.makeText(this, "Ошибка при получении локации", Toast.LENGTH_SHORT).show()
             }
-        )
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

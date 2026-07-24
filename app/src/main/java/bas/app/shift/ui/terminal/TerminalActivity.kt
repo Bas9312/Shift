@@ -1,33 +1,24 @@
 package bas.app.shift.ui.terminal
 
-import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
-import android.content.Context
 import android.graphics.Color
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
-import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import android.view.View
-import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.content.ContextCompat.getSystemService
 import com.google.android.material.appbar.MaterialToolbar
 import bas.app.shift.R
 import bas.app.shift.databinding.ActivityTerminalBinding
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.helpers.NoiseManager
 import bas.app.shift.helpers.TerminalCommandManager
 import bas.app.shift.helpers.TerminalHistoryHelper
+import bas.app.shift.helpers.TerminalVisualEffects
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.helpers.NoiseHelper
 import bas.app.shift.helpers.WikipediaHelper
@@ -40,6 +31,9 @@ import retrofit2.Callback
 import retrofit2.Response
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
+
+/** Как долго буферизовать строки истории терминала в памяти перед записью на диск. */
+private const val HISTORY_FLUSH_DELAY_MS = 1500L
 
 class TerminalActivity : AppCompatActivity() {
 
@@ -63,8 +57,12 @@ class TerminalActivity : AppCompatActivity() {
     private var noise = 0.0
     private var globalNoise = 0.0
     private var terminalHistory = TerminalHistory()
+    private var historyDirty = false
+    private val historyFlushHandler = Handler(Looper.getMainLooper())
+    private val historyFlushRunnable = Runnable { flushHistory() }
     private lateinit var noiseManager: NoiseManager
     private var lastExecutedCommand: String? = null
+    private val visualEffects by lazy { TerminalVisualEffects(this, binding.root, binding.noiseOverlay) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -109,10 +107,28 @@ class TerminalActivity : AppCompatActivity() {
         }
     }
     
+    override fun onPause() {
+        super.onPause()
+        // Экран может уйти в фон/закрыться в любой момент — сбрасываем буфер истории на диск,
+        // не дожидаясь отложенного флеша.
+        flushHistory()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        historyFlushHandler.removeCallbacks(historyFlushRunnable)
+        flushHistory()
         if (::noiseManager.isInitialized) {
             noiseManager.cleanup()
+        }
+    }
+
+    /** Немедленно сохраняет буферизованную историю, если есть несохранённые изменения. */
+    private fun flushHistory() {
+        historyFlushHandler.removeCallbacks(historyFlushRunnable)
+        if (historyDirty) {
+            TerminalHistoryHelper.saveHistory(this, terminalHistory)
+            historyDirty = false
         }
     }
 
@@ -207,9 +223,30 @@ class TerminalActivity : AppCompatActivity() {
     }
     
     private fun processCommand(command: TerminalCommand, fullCommand: String, commandTimestamp: java.time.LocalTime) {
+        // USER.FORMAT — опасный сброс шума. Требуем явное подтверждение, чтобы случайный
+        // ввод или тап автодополнения не обнуляли шум без спроса.
+        if (command.name == "USER.FORMAT") {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("USER.FORMAT")
+                .setMessage("Опасная команда: сброс шума на ${command.noiseIncrease}. Выполнить?")
+                .setPositiveButton("Выполнить") { _, _ ->
+                    lastExecutedCommand = fullCommand
+                    executeGenericNoiseCommand(command, fullCommand, commandTimestamp)
+                }
+                .setNegativeButton("Отмена") { _, _ ->
+                    val msg = "USER.FORMAT отменён"
+                    adapter.addTyping(msg)
+                    saveResponseToHistory(msg, commandTimestamp)
+                    smoothScrollToBottom()
+                }
+                .setCancelable(false)
+                .show()
+            return
+        }
+
         // Сохраняем команду для отправки в MG
         lastExecutedCommand = fullCommand
-        
+
         when (command.name) {
             "HELP" -> {
                 val helpText = TerminalCommandManager.getHelpText(getAvailableModules())
@@ -250,40 +287,34 @@ class TerminalActivity : AppCompatActivity() {
                 handleCrossLinkCommand(fullCommand)
             }
             else -> {
-                // Обычная команда
-                val executingMsg = "Выполняю: $fullCommand"
-                val processMsg = "Команда в процессе выполнения..."
-                
-                adapter.addTyping(executingMsg)
-                adapter.addTyping(processMsg)
-                
-                // Сохраняем ответы в историю
-                saveResponseToHistory(executingMsg, commandTimestamp)
-                saveResponseToHistory(processMsg, commandTimestamp)
-                
-                // Отправляем команду на сервер для изменения шума
-                if (command.noiseIncrease != 0) {
-                    adjustNoiseAndUpdateGlobal(command.noiseIncrease.toDouble())
-                }
-                
-                // Отправляем команду в MG чат
-                sendToMg()
+                executeGenericNoiseCommand(command, fullCommand, commandTimestamp)
             }
         }
-        
+
         smoothScrollToBottom()
     }
 
-    private fun incNoise(delta: Int) {
-        noise = (noise + delta).coerceIn(0.0, 5.0)
-        updateNoise(noise)
-        if (NoiseHelper.getNoiseLevel(noise) >= 3) {
-            showGlitchEvent()
-        }
-    }
+    /** Обычная команда: печать статуса, изменение шума и отправка в MG-чат. */
+    private fun executeGenericNoiseCommand(command: TerminalCommand, fullCommand: String, commandTimestamp: java.time.LocalTime) {
+        val executingMsg = "Выполняю: $fullCommand"
+        val processMsg = "Команда в процессе выполнения..."
 
-    private fun showGlitchEvent() {
-        Toast.makeText(this, "Глюк-атака! Шум 3+", Toast.LENGTH_SHORT).show()
+        adapter.addTyping(executingMsg)
+        adapter.addTyping(processMsg)
+
+        // Сохраняем ответы в историю
+        saveResponseToHistory(executingMsg, commandTimestamp)
+        saveResponseToHistory(processMsg, commandTimestamp)
+
+        // Отправляем команду на сервер для изменения шума
+        if (command.noiseIncrease != 0) {
+            adjustNoiseAndUpdateGlobal(command.noiseIncrease.toDouble())
+        }
+
+        // Отправляем команду в MG чат
+        sendToMg()
+
+        smoothScrollToBottom()
     }
 
     fun updateNoise(noiseValue: Double) {
@@ -316,16 +347,16 @@ class TerminalActivity : AppCompatActivity() {
 
         when (noiseLevel) {
             0, 1 -> binding.noiseOverlay.visibility = View.GONE
-            2 -> showNoise(noiseLevel)
+            2 -> visualEffects.showNoise(noiseLevel)
             3 -> {
-                showNoise(noiseLevel)
-                applyGlitch(noiseLevel)
-                vibrator()
+                visualEffects.showNoise(noiseLevel)
+                visualEffects.applyGlitch(noiseLevel)
+                visualEffects.vibrate()
             }
-            4 -> showRedScrim()
+            4 -> visualEffects.showRedScrim()
             5 -> {
-                showRedScrim()
-                demonJumpScare()
+                visualEffects.showRedScrim()
+                visualEffects.demonJumpScare()
             }
         }
     }
@@ -390,39 +421,47 @@ class TerminalActivity : AppCompatActivity() {
     }
     
     private fun saveCommandToHistory(command: String, timestamp: java.time.LocalTime = java.time.LocalTime.now()) {
-        TerminalHistoryHelper.addCommandToHistory(this, command, timestamp)
+        terminalHistory = TerminalHistoryHelper.appendCommand(terminalHistory, command, timestamp)
+        scheduleHistoryFlush()
     }
-    
+
     private fun saveResponseToHistory(response: String, timestamp: java.time.LocalTime = java.time.LocalTime.now()) {
-        TerminalHistoryHelper.addResponseToHistory(this, response, timestamp)
+        terminalHistory = TerminalHistoryHelper.appendResponse(terminalHistory, response, timestamp)
+        scheduleHistoryFlush()
+    }
+
+    /** Буферизует несколько строк, сохранённых подряд (частый случай при выполнении команды), в один флеш. */
+    private fun scheduleHistoryFlush() {
+        historyDirty = true
+        historyFlushHandler.removeCallbacks(historyFlushRunnable)
+        historyFlushHandler.postDelayed(historyFlushRunnable, HISTORY_FLUSH_DELAY_MS)
     }
     
     private fun initNoiseManager() {
         val userId = UserPrefsHelper.getUserId(this)
+        // ВСЕГДА создаём менеджер, даже при пустом userId. Иначе обработчики команд
+        // (adjustNoiseAndUpdateGlobal, Proxy/CrossLink) обращались бы к неинициализированному
+        // lateinit и роняли терминал. При пустом userId методы NoiseManager сами делают no-op.
+        noiseManager = NoiseManager(this)
+        noiseManager.setOnNoiseUpdateListener { newNoise ->
+            noise = newNoise
+            updateNoise(noise)
+        }
+        noiseManager.setOnGlobalNoiseUpdateListener { newGlobalNoise ->
+            globalNoise = newGlobalNoise
+            updateGlobalNoiseDisplay()
+        }
+        noiseManager.setOnCommandSuccessListener {
+            // Убираем вызов sendToMg отсюда - будем вызывать из обработчиков команд
+        }
+
         if (userId.isNotEmpty()) {
-            noiseManager = NoiseManager(this)
             noiseManager.setUserId(userId)
-            noiseManager.setOnNoiseUpdateListener { newNoise ->
-                noise = newNoise
-                updateNoise(noise)
-            }
-            noiseManager.setOnGlobalNoiseUpdateListener { newGlobalNoise ->
-                globalNoise = newGlobalNoise
-                updateGlobalNoiseDisplay()
-            }
-            noiseManager.setOnCommandSuccessListener {
-                // Убираем вызов sendToMg отсюда - будем вызывать из обработчиков команд
-            }
-            
-            // Запускаем периодическое обновление шума
+            // Запускаем периодическое обновление шума и получаем текущий шум сразу
             noiseManager.startPeriodicNoiseUpdate()
-            
-            // Получаем текущий шум сразу
             noiseManager.fetchCurrentNoise()
-            
-            // Глобальный шум будет обновляться автоматически через NoiseManager
         } else {
-            LogHelper.e("TerminalActivity: UserId is empty, cannot initialize NoiseManager")
+            LogHelper.e("TerminalActivity: UserId is empty, NoiseManager работает в no-op режиме")
         }
     }
     
@@ -590,89 +629,6 @@ class TerminalActivity : AppCompatActivity() {
         smoothScrollToBottom()
     }
 
-    private fun showNoise(level: Int) {
-        if (binding.noiseOverlay.visibility != View.VISIBLE) binding.noiseOverlay.visibility = View.VISIBLE
-        binding.noiseOverlay.alpha = 0.08f * level
-        // ImageView с @drawable/noise
-        val anim = ValueAnimator.ofFloat(0f, 16f, -16f, 0f).apply {
-            duration = 4000                    // 4 сек / цикл
-            repeatCount = ValueAnimator.INFINITE
-            addUpdateListener {
-                val shift = it.animatedValue as Float
-                binding.noiseOverlay .translationX = shift
-                binding.noiseOverlay .translationY = -shift / 2     // диагональный дрейф
-            }
-        }
-        anim.start()
-    }
-
-    fun applyGlitch(level: Int) {
-        // shake once
-        ObjectAnimator.ofFloat(binding.root, "translationX", 0f, 8f, -8f, 0f).apply {
-            duration = 200
-            start()
-        }
-
-        // purple tint matrix
-        val matrix = ColorMatrix().apply {
-            setScale(1f, 1f - 0.1f * level, 1f, 1f)
-        }
-        binding.root.foreground = ColorDrawable(Color.TRANSPARENT).also {
-            it.colorFilter = ColorMatrixColorFilter(matrix)
-        }
-    }
-
-    private val redScrim by lazy {
-        View(this).apply {
-            setBackgroundColor(0x55e74c3c)
-            alpha = 0f
-            binding.root.addView(
-                this,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        }
-    }
-
-    fun showRedScrim() {
-        redScrim.animate().alpha(0.5f).setDuration(150).start()
-    }
-
-    fun demonJumpScare() {
-        val demon = ImageView(this).apply {
-            setImageResource(R.drawable.demon_silhouette)
-            scaleX = 1.1f; scaleY = 1.1f
-            alpha = 0f
-        }
-        binding.root.addView(
-            demon,
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
-
-        demon.animate()
-            .alpha(1f).scaleX(1f).scaleY(1f)
-            .setDuration(600).withEndAction {
-                Handler(Looper.getMainLooper()).postDelayed({
-                    binding.root.removeView(demon)
-                }, 1500)
-            }.start()
-    }
-
-    private fun vibrator() {
-        val vib: Vibrator = if (android.os.Build.VERSION.SDK_INT >= 31) {
-            (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        }
-
-        if (vib.hasVibrator()) {
-            val effect = VibrationEffect.createOneShot(120, VibrationEffect.DEFAULT_AMPLITUDE)
-            vib.vibrate(effect)
-        }
-    }
-    
     private fun handleUpgradeEndCommand(fullCommand: String) {
         val executingMsg = "Выполняю: USER.UPGRADE.END"
         adapter.addTyping(executingMsg)
@@ -969,15 +925,15 @@ class TerminalActivity : AppCompatActivity() {
                         adapter.addTyping(resultMsg)
                         saveResponseToHistory(resultMsg)
                     } else {
-                        val errorMsg = "Ошибка получения данных о глобальном шуме: ${response.code()}"
+                        val errorMsg = "Ошибка получения данных о глобальном шуме: ${NetworkErrors.http(response.code())}"
                         adapter.addTyping(errorMsg)
                         saveResponseToHistory(errorMsg)
                     }
                     smoothScrollToBottom()
                 }
-                
+
                 override fun onFailure(call: Call<NoiseState>, t: Throwable) {
-                    val errorMsg = "Ошибка подключения: ${t.message}"
+                    val errorMsg = "Ошибка подключения: ${NetworkErrors.network(t)}"
                     adapter.addTyping(errorMsg)
                     saveResponseToHistory(errorMsg)
                     smoothScrollToBottom()
@@ -1013,15 +969,15 @@ class TerminalActivity : AppCompatActivity() {
                         adapter.addTyping(resultMsg)
                         saveResponseToHistory(resultMsg)
                     } else {
-                        val errorMsg = "Ошибка получения данных о количестве пользователей: ${response.code()}"
+                        val errorMsg = "Ошибка получения данных о количестве пользователей: ${NetworkErrors.http(response.code())}"
                         adapter.addTyping(errorMsg)
                         saveResponseToHistory(errorMsg)
                     }
                     smoothScrollToBottom()
                 }
-                
+
                 override fun onFailure(call: Call<NoiseState>, t: Throwable) {
-                    val errorMsg = "Ошибка подключения: ${t.message}"
+                    val errorMsg = "Ошибка подключения: ${NetworkErrors.network(t)}"
                     adapter.addTyping(errorMsg)
                     saveResponseToHistory(errorMsg)
                     smoothScrollToBottom()
@@ -1084,7 +1040,7 @@ class TerminalActivity : AppCompatActivity() {
                         adapter.addTyping(resetSuccessMsg)
                         saveResponseToHistory(resetSuccessMsg)
                     } else {
-                        val resetErrorMsg = "Предупреждение: не удалось сбросить шум на Proxy узле (${response.code()})"
+                        val resetErrorMsg = "Предупреждение: не удалось сбросить шум на Proxy узле (${NetworkErrors.http(response.code())})"
                         adapter.addTyping(resetErrorMsg)
                         saveResponseToHistory(resetErrorMsg)
                     }
@@ -1094,7 +1050,7 @@ class TerminalActivity : AppCompatActivity() {
                 }
                 
                 override fun onFailure(call: Call<bas.app.shift.models.NoiseAdjustResponse>, t: Throwable) {
-                    val resetErrorMsg = "Предупреждение: не удалось сбросить шум на Proxy узле (${t.message})"
+                    val resetErrorMsg = "Предупреждение: не удалось сбросить шум на Proxy узле (${NetworkErrors.network(t)})"
                     adapter.addTyping(resetErrorMsg)
                     saveResponseToHistory(resetErrorMsg)
                     
@@ -1189,7 +1145,11 @@ class TerminalActivity : AppCompatActivity() {
                         adapter.addTyping(successMsg)
                         saveResponseToHistory(successMsg)
                     } else {
-                        val errorMsg = "Ошибка: Партнер с ID '$partnerId' не найден (${response.code()})"
+                        val errorMsg = if (response.code() == 404) {
+                            "Ошибка: Партнер с ID '$partnerId' не найден"
+                        } else {
+                            "Ошибка: Партнер с ID '$partnerId' не найден (${NetworkErrors.http(response.code())})"
+                        }
                         adapter.addTyping(errorMsg)
                         saveResponseToHistory(errorMsg)
                     }
@@ -1197,7 +1157,7 @@ class TerminalActivity : AppCompatActivity() {
                 }
                 
                 override fun onFailure(call: Call<bas.app.shift.models.User>, t: Throwable) {
-                    val errorMsg = "Ошибка: Не удалось найти партнера '$partnerId' (${t.message})"
+                    val errorMsg = "Ошибка: Не удалось найти партнера '$partnerId' (${NetworkErrors.network(t)})"
                     adapter.addTyping(errorMsg)
                     saveResponseToHistory(errorMsg)
                     smoothScrollToBottom()
@@ -1253,7 +1213,7 @@ class TerminalActivity : AppCompatActivity() {
                         adapter.addTyping(resultMsg)
                         saveResponseToHistory(resultMsg)
                     } else {
-                        val errorMsg = "Ошибка получения данных Proxy узла: ${response.code()}"
+                        val errorMsg = "Ошибка получения данных Proxy узла: ${NetworkErrors.http(response.code())}"
                         adapter.addTyping(errorMsg)
                         saveResponseToHistory(errorMsg)
                     }
@@ -1261,7 +1221,7 @@ class TerminalActivity : AppCompatActivity() {
                 }
                 
                 override fun onFailure(call: Call<NoiseState>, t: Throwable) {
-                    val errorMsg = "Ошибка подключения к Proxy узлу: ${t.message}"
+                    val errorMsg = "Ошибка подключения к Proxy узлу: ${NetworkErrors.network(t)}"
                     adapter.addTyping(errorMsg)
                     saveResponseToHistory(errorMsg)
                     smoothScrollToBottom()

@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityProfileBinding
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.User
 import retrofit2.Call
@@ -51,12 +52,12 @@ class ProfileActivity : AppCompatActivity() {
                         // Сохраняем актуальные данные пользователя
                         UserPrefsHelper.saveUserData(this@ProfileActivity, userServer)
                     } else {
-                        profileFragment.showError("Ошибка загрузки профиля: ${response.code()}")
+                        profileFragment.showError(NetworkErrors.http(response.code()))
                     }
                 }
                 override fun onFailure(call: Call<User>, t: Throwable) {
                     if (isFinishing || isDestroyed) return // Проверяем, что Activity еще активна
-                    profileFragment.showError("Ошибка сети: ${t.localizedMessage}")
+                    profileFragment.showError(NetworkErrors.network(t))
                 }
             })
     }

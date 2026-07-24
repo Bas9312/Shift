@@ -9,7 +9,7 @@ import bas.app.shift.api.AuraApi
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.models.AuraMark
 import bas.app.shift.models.AuraProblem
-import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -44,7 +44,7 @@ class AuraActivity : AppCompatActivity(), AuraMarkCallback {
     }
 
     private fun loadAura(auraId: String) {
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             val response = auraApi.getAura(auraId)
             withContext(Dispatchers.Main) {
                 if (response.isSuccessful) {

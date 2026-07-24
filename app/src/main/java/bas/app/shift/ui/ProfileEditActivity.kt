@@ -10,6 +10,7 @@ import androidx.fragment.app.Fragment
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityProfileEditBinding
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.models.User
 import bas.app.shift.models.NamedEntity
 import bas.app.shift.models.Ability
@@ -70,13 +71,13 @@ class ProfileEditActivity : AppCompatActivity() {
                         updateUserDisplay()
                     } else {
                         LogHelper.e("ProfileEditActivity: Ошибка загрузки профиля: ${response.code()}")
-                        Toast.makeText(this@ProfileEditActivity, "Ошибка загрузки профиля: ${response.code()}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@ProfileEditActivity, NetworkErrors.http(response.code()), Toast.LENGTH_LONG).show()
                     }
                 }
 
                 override fun onFailure(call: Call<User>, t: Throwable) {
                     LogHelper.e("ProfileEditActivity: Ошибка сети при загрузке профиля: ${t.localizedMessage}")
-                    Toast.makeText(this@ProfileEditActivity, "Ошибка сети: ${t.localizedMessage}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@ProfileEditActivity, NetworkErrors.network(t), Toast.LENGTH_LONG).show()
                 }
             })
     }
@@ -114,13 +115,13 @@ class ProfileEditActivity : AppCompatActivity() {
                         loadUserProfile()
                     } else {
                         LogHelper.e("ProfileEditActivity: Ошибка обновления профиля: ${response.code()}")
-                        Toast.makeText(this@ProfileEditActivity, "Ошибка обновления профиля: ${response.code()}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@ProfileEditActivity, NetworkErrors.http(response.code()), Toast.LENGTH_LONG).show()
                     }
                 }
 
                 override fun onFailure(call: Call<Unit>, t: Throwable) {
                     LogHelper.e("ProfileEditActivity: Ошибка сети при обновлении профиля: ${t.localizedMessage}")
-                    Toast.makeText(this@ProfileEditActivity, "Ошибка сети: ${t.localizedMessage}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@ProfileEditActivity, NetworkErrors.network(t), Toast.LENGTH_LONG).show()
                 }
             })
     }

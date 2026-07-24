@@ -10,6 +10,7 @@ import bas.app.shift.R
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityArtifactPassportBinding
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.models.Artifact
 import retrofit2.Call
 import retrofit2.Callback
@@ -66,14 +67,14 @@ class ArtifactPassportActivity : AppCompatActivity() {
                         artifacts = response.body()!!
                         setupArtifactSpinner()
                     } else {
-                        showError("Ошибка загрузки артефактов: ${response.code()}")
+                        showError(NetworkErrors.http(response.code()))
                     }
                 }
 
                 override fun onFailure(call: Call<List<Artifact>>, t: Throwable) {
                     binding.progressBar.visibility = View.GONE
                     binding.artifactSpinner.visibility = View.VISIBLE
-                    showError("Ошибка сети: ${t.localizedMessage}")
+                    showError(NetworkErrors.network(t))
                 }
             })
     }

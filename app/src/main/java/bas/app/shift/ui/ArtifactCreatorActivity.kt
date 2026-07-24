@@ -5,7 +5,9 @@ import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityArtifactCreatorBinding
+import bas.app.shift.helpers.DisplayNames
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.models.ArtifactRequest
 import bas.app.shift.models.ShortUser
 import com.google.android.material.snackbar.Snackbar
@@ -86,28 +88,15 @@ class ArtifactCreatorActivity : AppCompatActivity() {
         filteredUsers = users
             .filter { user -> !user.userId.startsWith("MG") } // Исключаем MG пользователей
             .sortedBy { user ->
-                val displayName = if (user.playerName.isNullOrEmpty()) {
-                    user.characterName ?: ""
-                } else if (user.characterName.isNullOrEmpty()) {
-                    user.playerName
-                } else {
-                    "${user.playerName} / ${user.characterName}"
-                }
-                displayName.lowercase()
+                DisplayNames.combinePlayerFirst(user.playerName, user.characterName, "").lowercase()
             }
 
         // Создаем список для селектора
         val creatorItems = mutableListOf<String>()
         creatorItems.add("Выберите создателя...") // Заголовок
-        
+
         filteredUsers.forEach { user ->
-            val displayName = if (user.playerName.isNullOrEmpty()) {
-                user.characterName ?: "Без имени"
-            } else if (user.characterName.isNullOrEmpty()) {
-                user.playerName
-            } else {
-                "${user.playerName} / ${user.characterName}"
-            }
+            val displayName = DisplayNames.combinePlayerFirst(user.playerName, user.characterName, "Без имени")
             creatorItems.add(displayName)
         }
 
@@ -130,13 +119,7 @@ class ArtifactCreatorActivity : AppCompatActivity() {
         bindingItems.add("Не привязан") // Дефолтный вариант
         
         filteredUsers.forEach { user ->
-            val displayName = if (user.playerName.isNullOrEmpty()) {
-                user.characterName ?: "Без имени"
-            } else if (user.characterName.isNullOrEmpty()) {
-                user.playerName
-            } else {
-                "${user.playerName} / ${user.characterName}"
-            }
+            val displayName = DisplayNames.combinePlayerFirst(user.playerName, user.characterName, "Без имени")
             bindingItems.add(displayName)
         }
 
@@ -226,7 +209,7 @@ class ArtifactCreatorActivity : AppCompatActivity() {
                         showSuccess("Артефакт успешно создан!")
                         clearForm()
                     } else {
-                        showError("Ошибка создания артефакта: ${response.code()}")
+                        showError("Ошибка создания артефакта: ${NetworkErrors.http(response.code())}")
                     }
                 }
 

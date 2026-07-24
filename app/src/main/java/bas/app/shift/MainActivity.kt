@@ -3,6 +3,7 @@ package bas.app.shift
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -26,7 +27,7 @@ import bas.app.shift.models.PointType
 import bas.app.shift.services.LocationService
 import bas.app.shift.ui.terminal.TerminalActivity
 import bas.app.shift.ui.ChatsListActivity
-import kotlinx.coroutines.GlobalScope
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 
@@ -47,7 +48,7 @@ class MainActivity : AppCompatActivity() {
     private var isMgUser = false
     private var isExtrasensory = false
     private var currentAura: Aura? = null
-    private var isRitualButtonBlocked = false
+    private val ritualTick = Runnable { updateRitualButtonState() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -187,7 +188,9 @@ class MainActivity : AppCompatActivity() {
         binding.inGameSelector.check( if (ShiftApplication.instance.isInGame()) R.id.inGame else R.id.outGame)
 
         binding.btnOpenMap.setOnClickListener {
-            if (ShiftApplication.instance.isInGame() && hasNotificationPermission()) {
+            // Карта не должна зависеть от разрешения на уведомления (важно для Android < 13,
+            // где POST_NOTIFICATIONS не существует). Достаточно того, что персонаж в игре.
+            if (ShiftApplication.instance.isInGame()) {
                 startActivity(Intent(this, EkatMaps::class.java))
             }
         }
@@ -300,8 +303,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUI() {
         LogHelper.d("MainActivity: updateUI - isMgUser: $isMgUser, isInGame: ${ShiftApplication.instance.isInGame()}")
-        binding.btnOpenMap.isEnabled = ShiftApplication.instance.isInGame() && hasNotificationPermission()
-        
+        binding.btnOpenMap.isEnabled = ShiftApplication.instance.isInGame()
+
         // Для МГ пользователей скрываем терминал и профиль
         if (isMgUser) {
             LogHelper.d("MainActivity: Настройка UI для МГ пользователя")
@@ -397,12 +400,14 @@ class MainActivity : AppCompatActivity() {
         }
         
         // Кнопка управления точками скрыта для всех
-        
+
+        // Кулдаун ритуала (если кнопка видима) переопределяет простое isEnabled = isInGame()
+        updateRitualButtonState()
     }
 
     private fun loadUserAura(userId: String) {
         // Используем GlobalScope для вызова suspend функции
-        GlobalScope.launch(Dispatchers.Main) {
+        lifecycleScope.launch(Dispatchers.Main) {
             try {
                 val response = RetrofitClient.auraApi.getAura(userId)
                 if (response.isSuccessful && response.body() != null) {
@@ -439,7 +444,7 @@ class MainActivity : AppCompatActivity() {
         val request = AuraHiddenRequest(if (newHiddenState) 1 else 0)
         
         // Используем GlobalScope для вызова suspend функции
-        GlobalScope.launch(Dispatchers.Main) {
+        lifecycleScope.launch(Dispatchers.Main) {
             try {
                 val response = RetrofitClient.auraApi.updateAuraHidden(userId, request)
                 if (response.isSuccessful) {
@@ -502,14 +507,20 @@ class MainActivity : AppCompatActivity() {
                         LogHelper.d("MainActivity: Профиль загружен, UI обновлен")
                     } else {
                         LogHelper.e("MainActivity: Ошибка загрузки профиля: ${response.code()}")
-                        
-                        // Показываем контент даже при ошибке HTTP, но с ограниченными возможностями
+
                         showContent()
-                        binding.btnScanArtifact.visibility = View.GONE
-                        binding.openAuraButton.visibility = View.GONE
-                        binding.openTerminalButton.visibility = View.GONE
-                        binding.btnFamiliar.visibility = View.GONE
-                        
+                        // Временный сбой сервера (5xx) при наличии кэша профиля не должен
+                        // отбирать у игрока функционал — показываем по последним известным данным.
+                        val cachedUser = UserPrefsHelper.getUserData(this@MainActivity)
+                        if (cachedUser != null && response.code() >= 500) {
+                            updateUI()
+                        } else {
+                            binding.btnScanArtifact.visibility = View.GONE
+                            binding.openAuraButton.visibility = View.GONE
+                            binding.openTerminalButton.visibility = View.GONE
+                            binding.btnFamiliar.visibility = View.GONE
+                        }
+
                         // Показываем уведомление об ошибке
                         val errorMessage = when (response.code()) {
                             401 -> "Ошибка авторизации '$userId'. Попробуйте войти заново."
@@ -524,17 +535,23 @@ class MainActivity : AppCompatActivity() {
                 
                 override fun onFailure(call: Call<User>, t: Throwable) {
                     LogHelper.e("MainActivity: Ошибка сети при загрузке профиля: ${t.localizedMessage}")
-                    
-                    // Даже при ошибке показываем контент, но с ограниченными возможностями
+
                     showContent()
-                    binding.btnScanArtifact.visibility = View.GONE
-                    binding.openAuraButton.visibility = View.GONE
-                    binding.openTerminalButton.visibility = View.GONE
-                    binding.btnFamiliar.visibility = View.GONE
-                    
-                    // Показываем уведомление об ошибке
-                    Toast.makeText(this@MainActivity, 
-                        "Ошибка загрузки профиля: ${t.localizedMessage}", Toast.LENGTH_LONG).show()
+                    // Обрыв сети — оставляем функционал по последнему известному профилю,
+                    // а не «раздеваем» экран. Кнопки скрываем только если кэша ещё нет вообще.
+                    val cachedUser = UserPrefsHelper.getUserData(this@MainActivity)
+                    if (cachedUser != null) {
+                        updateUI()
+                        Toast.makeText(this@MainActivity,
+                            "Нет связи с сервером — показаны последние данные", Toast.LENGTH_SHORT).show()
+                    } else {
+                        binding.btnScanArtifact.visibility = View.GONE
+                        binding.openAuraButton.visibility = View.GONE
+                        binding.openTerminalButton.visibility = View.GONE
+                        binding.btnFamiliar.visibility = View.GONE
+                        Toast.makeText(this@MainActivity,
+                            "Ошибка загрузки профиля: ${t.localizedMessage}", Toast.LENGTH_LONG).show()
+                    }
                 }
             })
     }
@@ -605,6 +622,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hasNotificationPermission(): Boolean {
+        // POST_NOTIFICATIONS появился только в Android 13 (API 33). На более старых версиях
+        // разрешение выдаётся автоматически, отдельного runtime-запроса нет — считаем выданным.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
         return ContextCompat.checkSelfPermission(
             this,
             Manifest.permission.POST_NOTIFICATIONS
@@ -612,6 +632,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestNotificationPermission() {
+        // На Android < 13 запрашивать нечего — сразу переходим к геолокации.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            LogHelper.d("MainActivity: API<33, POST_NOTIFICATIONS не требуется, проверяем геолокацию")
+            checkLocationPermission()
+            return
+        }
         LogHelper.d("MainActivity: Отправляем запрос на разрешение уведомлений")
         ActivityCompat.requestPermissions(
             this,
@@ -760,8 +786,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun performRitual() {
-        if (isRitualButtonBlocked) {
-            Toast.makeText(this, "Кнопка заблокирована. Попробуйте позже.", Toast.LENGTH_SHORT).show()
+        if (isRitualOnCooldown()) {
+            val minutes = ritualRemainingMs() / 60000 + 1
+            Toast.makeText(this, "Ритуал недавно проводился. Подождите ещё ~$minutes мин.", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -779,8 +806,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Блокируем кнопку
-        isRitualButtonBlocked = true
+        // Блокируем кнопку на время запроса
         binding.btnRitual.isEnabled = false
         binding.btnRitual.text = "Ритуал выполняется..."
 
@@ -796,42 +822,65 @@ class MainActivity : AppCompatActivity() {
         )
 
         // Отправляем запрос на сервер
-        GlobalScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val response = RetrofitClient.shiftApi.createPoint(pointRequest)
                 if (response.isSuccessful) {
-                    runOnUiThread {
+                    // Фиксируем время ритуала в prefs — кулдаун переживает поворот экрана,
+                    // уход на карту и даже перезапуск процесса (раньше жил только в поле Activity).
+                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                        .putLong(KEY_LAST_RITUAL, System.currentTimeMillis()).apply()
+                }
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    if (response.isSuccessful) {
                         Toast.makeText(this@MainActivity, "Точка создана. Не забудьте написать МГ", Toast.LENGTH_LONG).show()
-                        
-                        // Разблокируем кнопку через 30 минут
-                        binding.btnRitual.postDelayed({
-                            isRitualButtonBlocked = false
-                            binding.btnRitual.isEnabled = true
-                            binding.btnRitual.text = "Я провёл ритуал"
-                        }, 30 * 60 * 1000) // 30 минут в миллисекундах
-                    }
-                } else {
-                    runOnUiThread {
+                    } else {
                         Toast.makeText(this@MainActivity, "Ошибка создания точки: ${response.code()}", Toast.LENGTH_SHORT).show()
-                        isRitualButtonBlocked = false
-                        binding.btnRitual.isEnabled = true
-                        binding.btnRitual.text = "Я провёл ритуал"
                     }
+                    updateRitualButtonState()
                 }
             } catch (e: Exception) {
                 runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
                     Toast.makeText(this@MainActivity, "Ошибка сети: ${e.message}", Toast.LENGTH_SHORT).show()
-                    isRitualButtonBlocked = false
-                    binding.btnRitual.isEnabled = true
-                    binding.btnRitual.text = "Я провёл ритуал"
+                    updateRitualButtonState()
                 }
             }
+        }
+    }
+
+    private fun isRitualOnCooldown(): Boolean = ritualRemainingMs() > 0
+
+    private fun ritualRemainingMs(): Long {
+        val last = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getLong(KEY_LAST_RITUAL, 0L)
+        return (RITUAL_COOLDOWN_MS - (System.currentTimeMillis() - last)).coerceAtLeast(0L)
+    }
+
+    /**
+     * Приводит состояние кнопки ритуала в соответствие с кулдауном из prefs.
+     * Вызывается из updateUI и после каждой попытки ритуала.
+     */
+    private fun updateRitualButtonState() {
+        if (binding.btnRitual.visibility != View.VISIBLE) return
+        binding.btnRitual.removeCallbacks(ritualTick)
+        val remaining = ritualRemainingMs()
+        if (remaining > 0) {
+            binding.btnRitual.isEnabled = false
+            binding.btnRitual.text = "Ритуал: ждите ~${remaining / 60000 + 1} мин"
+            // Перепланируем обновление подписи/разблокировку (не реже раза в минуту)
+            binding.btnRitual.postDelayed(ritualTick, minOf(remaining, 60000L))
+        } else {
+            binding.btnRitual.isEnabled = ShiftApplication.instance.isInGame()
+            binding.btnRitual.text = "Я провёл ритуал"
         }
     }
 
     companion object {
         const val PREFS_NAME = "game_state"
         const val KEY_IN_GAME = "is_in_game"
+        private const val KEY_LAST_RITUAL = "last_ritual_time"
+        private const val RITUAL_COOLDOWN_MS = 30 * 60 * 1000L // 30 минут
         private const val REQUEST_NOTIFICATION_PERMISSION = 100
         private const val REQUEST_LOCATION_PERMISSION = 101
     }

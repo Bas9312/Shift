@@ -30,6 +30,7 @@ class AuraCanvasView @JvmOverloads constructor(
     private var humanBitmap: Bitmap? = null
     private var auraImageBitmap: Bitmap? = null
     private val markBitmaps = ConcurrentHashMap<String, Bitmap?>() // url -> bitmap
+    private val problemBitmaps = HashMap<Int, Bitmap?>() // resId -> bitmap (кеш иконок проблем)
     private val imageLoader = ImageLoader(context)
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     
@@ -314,7 +315,12 @@ class AuraCanvasView @JvmOverloads constructor(
             AuraProblemType.PARASITE -> R.drawable.aura_problem_parasite
             AuraProblemType.OTHER -> R.drawable.aura_problem_other
         }
-        val bmp = try { BitmapFactory.decodeResource(resources, resId) } catch (e: Exception) { null }
+        // Кешируем декодированный bitmap по resId. Раньше decodeResource вызывался на КАЖДЫЙ
+        // onDraw для каждой проблемы — при drag/zoom это десятки декодирований PNG в секунду
+        // на UI-потоке (GC-штормы и фризы). onDraw идёт только на главном потоке, HashMap безопасен.
+        val bmp = problemBitmaps.getOrPut(resId) {
+            try { BitmapFactory.decodeResource(resources, resId) } catch (e: Exception) { null }
+        }
         if (bmp != null) {
             canvas.drawBitmap(bmp, null, RectF(x - radius, y - radius, x + radius, y + radius), null)
         } else {

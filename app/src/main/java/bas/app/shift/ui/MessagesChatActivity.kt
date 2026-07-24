@@ -20,15 +20,17 @@ import bas.app.shift.databinding.ActivityMessagesChatBinding
 import bas.app.shift.databinding.DialogRecipientSelectionBinding
 import bas.app.shift.databinding.DialogTagsSelectionBinding
 import bas.app.shift.databinding.DialogDisciplineSelectionBinding
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.*
 import bas.app.shift.ui.adapters.MessagesAdapter
 import bas.app.shift.ui.adapters.DisciplinesAdapter
-import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Job
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -45,10 +47,11 @@ class MessagesChatActivity : AppCompatActivity() {
     private var selectedRecipient: String = ""
     private var selectedTags: MutableList<Int> = mutableListOf()
     private var pollingJob: Job? = null
-    private val pollingScope = CoroutineScope(Dispatchers.Main)
     private var lastMessageId: Int = -1
     private var selectedMessageForReply: Message? = null
     private var currentTempId: Int = -1
+    // Убывающий счётчик отрицательных временных id (реальные id сервера — положительные)
+    private var nextTempId: Int = -1
     private var pendingMessageText: String = ""
     private var pendingFiles: MutableList<Uri> = mutableListOf()
     private var interlocutorName: String? = null
@@ -300,13 +303,7 @@ class MessagesChatActivity : AppCompatActivity() {
                         scrollToBottom()
                     }
                 } else {
-                    val errorMessage = when (response.code()) {
-                        401 -> "Ошибка авторизации"
-                        400 -> "Неверный запрос"
-                        500 -> "Ошибка сервера"
-                        else -> "Ошибка загрузки сообщений: ${response.code()}"
-                    }
-                    Toast.makeText(this@MessagesChatActivity, errorMessage, Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MessagesChatActivity, NetworkErrors.http(response.code()), Toast.LENGTH_LONG).show()
                 }
                 if (showLoader) {
                     showLoading(false)
@@ -314,15 +311,8 @@ class MessagesChatActivity : AppCompatActivity() {
             }
             
             override fun onFailure(call: retrofit2.Call<List<Message>>, t: Throwable) {
-                val errorMessage = when {
-                    t.message?.contains("UnknownHostException") == true -> "Ошибка сети: сервер недоступен"
-                    t.message?.contains("SocketTimeoutException") == true -> "Ошибка сети: превышено время ожидания"
-                    else -> "Ошибка: ${t.message ?: "неизвестная ошибка"}"
-                }
                 if (showLoader) {
-                    Toast.makeText(this@MessagesChatActivity, errorMessage, Toast.LENGTH_LONG).show()
-                }
-                if (showLoader) {
+                    Toast.makeText(this@MessagesChatActivity, NetworkErrors.network(t), Toast.LENGTH_LONG).show()
                     showLoading(false)
                 }
             }
@@ -355,15 +345,18 @@ class MessagesChatActivity : AppCompatActivity() {
     }
     
     private fun sendMessageWithTags(text: String, files: List<Uri>, tags: List<Int>) {
-        android.util.Log.d("MessagesChat", "sendMessageWithTags called: text='$text', files=${files.size}, tags=$tags")
-        
+        android.util.Log.d("MessagesChat", "sendMessageWithTags: textLen=${text.length}, files=${files.size}, tags=$tags")
+
         // Очищаем поле ввода
         binding.etMessage.text?.clear()
-        
-        // Создаем временное сообщение для отображения
-        currentTempId = System.currentTimeMillis().toInt() // Уникальный временный ID
+
+        // Временный id — отрицательный и убывающий: гарантированно не совпадёт с реальными
+        // (положительными) id сервера и не пересечётся между быстрыми повторными отправками.
+        currentTempId = nextTempId--
+        val tempId = currentTempId
+        val replyMessage = selectedMessageForReply
         val tempMessage = Message(
-            id = currentTempId,
+            id = tempId,
             senderId = userId,
             recipientId = selectedRecipient,
             content = text,
@@ -371,67 +364,57 @@ class MessagesChatActivity : AppCompatActivity() {
             readStatus = "unread",
             tags = tags
         )
-        
+
         messagesAdapter.addMessage(tempMessage)
         scrollToBottom()
-        
-        // Отправляем на сервер
+
+        // Текстовые поля передаём как отдельные @Part-параметры (без дублирования их же
+        // внутри списка files, как было раньше — это слало серверу по два поля text/recipient_id
+        // и при этом терялись tags/answer_to).
         val textBody = text.toRequestBody("text/plain".toMediaTypeOrNull())
         val recipientBody = selectedRecipient.toRequestBody("text/plain".toMediaTypeOrNull())
-        
-        val parts = mutableListOf<MultipartBody.Part>()
-        parts.add(MultipartBody.Part.createFormData("text", text))
-        parts.add(MultipartBody.Part.createFormData("recipient_id", selectedRecipient))
-        
-        // Добавляем теги, если они есть
-        if (tags.isNotEmpty()) {
-            val tagsString = tags.joinToString(",")
-            parts.add(MultipartBody.Part.createFormData("tags", tagsString))
-        }
-        
-        // Добавляем answer_to, если отвечаем на сообщение
-        if (selectedMessageForReply != null) {
-            parts.add(MultipartBody.Part.createFormData("answer_to", selectedMessageForReply!!.id.toString()))
-        }
-        
-        // Добавляем файлы, если они есть
-        android.util.Log.d("MessagesChat", "Processing ${files.size} files for upload")
-        files.forEach { uri ->
-            try {
-                android.util.Log.d("MessagesChat", "Processing file URI: $uri")
-                val inputStream = contentResolver.openInputStream(uri)
-                if (inputStream != null) {
-                    // Определяем MIME тип
+        val tagsBody = if (tags.isNotEmpty()) tags.joinToString(",").toRequestBody("text/plain".toMediaTypeOrNull()) else null
+        val answerToBody = replyMessage?.id?.takeIf { it > 0 }?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
+
+        // Чтение вложений (крупное фото читается целиком в память) выносим на IO-поток,
+        // чтобы не блокировать UI и не ловить ANR/OOM на главном потоке.
+        lifecycleScope.launch(Dispatchers.IO) {
+            val fileParts = mutableListOf<MultipartBody.Part>()
+            files.forEach { uri ->
+                try {
                     val mimeType = contentResolver.getType(uri) ?: "image/*"
-                    
-                    // Получаем имя файла
                     val fileName = getFileName(uri) ?: "file_${System.currentTimeMillis()}"
-                    
-                    android.util.Log.d("MessagesChat", "File details: name=$fileName, mimeType=$mimeType")
-                    
-                    val requestFile = inputStream.readBytes().toRequestBody(mimeType.toMediaTypeOrNull())
-                    val part = MultipartBody.Part.createFormData("files", fileName, requestFile)
-                    parts.add(part)
-                    
-                    android.util.Log.d("MessagesChat", "File added to parts: $fileName")
-                    inputStream.close()
-                } else {
-                    android.util.Log.e("MessagesChat", "Could not open input stream for URI: $uri")
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        val requestFile = input.readBytes().toRequestBody(mimeType.toMediaTypeOrNull())
+                        fileParts.add(MultipartBody.Part.createFormData("files", fileName, requestFile))
+                    } ?: android.util.Log.e("MessagesChat", "Could not open input stream for URI: $uri")
+                } catch (e: Exception) {
+                    android.util.Log.e("MessagesChat", "Error processing file: ${e.message}")
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("MessagesChat", "Error processing file: ${e.message}")
+            }
+
+            withContext(Dispatchers.Main) {
+                sendCreateMessageRequest(textBody, recipientBody, tagsBody, answerToBody, fileParts, tempId, replyMessage)
             }
         }
-        
-        android.util.Log.d("MessagesChat", "Total parts for upload: ${parts.size}")
-        
+    }
+
+    private fun sendCreateMessageRequest(
+        textBody: okhttp3.RequestBody,
+        recipientBody: okhttp3.RequestBody,
+        tagsBody: okhttp3.RequestBody?,
+        answerToBody: okhttp3.RequestBody?,
+        fileParts: List<MultipartBody.Part>,
+        tempId: Int,
+        replyMessage: Message?
+    ) {
         RetrofitClient.messagesApi.createMessage(
             userId = userId,
             text = textBody,
             recipientId = recipientBody,
-            tags = null,
-            answerTo = null,
-            files = parts
+            tags = tagsBody,
+            answerTo = answerToBody,
+            files = fileParts
         ).enqueue(object : retrofit2.Callback<CreateMessageResponse> {
             override fun onResponse(call: retrofit2.Call<CreateMessageResponse>, response: retrofit2.Response<CreateMessageResponse>) {
                 if (response.isSuccessful) {
@@ -447,47 +430,27 @@ class MessagesChatActivity : AppCompatActivity() {
                             readStatus = createdMessage.readStatus,
                             tags = createdMessage.tags
                         )
-                        
-                        // Удаляем временное сообщение и добавляем реальное
-                        messagesAdapter.removeMessage(currentTempId)
+
+                        messagesAdapter.removeMessage(tempId)
                         messagesAdapter.addMessage(realMessage)
-                        
-                        // Обновляем lastMessageId
                         lastMessageId = createdMessage.id
-                        
-                        // Помечаем исходное сообщение как прочитанное и обновляем UI
-                        if (selectedMessageForReply != null) {
-                            android.util.Log.d("MessagesChat", "Marking message ${selectedMessageForReply!!.id} as read after reply")
-                            val updatedMessage = selectedMessageForReply!!.copy(readStatus = "read")
-                            messagesAdapter.updateMessage(updatedMessage)
+
+                        // Помечаем исходное сообщение (на которое отвечали) как прочитанное
+                        if (replyMessage != null) {
+                            messagesAdapter.updateMessage(replyMessage.copy(readStatus = "read"))
                         }
-                        
-                        // Очищаем выбор сообщения после успешной отправки
+
                         clearMessageSelection()
-                        
-                        // Обновляем чат, чтобы получить сообщение с вложениями
                         loadMessages(false)
                     }
                 } else {
-                    val errorMessage = when (response.code()) {
-                        400 -> "Неверный запрос"
-                        401 -> "Ошибка авторизации"
-                        404 -> "Получатель не найден"
-                        500 -> "Ошибка сервера"
-                        else -> "Ошибка отправки: ${response.code()}"
-                    }
-                    Toast.makeText(this@MessagesChatActivity, errorMessage, Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MessagesChatActivity, NetworkErrors.http(response.code()), Toast.LENGTH_LONG).show()
                 }
                 selectedFiles.clear()
             }
-            
+
             override fun onFailure(call: retrofit2.Call<CreateMessageResponse>, t: Throwable) {
-                val errorMessage = when {
-                    t.message?.contains("UnknownHostException") == true -> "Ошибка сети: сервер недоступен"
-                    t.message?.contains("SocketTimeoutException") == true -> "Ошибка сети: превышено время ожидания"
-                    else -> "Ошибка: ${t.message ?: "неизвестная ошибка"}"
-                }
-                Toast.makeText(this@MessagesChatActivity, errorMessage, Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MessagesChatActivity, NetworkErrors.network(t), Toast.LENGTH_LONG).show()
                 selectedFiles.clear()
             }
         })
@@ -632,13 +595,15 @@ class MessagesChatActivity : AppCompatActivity() {
     }
     
     private fun startPolling() {
-        if (pollingJob == null) {
-            pollingJob = pollingScope.launch {
-                while (true) {
-                    if (isScreenActive) {
-                        delay(30000) // 10 секунд
-                        loadMessages(showLoader = false) // Без лоадера для периодических обновлений
-                    }
+        if (pollingJob?.isActive == true) return
+        // lifecycleScope сам отменит корутину при уничтожении экрана.
+        // delay стоит в НАЧАЛЕ каждой итерации — цикл всегда приостанавливается и никогда
+        // не крутится вхолостую на главном потоке (раньше при isScreenActive=false был busy-loop).
+        pollingJob = lifecycleScope.launch {
+            while (isActive) {
+                delay(30000) // 30 секунд между обновлениями
+                if (isScreenActive) {
+                    loadMessages(showLoader = false) // Без лоадера для периодических обновлений
                 }
             }
         }

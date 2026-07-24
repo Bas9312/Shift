@@ -1,9 +1,12 @@
 package bas.app.shift.api
 
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import bas.app.shift.models.AuraTypeAdapter
 import bas.app.shift.models.AuraProblemTypeAdapter
@@ -13,7 +16,36 @@ object RetrofitClient {
     private const val BASE_URL = "http://shift96.ru/" // Основной URL
     private const val CHAT_BASE_URL = "http://91.184.253.175/" // URL для чата с фамильяром
 
+    /**
+     * Повторяет ТОЛЬКО идемпотентные GET-запросы при обрыве сети (IOException) и 5xx,
+     * с небольшим нарастающим бэкоффом. На выезде сеть часто моргает — это спасает
+     * загрузку профиля/точек/сообщений от разового сбоя без изменений в вызывающем коде.
+     * POST/PUT (создание сообщений, точек, эффектов) НЕ повторяются, чтобы не задваивать.
+     */
+    private class RetryInterceptor(private val maxRetries: Int = 2) : Interceptor {
+        override fun intercept(chain: Interceptor.Chain): Response {
+            val request = chain.request()
+            var attempt = 0
+            while (true) {
+                try {
+                    val response = chain.proceed(request)
+                    val retryable = request.method == "GET" && response.code in 500..599
+                    if (!retryable || attempt >= maxRetries) return response
+                    response.close()
+                } catch (e: IOException) {
+                    if (request.method != "GET" || attempt >= maxRetries) throw e
+                }
+                attempt++
+                try { Thread.sleep(300L * attempt) } catch (ie: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    throw IOException("Interrupted during retry backoff", ie)
+                }
+            }
+        }
+    }
+
     private val okHttpClient = OkHttpClient.Builder()
+        .addInterceptor(RetryInterceptor())
         .addInterceptor(HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         })
@@ -25,6 +57,7 @@ object RetrofitClient {
     private val gson = GsonBuilder()
         .registerTypeAdapter(bas.app.shift.models.AuraType::class.java, AuraTypeAdapter())
         .registerTypeAdapter(bas.app.shift.models.AuraProblemType::class.java, AuraProblemTypeAdapter())
+        .registerTypeAdapter(bas.app.shift.models.AuraMarkType::class.java, bas.app.shift.models.AuraMarkTypeAdapter())
         .create()
 
     private val retrofit = Retrofit.Builder()

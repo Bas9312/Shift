@@ -12,7 +12,9 @@ import androidx.recyclerview.widget.RecyclerView
 import bas.app.shift.R
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityChatsListBinding
+import bas.app.shift.helpers.DisplayNames
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.Chat
 import bas.app.shift.ui.adapters.ChatsAdapter
@@ -38,7 +40,8 @@ class ChatsListActivity : AppCompatActivity() {
         setupToolbar()
         setupRecyclerView()
         loadChats()
-        startPeriodicRefresh()
+        // Периодическое обновление стартуем только в onResume (он всегда идёт после onCreate).
+        // Раньше старт был и здесь, и в onResume — это плодило параллельные Handler/Runnable.
     }
 
     override fun onDestroy() {
@@ -57,18 +60,22 @@ class ChatsListActivity : AppCompatActivity() {
     }
 
     private fun startPeriodicRefresh() {
-        refreshHandler = Handler(Looper.getMainLooper())
-        refreshRunnable = object : Runnable {
+        // Идемпотентно: сначала снимаем предыдущий цикл, чтобы не запускать несколько параллельно.
+        stopPeriodicRefresh()
+        val handler = Handler(Looper.getMainLooper())
+        val runnable = object : Runnable {
             override fun run() {
                 loadChats()
-                refreshHandler?.postDelayed(this, 30000) // 30 секунд
+                handler.postDelayed(this, 30000) // 30 секунд
             }
         }
-        refreshHandler?.post(refreshRunnable!!)
+        refreshHandler = handler
+        refreshRunnable = runnable
+        handler.post(runnable)
     }
 
     private fun stopPeriodicRefresh() {
-        refreshHandler?.removeCallbacks(refreshRunnable!!)
+        refreshRunnable?.let { refreshHandler?.removeCallbacks(it) }
         refreshHandler = null
         refreshRunnable = null
     }
@@ -117,13 +124,13 @@ class ChatsListActivity : AppCompatActivity() {
                             adapter.updateChats(chats)
                         }
                     } else {
-                        showError("Ошибка загрузки чатов: ${response.code()}")
+                        showError(NetworkErrors.http(response.code()))
                     }
                 }
 
                 override fun onFailure(call: Call<List<Chat>>, t: Throwable) {
                     showLoading(false)
-                    showError("Ошибка сети: ${t.message}")
+                    showError(NetworkErrors.network(t))
                     LogHelper.e("ChatsListActivity: Error loading chats: ${t.message}")
                 }
             })
@@ -133,16 +140,9 @@ class ChatsListActivity : AppCompatActivity() {
         val intent = Intent(this, MessagesChatActivity::class.java).apply {
             putExtra("recipient_id", chat.interlocutor)
             // Формируем имя в том же формате, что и в списке чатов
-            val displayName = when {
-                !chat.interlocutorName.isNullOrEmpty() && !chat.interlocutorPlayerName.isNullOrEmpty() -> 
-                    "${chat.interlocutorName} / ${chat.interlocutorPlayerName}"
-                !chat.interlocutorName.isNullOrEmpty() -> 
-                    chat.interlocutorName
-                !chat.interlocutorPlayerName.isNullOrEmpty() -> 
-                    chat.interlocutorPlayerName
-                else -> 
-                    chat.interlocutor
-            }
+            val displayName = DisplayNames.combine(
+                chat.interlocutorName, chat.interlocutorPlayerName, chat.interlocutor
+            )
             putExtra("recipient_name", displayName)
         }
         startActivity(intent)

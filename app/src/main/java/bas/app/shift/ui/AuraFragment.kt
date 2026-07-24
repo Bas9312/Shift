@@ -11,8 +11,9 @@ import bas.app.shift.api.AuraApi
 import bas.app.shift.ui.AuraMarkCallback
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.FragmentAuraBinding
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.models.Aura
-import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -73,7 +74,7 @@ class AuraFragment : Fragment() {
     }
 
     private fun loadAura(userId: String) {
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             val response = auraApi.getAura(userId)
             withContext(Dispatchers.Main) {
                 if (response.isSuccessful) {
@@ -87,7 +88,7 @@ class AuraFragment : Fragment() {
                         showError("Ошибка: пустая аура")
                     }
                 } else {
-                    showError("Ошибка загрузки ауры: ${response.code()}")
+                    showError(NetworkErrors.http(response.code()))
                 }
             }
         }

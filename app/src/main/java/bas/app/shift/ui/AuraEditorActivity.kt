@@ -16,7 +16,9 @@ import bas.app.shift.databinding.ActivityAuraEditorBinding
 import bas.app.shift.databinding.DialogAddAuraMarkBinding
 import bas.app.shift.databinding.DialogEditAuraMarkBinding
 import bas.app.shift.databinding.DialogEditAuraProblemBinding
+import bas.app.shift.helpers.DisplayNames
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraMark
 import bas.app.shift.ui.AuraMarkCallback
@@ -27,7 +29,7 @@ import bas.app.shift.models.AuraMarkResponse
 import bas.app.shift.models.AuraMarkType
 import bas.app.shift.models.AuraProblemType
 import bas.app.shift.models.ShortUser
-import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -174,30 +176,17 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         filteredUsers = users
             .filter { user -> !user.userId.startsWith("MG") } // Исключаем MG пользователей
             .sortedBy { user ->
-                val displayName = if (user.playerName.isNullOrEmpty()) {
-                    user.characterName ?: ""
-                } else if (user.characterName.isNullOrEmpty()) {
-                    user.playerName
-                } else {
-                    "${user.playerName} / ${user.characterName}"
-                }
-                displayName.lowercase()
+                DisplayNames.combinePlayerFirst(user.playerName, user.characterName, "").lowercase()
             }
 
         LogHelper.d("AuraEditorActivity: Filtered users: ${filteredUsers.size}")
-        
+
         // Создаем список для селектора
         val userItems = mutableListOf<String>()
         userItems.add("Выберите пользователя...") // Заголовок
-        
+
         filteredUsers.forEach { user ->
-            val displayName = if (user.playerName.isNullOrEmpty()) {
-                user.characterName ?: "Без имени"
-            } else if (user.characterName.isNullOrEmpty()) {
-                user.playerName
-            } else {
-                "${user.playerName} / ${user.characterName}"
-            }
+            val displayName = DisplayNames.combinePlayerFirst(user.playerName, user.characterName, "Без имени")
             userItems.add(displayName)
         }
 
@@ -392,7 +381,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         LogHelper.d("AuraEditorActivity: addAuraMark called for user: ${selectedUser?.userId}")
         if (selectedUser == null) return
         
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val response = RetrofitClient.auraApi.addAuraMark(selectedUser!!.userId, markRequest)
                 
@@ -411,14 +400,14 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                             Toast.makeText(this@AuraEditorActivity, getString(R.string.mark_not_added), Toast.LENGTH_LONG).show()
                         }
                     } else {
-                        val errorMsg = "HTTP ${response.code()}"
+                        val errorMsg = NetworkErrors.http(response.code())
                         LogHelper.e("AuraEditorActivity: Error adding mark: $errorMsg")
                         Toast.makeText(this@AuraEditorActivity, getString(R.string.mark_add_error, errorMsg), Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    val errorMsg = e.localizedMessage ?: "Неизвестная ошибка"
+                    val errorMsg = NetworkErrors.network(e)
                     LogHelper.e("AuraEditorActivity: Exception adding mark: $errorMsg")
                     Toast.makeText(this@AuraEditorActivity, getString(R.string.mark_add_error, errorMsg), Toast.LENGTH_LONG).show()
                 }
@@ -430,7 +419,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         LogHelper.d("AuraEditorActivity: updateAuraMark called for markId: $markId, user: ${selectedUser?.userId}")
         if (selectedUser == null) return
         
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val response = RetrofitClient.auraApi.updateAuraMark(selectedUser!!.userId, markId, markRequest)
                 
@@ -443,14 +432,14 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                         // Перезагружаем ауру пользователя
                         loadUserAura(selectedUser!!.userId)
                     } else {
-                        val errorMsg = "HTTP ${response.code()}"
+                        val errorMsg = NetworkErrors.http(response.code())
                         LogHelper.e("AuraEditorActivity: Error updating mark: $errorMsg")
                         Toast.makeText(this@AuraEditorActivity, getString(R.string.mark_update_error, errorMsg), Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    val errorMsg = e.localizedMessage ?: "Неизвестная ошибка"
+                    val errorMsg = NetworkErrors.network(e)
                     LogHelper.e("AuraEditorActivity: Exception updating mark: $errorMsg")
                     Toast.makeText(this@AuraEditorActivity, getString(R.string.mark_update_error, errorMsg), Toast.LENGTH_LONG).show()
                 }
@@ -462,7 +451,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         LogHelper.d("AuraEditorActivity: deleteAuraMark called for markId: $markId, user: ${selectedUser?.userId}")
         if (selectedUser == null) return
         
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val response = RetrofitClient.auraApi.deleteAuraMark(selectedUser!!.userId, markId)
                 
@@ -475,14 +464,14 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                         // Перезагружаем ауру пользователя
                         loadUserAura(selectedUser!!.userId)
                     } else {
-                        val errorMsg = "HTTP ${response.code()}"
+                        val errorMsg = NetworkErrors.http(response.code())
                         LogHelper.e("AuraEditorActivity: Error deleting mark: $errorMsg")
                         Toast.makeText(this@AuraEditorActivity, getString(R.string.mark_delete_error, errorMsg), Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    val errorMsg = e.localizedMessage ?: "Неизвестная ошибка"
+                    val errorMsg = NetworkErrors.network(e)
                     LogHelper.e("AuraEditorActivity: Exception deleting mark: $errorMsg")
                     Toast.makeText(this@AuraEditorActivity, getString(R.string.mark_delete_error, errorMsg), Toast.LENGTH_LONG).show()
                 }
@@ -577,7 +566,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         LogHelper.d("AuraEditorActivity: addAuraProblem called for user: ${selectedUser?.userId}, slot: ${problemRequest.slot}")
         if (selectedUser == null) return
         
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val response = RetrofitClient.auraApi.addAuraProblem(selectedUser!!.userId, problemRequest)
                 
@@ -590,14 +579,14 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                         // Перезагружаем ауру пользователя
                         loadUserAura(selectedUser!!.userId)
                     } else {
-                        val errorMsg = "HTTP ${response.code()}"
+                        val errorMsg = NetworkErrors.http(response.code())
                         LogHelper.e("AuraEditorActivity: Error adding problem: $errorMsg")
                         Toast.makeText(this@AuraEditorActivity, getString(R.string.problem_add_error, errorMsg), Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    val errorMsg = e.localizedMessage ?: "Неизвестная ошибка"
+                    val errorMsg = NetworkErrors.network(e)
                     LogHelper.e("AuraEditorActivity: Exception adding problem: $errorMsg")
                     Toast.makeText(this@AuraEditorActivity, getString(R.string.problem_add_error, errorMsg), Toast.LENGTH_LONG).show()
                 }
@@ -609,7 +598,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         LogHelper.d("AuraEditorActivity: updateAuraProblem called for user: ${selectedUser?.userId}, slot: $slot")
         if (selectedUser == null) return
         
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val response = RetrofitClient.auraApi.updateAuraProblem(selectedUser!!.userId, slot, problemRequest)
                 
@@ -622,14 +611,14 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                         // Перезагружаем ауру пользователя
                         loadUserAura(selectedUser!!.userId)
                     } else {
-                        val errorMsg = "HTTP ${response.code()}"
+                        val errorMsg = NetworkErrors.http(response.code())
                         LogHelper.e("AuraEditorActivity: Error updating problem: $errorMsg")
                         Toast.makeText(this@AuraEditorActivity, getString(R.string.problem_update_error, errorMsg), Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    val errorMsg = e.localizedMessage ?: "Неизвестная ошибка"
+                    val errorMsg = NetworkErrors.network(e)
                     LogHelper.e("AuraEditorActivity: Exception updating problem: $errorMsg")
                     Toast.makeText(this@AuraEditorActivity, getString(R.string.problem_update_error, errorMsg), Toast.LENGTH_LONG).show()
                 }
@@ -641,7 +630,7 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         LogHelper.d("AuraEditorActivity: deleteAuraProblem called for user: ${selectedUser?.userId}, slot: $slot")
         if (selectedUser == null) return
         
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val response = RetrofitClient.auraApi.deleteAuraProblem(selectedUser!!.userId, slot)
                 
@@ -654,14 +643,14 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
                         // Перезагружаем ауру пользователя
                         loadUserAura(selectedUser!!.userId)
                     } else {
-                        val errorMsg = "HTTP ${response.code()}"
+                        val errorMsg = NetworkErrors.http(response.code())
                         LogHelper.e("AuraEditorActivity: Error deleting problem: $errorMsg")
                         Toast.makeText(this@AuraEditorActivity, getString(R.string.problem_delete_error, errorMsg), Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    val errorMsg = e.localizedMessage ?: "Неизвестная ошибка"
+                    val errorMsg = NetworkErrors.network(e)
                     LogHelper.e("AuraEditorActivity: Exception deleting problem: $errorMsg")
                     Toast.makeText(this@AuraEditorActivity, getString(R.string.problem_delete_error, errorMsg), Toast.LENGTH_LONG).show()
                 }

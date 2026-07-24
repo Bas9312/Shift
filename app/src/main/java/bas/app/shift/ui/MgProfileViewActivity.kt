@@ -8,7 +8,9 @@ import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityMgProfileViewBinding
+import bas.app.shift.helpers.DisplayNames
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.models.ShortUser
 import bas.app.shift.models.User
 import retrofit2.Call
@@ -106,28 +108,15 @@ class MgProfileViewActivity : AppCompatActivity() {
         filteredUsers = users
             .filter { user -> !user.userId.startsWith("MG") } // Исключаем MG пользователей
             .sortedBy { user ->
-                val displayName = if (user.playerName.isNullOrEmpty()) {
-                    user.characterName ?: ""
-                } else if (user.characterName.isNullOrEmpty()) {
-                    user.playerName
-                } else {
-                    "${user.playerName} / ${user.characterName}"
-                }
-                displayName.lowercase()
+                DisplayNames.combinePlayerFirst(user.playerName, user.characterName, "").lowercase()
             }
 
         // Создаем список для спиннера
         val spinnerItems = mutableListOf<String>()
         spinnerItems.add("Выберите пользователя...") // Заголовок
-        
+
         filteredUsers.forEach { user ->
-            val displayName = if (user.playerName.isNullOrEmpty()) {
-                user.characterName ?: "Без имени"
-            } else if (user.characterName.isNullOrEmpty()) {
-                user.playerName
-            } else {
-                "${user.playerName} / ${user.characterName}"
-            }
+            val displayName = DisplayNames.combinePlayerFirst(user.playerName, user.characterName, "Без имени")
             spinnerItems.add(displayName)
         }
 
@@ -154,13 +143,13 @@ class MgProfileViewActivity : AppCompatActivity() {
                         val userServer = response.body()!!
                         profileFragment.showProfile(userServer)
                     } else {
-                        profileFragment.showError("Ошибка загрузки профиля: ${response.code()}")
+                        profileFragment.showError(NetworkErrors.http(response.code()))
                     }
                 }
 
                 override fun onFailure(call: Call<User>, t: Throwable) {
                     if (isFinishing || isDestroyed) return // Проверяем, что Activity еще активна
-                    profileFragment.showError("Ошибка сети: ${t.localizedMessage}")
+                    profileFragment.showError(NetworkErrors.network(t))
                 }
             })
     }

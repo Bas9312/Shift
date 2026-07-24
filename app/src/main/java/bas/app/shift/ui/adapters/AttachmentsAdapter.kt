@@ -11,8 +11,10 @@ import androidx.recyclerview.widget.RecyclerView
 import bas.app.shift.R
 import bas.app.shift.models.MessageAttachment
 import bas.app.shift.ui.ImageViewerActivity
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.engine.DiskCacheStrategy
+import coil3.load
+import coil3.request.crossfade
+import coil3.request.error
+import coil3.request.placeholder
 
 class AttachmentsAdapter(
     private val onAttachmentClick: (MessageAttachment) -> Unit = {}
@@ -60,12 +62,11 @@ class AttachmentsAdapter(
                 }
                 
                 android.util.Log.d("AttachmentsAdapter", "Loading image from: $imageSource")
-                Glide.with(itemView.context)
-                    .load(imageSource)
-                    .placeholder(R.drawable.ic_image_placeholder)
-                    .error(R.drawable.ic_image_placeholder)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .into(ivAttachment)
+                ivAttachment.load(imageSource) {
+                    placeholder(R.drawable.ic_image_placeholder)
+                    error(R.drawable.ic_image_placeholder)
+                    crossfade(true)
+                }
             } else {
                 // Для не-изображений показываем заглушку
                 ivAttachment.setImageResource(R.drawable.ic_image_placeholder)
