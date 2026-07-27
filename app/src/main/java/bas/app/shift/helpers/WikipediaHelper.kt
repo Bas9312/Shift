@@ -69,12 +69,12 @@ object WikipediaHelper {
                             getRandomPages(onSuccess, onError)
                         }
                     } else {
-                        onError("Ошибка получения страниц: ${response.code()}")
+                        onError("Ошибка получения страниц: ${NetworkErrors.http(response.code())}")
                     }
                 }
-                
+
                 override fun onFailure(call: Call<bas.app.shift.models.WikipediaResponse>, t: Throwable) {
-                    onError("Ошибка сети: ${t.message}")
+                    onError(NetworkErrors.network(t))
                 }
             })
     }

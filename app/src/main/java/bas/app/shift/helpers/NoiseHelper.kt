@@ -28,18 +28,4 @@ object NoiseHelper {
         val fractionalPart = noiseValue - floor(noiseValue)
         return fractionalPart.toFloat()
     }
-    
-    /**
-     * Проверяет, достигнут ли максимальный уровень шума
-     */
-    fun isMaxNoiseLevel(noiseValue: Double): Boolean {
-        return getNoiseLevel(noiseValue) >= 5
-    }
-    
-    /**
-     * Проверяет, достигнут ли минимальный уровень шума
-     */
-    fun isMinNoiseLevel(noiseValue: Double): Boolean {
-        return getNoiseLevel(noiseValue) <= 0
-    }
 }

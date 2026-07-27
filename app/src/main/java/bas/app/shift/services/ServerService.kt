@@ -1,7 +1,6 @@
 package bas.app.shift.services
 
 import android.location.Location
-import android.widget.Toast
 import bas.app.shift.ShiftApplication
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.UserPrefsHelper
@@ -9,11 +8,10 @@ import bas.app.shift.models.Point
 import bas.app.shift.models.PointRequest
 import bas.app.shift.models.UserLocation
 import bas.app.shift.api.RetrofitClient
-import com.google.android.gms.maps.model.LatLng
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import retrofit2.Response
 
 object ServerService {
@@ -47,18 +45,6 @@ object ServerService {
         }
     }
 
-    fun notifyHiddenEffectEnter(pointId: String, position: LatLng) {
-        LogHelper.d("Вход в зону скрытого эффекта: $pointId, позиция: ${position.latitude}, ${position.longitude}")
-        Toast.makeText(ShiftApplication.instance, "Вход в зону скрытого эффекта: $pointId, позиция: ${position.latitude}, ${position.longitude}", Toast.LENGTH_LONG).show()
-        // TODO: Реализовать отправку уведомления о входе в зону скрытого эффекта
-    }
-
-    fun notifyHiddenEffectExit(pointId: String, position: LatLng) {
-        LogHelper.d("Выход из зоны скрытого эффекта: $pointId, позиция: ${position.latitude}, ${position.longitude}")
-        Toast.makeText(ShiftApplication.instance, "Выход из зоны скрытого эффекта: $pointId, позиция: ${position.latitude}, ${position.longitude}", Toast.LENGTH_LONG).show()
-        // TODO: Реализовать отправку уведомления о выходе из зоны скрытого эффекта
-    }
-
     /**
      * Возвращает список точек, или null при СЕТЕВОЙ ОШИБКЕ (в отличие от пустого списка —
      * «точек реально нет»). Вызывающий код по null должен сохранить прежнее состояние,
@@ -74,6 +60,8 @@ object ServerService {
                 LogHelper.e("Ошибка при получении точек: ${response.code()}")
                 null
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             LogHelper.e("Ошибка при получении точек: ${e.message}")
             null

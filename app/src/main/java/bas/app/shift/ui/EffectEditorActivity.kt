@@ -17,6 +17,7 @@ import bas.app.shift.databinding.ActivityEffectEditorBinding
 import bas.app.shift.databinding.DialogAddEffectBinding
 import bas.app.shift.helpers.DateTimeHelper
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.helpers.TimePickerHelper
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.*
@@ -76,13 +77,15 @@ class EffectEditorActivity : AppCompatActivity() {
                         effects = userServer.effects ?: emptyList()
                         displayEffects()
                     } else {
-                        LogHelper.e("EffectEditorActivity: Error loading effects, empty")
-                        Toast.makeText(this@EffectEditorActivity, "Ошибка загрузки эффектов", Toast.LENGTH_SHORT).show()
+                        val errorMsg = NetworkErrors.http(response.code())
+                        LogHelper.e("EffectEditorActivity: Error loading effects: $errorMsg")
+                        Toast.makeText(this@EffectEditorActivity, "Ошибка загрузки эффектов: $errorMsg", Toast.LENGTH_SHORT).show()
                     }
                 }
                 override fun onFailure(call: Call<User>, t: Throwable) {
-                    LogHelper.e("EffectEditorActivity: Error loading effects: $t")
-                    Toast.makeText(this@EffectEditorActivity, "Ошибка загрузки эффектов", Toast.LENGTH_SHORT).show()
+                    val errorMsg = NetworkErrors.network(t)
+                    LogHelper.e("EffectEditorActivity: Error loading effects: $errorMsg")
+                    Toast.makeText(this@EffectEditorActivity, "Ошибка загрузки эффектов: $errorMsg", Toast.LENGTH_SHORT).show()
                 }
             })
     }
@@ -153,21 +156,15 @@ class EffectEditorActivity : AppCompatActivity() {
                         loadEffects() // Перезагружаем список
                         setResult(android.app.Activity.RESULT_OK)
                     } else {
-                        val errorMsg = "HTTP ${response.code()}"
-                        val errorBody = response.errorBody()?.string()
-                        val fullErrorMsg = if (errorBody != null) {
-                            "$errorMsg: $errorBody"
-                        } else {
-                            errorMsg
-                        }
-                        Toast.makeText(this@EffectEditorActivity, "Ошибка удаления эффекта: $fullErrorMsg", Toast.LENGTH_LONG).show()
-                        LogHelper.e("EffectEditorActivity: Error deleting effect: $fullErrorMsg")
+                        val errorMsg = NetworkErrors.http(response.code())
+                        Toast.makeText(this@EffectEditorActivity, "Ошибка удаления эффекта: $errorMsg", Toast.LENGTH_LONG).show()
+                        LogHelper.e("EffectEditorActivity: Error deleting effect: $errorMsg")
                     }
                 }
             } catch (e: Exception) {
-                LogHelper.e("EffectEditorActivity: Error deleting effect: $e")
+                val errorMsg = NetworkErrors.network(e)
+                LogHelper.e("EffectEditorActivity: Error deleting effect: $errorMsg")
                 withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    val errorMsg = e.localizedMessage ?: "Неизвестная ошибка"
                     Toast.makeText(this@EffectEditorActivity, "Ошибка удаления эффекта: $errorMsg", Toast.LENGTH_LONG).show()
                 }
             }
@@ -313,21 +310,15 @@ class EffectEditorActivity : AppCompatActivity() {
                         loadEffects() // Перезагружаем список
                         setResult(android.app.Activity.RESULT_OK)
                     } else {
-                        val errorMsg = "HTTP ${response.code()}"
-                        val errorBody = response.errorBody()?.string()
-                        val fullErrorMsg = if (errorBody != null) {
-                            "$errorMsg: $errorBody"
-                        } else {
-                            errorMsg
-                        }
-                        Toast.makeText(this@EffectEditorActivity, "Ошибка создания эффекта: $fullErrorMsg", Toast.LENGTH_LONG).show()
-                        LogHelper.e("EffectEditorActivity: Error creating effect: $fullErrorMsg")
+                        val errorMsg = NetworkErrors.http(response.code())
+                        Toast.makeText(this@EffectEditorActivity, "Ошибка создания эффекта: $errorMsg", Toast.LENGTH_LONG).show()
+                        LogHelper.e("EffectEditorActivity: Error creating effect: $errorMsg")
                     }
                 }
             } catch (e: Exception) {
-                LogHelper.e("EffectEditorActivity: Error creating effect: $e")
+                val errorMsg = NetworkErrors.network(e)
+                LogHelper.e("EffectEditorActivity: Error creating effect: $errorMsg")
                 withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    val errorMsg = e.localizedMessage ?: "Неизвестная ошибка"
                     Toast.makeText(this@EffectEditorActivity, "Ошибка создания эффекта: $errorMsg", Toast.LENGTH_LONG).show()
                 }
             }

@@ -5,7 +5,6 @@ import java.util.*
 
 object DateTimeHelper {
     
-    private const val SERVER_TIMEZONE_OFFSET = -2 // Сервер на 2 часа раньше нашего времени
     private const val DATE_FORMAT = "yyyy-MM-dd HH:mm:ss"
     
     fun formatExpireAt(expireAt: String?): String? {
@@ -40,22 +39,4 @@ object DateTimeHelper {
         }
     }
     
-    fun isExpired(expireAt: String?): Boolean {
-        if (expireAt == null || expireAt.isBlank()) return false
-        
-        return try {
-            val serverFormat = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
-            val expireDate = serverFormat.parse(expireAt)
-            
-            if (expireDate != null) {
-                val now = Date()
-                now.after(expireDate)
-            } else {
-                false
-            }
-        } catch (e: Exception) {
-            LogHelper.e("Error checking expiration: $expireAt, $e")
-            false
-        }
-    }
 }

@@ -23,9 +23,21 @@ class ConsoleAdapter(
 ) : RecyclerView.Adapter<ConsoleAdapter.Holder>() {
     
     private var onScrollCallback: (() -> Unit)? = null
-    
+
+    // Каждый addTyping запускает свой Handler с рекурсивным postDelayed, который раньше никогда
+    // не отменялся — при серии ответов (несколько addTyping подряд на одну команду) параллельно
+    // тикало несколько таймеров, ни один не снимался в onDestroy/onDetachedFromWindow. Храним
+    // активные пары, чтобы можно было снять их все разом при уходе с экрана.
+    private val activeTypingHandlers = mutableListOf<Pair<Handler, Runnable>>()
+
     fun setOnScrollCallback(callback: () -> Unit) {
         this.onScrollCallback = callback
+    }
+
+    /** Останавливает все текущие "печатающие" анимации — звать из onPause/onDestroy экрана. */
+    fun cancelAllTyping() {
+        activeTypingHandlers.forEach { (handler, runnable) -> handler.removeCallbacks(runnable) }
+        activeTypingHandlers.clear()
     }
 
     inner class Holder(val binding: ItemConsoleLineBinding)
@@ -95,14 +107,14 @@ class ConsoleAdapter(
         val h = Handler(Looper.getMainLooper())
         var lastScrollTime = 0L
         var lastScrollLength = 0
-        
+
         val step = object : Runnable {
             override fun run() {
                 if (i <= full.length) {
                     val timestamp = data.getOrNull(pos)?.timestamp ?: LocalTime.now()
                     data[pos] = Line(full.take(i), Line.Type.RSP, timestamp)
                     notifyItemChanged(pos)
-                    
+
                     // Скроллим только если текст значительно увеличился (каждые 10 символов)
                     val currentTime = System.currentTimeMillis()
                     if (i - lastScrollLength >= 10 && currentTime - lastScrollTime > 300) {
@@ -110,15 +122,17 @@ class ConsoleAdapter(
                         lastScrollTime = currentTime
                         lastScrollLength = i
                     }
-                    
+
                     i++
                     h.postDelayed(this, 25)       // 40 симв/сек
                 } else {
                     // Финальный скроллинг в конце печати
                     onScrollCallback?.invoke()
+                    activeTypingHandlers.removeAll { it.first === h }
                 }
             }
         }
+        activeTypingHandlers += h to step
         h.post(step)
     }
 

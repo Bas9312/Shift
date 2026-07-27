@@ -18,6 +18,7 @@ class NoiseManager(private val context: Context) {
     private var onNoiseUpdateListener: ((Double) -> Unit)? = null
     private var onGlobalNoiseUpdateListener: ((Double) -> Unit)? = null
     private var onCommandSuccessListener: (() -> Unit)? = null
+    private var onCommandFailureListener: ((String) -> Unit)? = null
     private val noiseEffectManager = NoiseEffectManager(context)
     
     private val handler = Handler(Looper.getMainLooper())
@@ -37,6 +38,11 @@ class NoiseManager(private val context: Context) {
     
     fun setOnCommandSuccessListener(listener: () -> Unit) {
         this.onCommandSuccessListener = listener
+    }
+
+    /** Вызывается, когда изменение шума ГЛАВНОГО пользователя не удалось применить на сервере. */
+    fun setOnCommandFailureListener(listener: (String) -> Unit) {
+        this.onCommandFailureListener = listener
     }
     
     fun startPeriodicNoiseUpdate() {
@@ -159,16 +165,20 @@ class NoiseManager(private val context: Context) {
                         LogHelper.d("NoiseManager: Noise adjusted for $targetUserId: ${adjustResponse.local.before} -> ${adjustResponse.local.after}")
                     } else {
                         LogHelper.e("NoiseManager: Error adjusting noise for $targetUserId: ${response.code()}")
+                        if (targetUserId == userId) {
+                            onCommandFailureListener?.invoke(NetworkErrors.http(response.code()))
+                        }
                     }
                 }
-                
+
                 override fun onFailure(call: Call<bas.app.shift.models.NoiseAdjustResponse>, t: Throwable) {
                     LogHelper.e("NoiseManager: Error adjusting noise for $targetUserId: ${t.message}")
+                    if (targetUserId == userId) {
+                        onCommandFailureListener?.invoke(NetworkErrors.network(t))
+                    }
                 }
             })
     }
-    
-    fun getCurrentNoise(): Double = currentNoise
     
     fun hasProxyEffect(): Boolean {
         return noiseEffectManager.hasProxyEffect()

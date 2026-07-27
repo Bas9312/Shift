@@ -63,18 +63,6 @@ object TerminalCommandManager {
         }
     }
     
-    fun getCommandsForAutocomplete(availableModules: List<Int> = emptyList()): List<String> {
-        return getAvailableCommands(availableModules).map { it.fullCommand }
-    }
-    
-    fun getCommandsForDisplay(availableModules: List<Int> = emptyList()): List<String> {
-        return getAvailableCommands(availableModules).map { it.displayText }
-    }
-    
-    fun getCommandNameOnly(availableModules: List<Int> = emptyList()): List<String> {
-        return getAvailableCommands(availableModules).map { it.name }
-    }
-    
     fun findCommand(commandText: String, availableModules: List<Int> = emptyList()): TerminalCommand? {
         val availableCommands = getAvailableCommands(availableModules)
         // Сопоставляем по ПЕРВОМУ токену (имя команды до пробела), а не по префиксу.

@@ -12,6 +12,7 @@ import android.text.method.LinkMovementMethod
 import android.text.util.Linkify
 import android.view.LayoutInflater
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.PointRadiusMath
 import android.view.View
 import android.widget.TextView
 import android.widget.AdapterView
@@ -37,6 +38,7 @@ import bas.app.shift.models.vLatOrLat
 import bas.app.shift.models.vLngOrLng
 import bas.app.shift.services.LocationService
 import bas.app.shift.services.ServerService
+import bas.app.shift.utils.MapPointsRenderer
 import bas.app.shift.utils.PointVisualizer
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
@@ -45,14 +47,12 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.Circle
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
-import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.Task
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -61,9 +61,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.filterNotNull
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.math.ln
-import kotlin.math.pow
-import kotlin.math.round
 
 class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
@@ -73,8 +70,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityEkatMapsBinding
     private var cancellationTokenSource = CancellationTokenSource()
-    private var currentLocationMarker: Marker? = null
-    private val pointsOfInterest = mutableMapOf<String, Triple<Point, Circle?, Marker?>>()
+    private lateinit var pointsRenderer: MapPointsRenderer
     private val handler = Handler(Looper.getMainLooper())
     private val pointsUpdateInterval = 10000L // 10 секунд
     private var lastPointsUpdate = 0L
@@ -143,8 +139,13 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         }
 
         LogHelper.d("onResume: карта доступна всем пользователям, ${if (isMgUser) "MG пользователь получает дополнительный функционал (лонг тапы)" else "обычный пользователь получает базовый функционал (просмотр точек)"}")
-        val mapFragment = supportFragmentManager
-            .findFragmentById(R.id.map) as SupportMapFragment
+        val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as? SupportMapFragment
+        if (mapFragment == null) {
+            // Гонка восстановления состояния/раннего finish — фрагмент карты ещё не приложен.
+            // Раньше здесь был непроверенный `as`, падавший с ClassCastException/NPE.
+            LogHelper.w("onResume: фрагмент карты не найден, пропускаем инициализацию")
+            return
+        }
         mapFragment.getMapAsync(this)
         LogHelper.d("onResume: карта загружается асинхронно для ${if (isMgUser) "MG" else "обычного"} пользователя")
     }
@@ -175,6 +176,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(googleMap: GoogleMap) {
         LogHelper.d("Карта готова к использованию")
         mMap = googleMap
+        pointsRenderer = MapPointsRenderer(mMap, isMgUser)
         mMap.setIndoorEnabled(false)
         mMap.isTrafficEnabled = false
         if (isMgUser) {
@@ -247,15 +249,14 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         LogHelper.d("Обработка нажатия на маркер: ${marker.title}")
         
         // Находим точку по маркеру
-        val pointData = pointsOfInterest.values.find { (_, _, markerRef) -> markerRef == marker }
-        if (pointData == null) {
+        val point = pointsRenderer.findPointForMarker(marker)
+        if (point == null) {
             LogHelper.w("Точка не найдена для маркера: ${marker.title}")
             return
         }
 
-        val (point, _, _) = pointData
         LogHelper.d("Информация о точке: ID=${point.pointId}, тип=${point.type}")
-        
+
         // Проверяем, является ли это фамильяром
         if (point.type == "FAMILIAR") {
             showFamiliarDialog(point)
@@ -276,7 +277,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             return
         }
         
-        val distance = calculateDistance(
+        val distance = pointsRenderer.calculateDistance(
             LatLng(currentLocation.latitude, currentLocation.longitude),
             LatLng(point.lat, point.lng)
         )
@@ -300,7 +301,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     private fun showFamiliarTalkDialog(point: Point, distance: Float) {
         LogHelper.d("Показ диалога разговора с фамильяром, расстояние: ${distance.toInt()}м")
         
-        val familiarName = getPointTitle(PointType.fromServerValue(point.type))
+        val familiarName = pointsRenderer.getPointTitle(PointType.fromServerValue(point.type))
         val message = getString(R.string.familiar_dialog_message, familiarName, distance.toInt())
         
         AlertDialog.Builder(this)
@@ -317,7 +318,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     private fun showBasicPointInfoDialog(point: Point) {
         LogHelper.d("Показ базовой информации о точке: ${point.pointId}")
         
-        val title = getPointTitle(PointType.fromServerValue(point.type))
+        val title = pointsRenderer.getPointTitle(PointType.fromServerValue(point.type))
         val message = if (point.type == "USER") "Здесь кто-то есть (мастер или игротех)"
         else getString(R.string.point_basic_radius, point.radius) + "\n" +
                 getString(R.string.point_basic_description, point.description ?: getString(R.string.point_no_description)) + "\n" +
@@ -376,19 +377,18 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         LogHelper.d("Показ диалога информации о точке")
         
         // Находим точку по маркеру
-        val pointData = pointsOfInterest.values.find { (_, _, markerRef) -> markerRef == marker }
-        if (pointData == null) {
+        val point = pointsRenderer.findPointForMarker(marker)
+        if (point == null) {
             LogHelper.w("Точка не найдена для маркера: ${marker.title}")
             return
         }
 
-        val (point, _, _) = pointData
         LogHelper.d("Информация о точке: ID=${point.pointId}, тип=${point.type}")
-        
+
         val dialogBinding = DialogPointInfoBinding.inflate(LayoutInflater.from(this))
-        
+
         // Заполняем информацию о точке
-        dialogBinding.tvPointTitle.text = getPointTitle(PointType.fromServerValue(point.type))
+        dialogBinding.tvPointTitle.text = pointsRenderer.getPointTitle(PointType.fromServerValue(point.type))
         dialogBinding.tvPointType.text = getString(R.string.point_radius_label) + " " + point.radius + "м"
         dialogBinding.tvPointRadius.text = getString(R.string.point_coordinates_label) + " " + String.format("%.6f", point.lat) + ", " + String.format("%.6f", point.lng)
         dialogBinding.tvPointCoordinates.text = getString(R.string.point_description_label) + " " + (point.description ?: getString(R.string.point_no_description))
@@ -477,8 +477,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             dialogBinding.sliderRadius.visibility = if (isCustom) View.VISIBLE else View.GONE
 
             if (isCustom) {
-                val radius = radiusFromSlider(dialogBinding.sliderRadius.value)
-                dialogBinding.tvRadiusValue.text = getString(R.string.point_radius_current, formatRadius(radius))
+                val radius = PointRadiusMath.radiusFromSlider(dialogBinding.sliderRadius.value)
+                dialogBinding.tvRadiusValue.text = getString(R.string.point_radius_current, PointRadiusMath.formatRadius(radius))
             }
         }
 
@@ -508,10 +508,10 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         // Показываем координаты
         dialogBinding.tvCoordinates.text = getString(R.string.point_coordinates_label) + " " + String.format("%.6f", latLng.latitude) + ", " + String.format("%.6f", latLng.longitude)
         
-        // Настраиваем спиннер типов точек (исключаем USER)
+        // Настраиваем спиннер типов точек (исключаем USER и служебный UNKNOWN)
         val pointTypes = PointType.values()
-            .filter { it != PointType.USER }
-        val pointTypeNames = pointTypes.map { getPointTitle(it) }
+            .filter { it != PointType.USER && it != PointType.UNKNOWN }
+        val pointTypeNames = pointTypes.map { pointsRenderer.getPointTitle(it) }
         val pointTypeValues = pointTypes.map { it.serverValue }
         
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, pointTypeNames)
@@ -572,7 +572,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         }
 
         // Радиус: нелинейный слайдер 5м..1500м
-        dialogBinding.sliderRadius.value = sliderFromRadius(DEFAULT_CUSTOM_RADIUS_METERS)
+        dialogBinding.sliderRadius.value = PointRadiusMath.sliderFromRadius(PointRadiusMath.DEFAULT_CUSTOM_RADIUS_METERS)
             .coerceIn(dialogBinding.sliderRadius.valueFrom, dialogBinding.sliderRadius.valueTo)
         dialogBinding.cbCustomRadius.setOnCheckedChangeListener { _, _ -> updateRadiusUi() }
         dialogBinding.sliderRadius.addOnChangeListener { _, _, _ -> updateRadiusUi() }
@@ -611,7 +611,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             val textToShowOnEnter = dialogBinding.etTextToShowOnEnter.text.toString()
             val isHidden = dialogBinding.cbHidden.isChecked
             val radius: Double? = if (dialogBinding.cbCustomRadius.isChecked) {
-                radiusFromSlider(dialogBinding.sliderRadius.value)
+                PointRadiusMath.radiusFromSlider(dialogBinding.sliderRadius.value)
             } else {
                 null
             }
@@ -689,7 +689,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         // Для маленьких радиусов — автоматически приблизим камеру,
                         // иначе круг 5–20м выглядит как "точка" на обычном зуме.
                         withContext(Dispatchers.Main) {
-                            val zoom = zoomForRadiusMeters(radius ?: 0.0)
+                            val zoom = PointRadiusMath.zoomForRadiusMeters(radius ?: 0.0)
                             if (zoom != null) {
                                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoom))
                             }
@@ -712,62 +712,6 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         
         LogHelper.d("Диалог создания точки показан")
         dialog.show()
-    }
-
-    private fun zoomForRadiusMeters(radiusMeters: Double): Float? {
-        // На зуме ~15–16 круги 5–20м занимают считанные пиксели и "кажутся" неправильными.
-        // Это простая эвристика, чтобы визуально было понятно, что радиус выставился.
-        return when {
-            radiusMeters <= 0.0 -> null
-            radiusMeters <= 20.0 -> 20f
-            radiusMeters <= 50.0 -> 19f
-            radiusMeters <= 100.0 -> 18f
-            radiusMeters <= 200.0 -> 17f
-            else -> null
-        }
-    }
-
-    private fun radiusFromSlider(sliderValue: Float): Double {
-        val min = MIN_RADIUS_METERS
-        val max = MAX_RADIUS_METERS
-        val t = (sliderValue / 100.0).coerceIn(0.0, 1.0)
-        val ratio = max / min
-        val r = min * ratio.pow(t)
-        return roundRadius(r)
-    }
-
-    private fun sliderFromRadius(radiusMeters: Double): Float {
-        val min = MIN_RADIUS_METERS
-        val max = MAX_RADIUS_METERS
-        val r = radiusMeters.coerceIn(min, max)
-        val ratio = max / min
-        val t = ln(r / min) / ln(ratio)
-        return (t * 100.0).toFloat().coerceIn(0f, 100f)
-    }
-
-    private fun roundRadius(radiusMeters: Double): Double {
-        val step = when {
-            radiusMeters <= 20.0 -> 1.0
-            radiusMeters <= 30.0 -> 2.0
-            radiusMeters <= 50.0 -> 3.0
-            radiusMeters <= 100.0 -> 5.0
-            radiusMeters <= 200.0 -> 10.0
-            radiusMeters <= 500.0 -> 25.0
-            radiusMeters <= 1000.0 -> 50.0
-            radiusMeters <= 2000.0 -> 100.0
-            else -> 200.0
-        }
-
-        val snapped = round(radiusMeters / step) * step
-        return snapped.coerceIn(MIN_RADIUS_METERS, MAX_RADIUS_METERS)
-    }
-
-    private fun formatRadius(radiusMeters: Double): String {
-        return if (radiusMeters < 1000.0) {
-            "${radiusMeters.toInt()} м"
-        } else {
-            String.format(Locale.getDefault(), "%.2f км", radiusMeters / 1000.0)
-        }
     }
 
     private val fusedLocationProviderClient: FusedLocationProviderClient by lazy {
@@ -803,35 +747,10 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                     LogHelper.w("EkatMaps: не удалось получить точки (сеть), оставляем текущие")
                 } else if (serverPoints.isEmpty()) {
                     LogHelper.d("Сервер не вернул точки")
-                    // Если сервер не вернул точки, используем тестовые
-                    //addTestPoints()
                 } else {
                     LogHelper.d("Получено ${serverPoints.size} точек с сервера")
 
-                    // Дифф вместо «снести всё и построить заново». Существующие круги/маркеры
-                    // не пересоздаём, а двигаем на месте — это убирает мерцание, «телепортацию»
-                    // маркеров игроков и сброс открытого info-window каждые 10 секунд.
-                    val desired = serverPoints.filter { point ->
-                        when {
-                            !isMgUser && point.type == "POINT_WITH_TEXT" -> false
-                            !isMgUser && point.hidden == 1 -> false
-                            else -> true
-                        }
-                    }
-                    val desiredIds = desired.map { it.pointId }.toSet()
-
-                    // Удаляем то, чего больше нет (или что стало скрытым/отфильтрованным)
-                    val toRemove = pointsOfInterest.keys.filter { it !in desiredIds }
-                    toRemove.forEach { id ->
-                        pointsOfInterest[id]?.let { (_, circle, marker) ->
-                            circle?.remove()
-                            marker?.remove()
-                        }
-                        pointsOfInterest.remove(id)
-                    }
-
-                    // Добавляем новые и обновляем существующие на месте
-                    desired.forEach { upsertPoint(it) }
+                    pointsRenderer.syncPoints(serverPoints)
 
                     // Обновляем карту только если есть текущая локация
                     if (currentLocation != null) {
@@ -840,237 +759,21 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         LogHelper.d("Локация недоступна, маркеры будут добавлены позже")
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogHelper.e("Ошибка при обновлении точек с сервера: ${e.message}")
             }
         }
     }
 
-    // Добавляем тестовые точки разных типов
-    /*val testPoints = listOf(
-        PointVisualizer.createPointOfInterest("1", LatLng(56.840527, 60.652171), 500f, PointType.FAMILIAR),
-        PointVisualizer.createPointOfInterest("2", LatLng(56.837609, 60.633470), 300f, PointType.FAKE_FAMILIAR_BITER),
-        PointVisualizer.createPointOfInterest("3", LatLng(56.835325, 60.613837), 400f, PointType.OPEN_PROBLEM),
-        PointVisualizer.createPointOfInterest("4", LatLng(56.834090, 60.599902), 600f, PointType.AGGRESSIVE_FAMILIAR),
-        PointVisualizer.createPointOfInterest("5", LatLng(56.841096, 60.659535), 200f, PointType.HIDDEN_EFFECT),
-        PointVisualizer.createPointOfInterest("666", LatLng(56.835325, 60.613837), 800f, PointType.HIDDEN_EFFECT),
-        PointVisualizer.createPointOfInterest("6", LatLng(56.838011, 60.597465), 800f, PointType.SHRINKING_CIRCLE,
-            mapOf("duration" to 30)) // 30 минут
-    )*/
-
-   /* private fun addTestPoints() {
-
-        testPoints.forEach { point ->
-            addPointOfInterest(point)
-        }
-    }*/
-
-    private fun addPoint(point: Point) {
-        //LogHelper.d("Добавление точки: ID=${point.pointId}, тип=${point.type}, координаты=(${point.lat}, ${point.lng})")
-        
-        // Для обычных пользователей: не показываем точки типа POINT_WITH_TEXT
-        if (!isMgUser && point.type == "POINT_WITH_TEXT") {
-            LogHelper.d("Обычный пользователь: пропускаем точку POINT_WITH_TEXT: ${point.pointId}")
-            return
-        }
-
-        // Для обычных пользователей: скрытые точки не показываем на карте
-        if (!isMgUser && point.hidden == 1) {
-            LogHelper.d("Обычный пользователь: пропускаем скрытую точку: ${point.pointId}")
-            return
-        }
-        
-        // Удаляем старую точку, если она существует
-        pointsOfInterest[point.pointId]?.let { (_, circle, marker) ->
-            circle?.remove() // Круг может быть null для USER точек
-            marker?.remove()
-            LogHelper.d("Удалена старая точка: ${point.pointId}")
-        }
-        pointsOfInterest.remove(point.pointId)
-
-        // Для точек типа USER не создаем круги
-        val circle = if (point.type == "USER") {
-            null
-        } else {
-            mMap.addCircle(
-                PointVisualizer.getCircleOptions(
-                    LatLng(point.vLat ?: point.lat, point.vLng ?: point.lng),
-                    point.radius.toFloat(),
-                    PointType.fromServerValue(point.type)
-                )
-            )
-        }
-
-        // Сохраняем точку, круг и null для маркера (он будет добавлен позже)
-        // Маркеры создаются только в updateForLocation() для избежания дублирования
-        // Для MG пользователей: показываем все точки, кроме своей USER точки
-        // Для обычных пользователей: показываем только точки в кругах, кроме USER точек и POINT_WITH_TEXT
-        // Для точек типа USER круг = null
-        pointsOfInterest[point.pointId] = Triple(point, circle, null)
-        //LogHelper.d("Точка добавлена в список: ${point.pointId} (маркер будет создан позже, круг: ${if (circle != null) "создан" else "не создан для USER"})")
-    }
-
-    /**
-     * Добавляет новую точку или обновляет существующую БЕЗ пересоздания:
-     * двигает уже созданные круг и маркер на месте. Так на карте не мерцают элементы
-     * и не сбрасывается открытое info-window при периодическом обновлении.
-     */
-    private fun upsertPoint(point: Point) {
-        val existing = pointsOfInterest[point.pointId]
-        if (existing == null) {
-            addPoint(point)
-            return
-        }
-        val (oldPoint, circle, marker) = existing
-        // Смена типа влияет на цвет круга и иконку маркера — тут проще пересоздать
-        if (oldPoint.type != point.type) {
-            circle?.remove()
-            marker?.remove()
-            pointsOfInterest.remove(point.pointId)
-            addPoint(point)
-            return
-        }
-        // Двигаем существующие круг и маркер на новые координаты
-        val virtualCenter = LatLng(point.vLat ?: point.lat, point.vLng ?: point.lng)
-        circle?.let {
-            it.center = virtualCenter
-            it.radius = point.radius
-        }
-        marker?.let { it.position = LatLng(point.lat, point.lng) }
-        pointsOfInterest[point.pointId] = Triple(point, circle, marker)
-    }
-
     private fun updateForLocation() {
-        // Проверяем, есть ли текущая локация
-        if (currentLocation == null) {
+        val location = currentLocation
+        if (location == null) {
             LogHelper.d("Текущая локация недоступна, пропускаем обновление карты")
             return
         }
-        
-        //LogHelper.d("Обновление карты для местоположения: ${currentLocation!!.latitude}, ${currentLocation!!.longitude}")
-        val latLng = LatLng(currentLocation!!.latitude, currentLocation!!.longitude)
-        
-        // Получаем ID текущего пользователя для проверки дублирования USER точек
-        val currentUserId = UserPrefsHelper.getUserId(this)
-        //LogHelper.d("Текущий пользователь: $currentUserId, тип: ${if (isMgUser) "MG" else "обычный"}")
-        
-        // Двигаем маркер геолокации на месте (раньше он пересоздавался на каждый апдейт → мерцание синей метки)
-        if (currentLocationMarker == null) {
-            currentLocationMarker = mMap.addMarker(
-                MarkerOptions()
-                    .position(latLng)
-                    .title("Ваше местоположение")
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
-            )
-        } else {
-            currentLocationMarker?.position = latLng
-        }
-
-        // Обрабатываем точки интереса
-        // Для MG пользователей: показываем все точки, кроме своей собственной USER точки (чтобы не дублировать маркер геолокации)
-        // Для обычных пользователей: показываем только точки в кругах, кроме USER точек (чтобы не дублировать маркер геолокации)
-        // Для MG пользователей показываем все точки всегда
-        if (isMgUser) {
-            LogHelper.d("MG пользователь: показываем все точки на карте (расстояние не учитывается)")
-            pointsOfInterest.forEach { (id, pointData) ->
-                val (point, circle, currentMarker) = pointData
-                
-                // Пропускаем точки типа USER (у них нет кругов и они не нужны на карте)
-                if (point.type == "USER" && !isMgUser) {
-                    LogHelper.d("MG пользователь: пропускаем точку USER: $id (нет круга)")
-                    return@forEach
-                }
-                
-                // Если маркера еще нет - создаем его
-                if (currentMarker == null) {
-                    val newMarker = mMap.addMarker(
-                        PointVisualizer.getMarkerOptions(
-                            LatLng(point.lat, point.lng),
-                            PointType.fromServerValue(point.type),
-                            getPointTitle(PointType.fromServerValue(point.type)),
-                            getPointDescription(point)
-                        )
-                    )
-                    pointsOfInterest[id] = Triple(point, circle, newMarker)
-                    LogHelper.d("MG пользователь: добавлен маркер для точки: $id")
-                }
-            }
-        } else {
-            // Для обычных пользователей проверяем, находится ли пользователь в каких-либо кругах
-            LogHelper.d("Обычный пользователь: проверяем расстояние до точек для отображения маркеров (только в кругах)")
-            pointsOfInterest.forEach { (id, pointData) ->
-                val (point, circle, currentMarker) = pointData
-                
-                val virtualCenter = LatLng(point.vLat ?: point.lat, point.vLng ?: point.lng)
-                val distance = if (point.type == "USER") 0f else calculateDistance(latLng, virtualCenter)
-                
-                if (distance <= point.radius) {
-                    // Если пользователь в круге и маркера еще нет - создаем его
-                    if (currentMarker == null) {
-                        val newMarker = mMap.addMarker(
-                            PointVisualizer.getMarkerOptions(
-                                LatLng(point.lat, point.lng),
-                                PointType.fromServerValue(point.type),
-                                getPointTitle(PointType.fromServerValue(point.type)),
-                                getPointDescription(point)
-                            )
-                        )
-                        pointsOfInterest[id] = Triple(point, circle, newMarker)
-                        LogHelper.d("Обычный пользователь: в круге (${distance.toInt()}м), добавлен маркер для точки: $id")
-                    }
-                } else {
-                    // Если пользователь вне круга и маркер существует - удаляем его
-                    if (currentMarker != null) {
-                        currentMarker.remove()
-                        pointsOfInterest[id] = Triple(point, circle, null)
-                        LogHelper.d("Обычный пользователь: вне круга (${distance.toInt()}м), удален маркер для точки: $id")
-                    }
-                }
-            }
-        }
-
-        //LogHelper.d("Обновление карты завершено")
-    }
-
-    private fun getPointTitle(type: PointType): String {
-        val title = when (type) {
-            PointType.USER -> "Кто-то в игре"
-            PointType.FAMILIAR -> "Фамильяр"
-            PointType.HIDDEN_EFFECT_AREA -> "Скрытая зона эффекта"
-            PointType.FAKE_FAMILIAR_BITER -> "'Фамильяр'"
-            PointType.APPROACHING_BITER -> "Приближающийся `Фамильяр`"
-            PointType.OPEN_PROBLEM -> "Открытая Проблема"
-            PointType.SHRINKING_CIRCLE -> "Сужающийся Круг"
-            PointType.DEMON_BLACK_CIRCLE -> "Демон Черный Круг"
-            PointType.APPROACHING_VIRTUAL -> "Приближающаяся Виртуальная проблема"
-            PointType.HIDDEN_AR_POINT -> "Скрытая AR точка"
-            PointType.POINT_WITH_TEXT -> "Точка с текстом"
-        }
-        //LogHelper.d("Заголовок для типа ${type.serverValue}: $title")
-        return title
-    }
-
-    private fun getPointDescription(point: Point): String {
-        val description = when (PointType.fromServerValue(point.type)) {
-            PointType.SHRINKING_CIRCLE -> {
-                "Радиус: ${point.radius}м\nДлительность: 30 мин"
-            }
-            else -> "Радиус: ${point.radius}м"
-        }
-        //LogHelper.d("Описание для точки ${point.pointId}: $description")
-        return description
-    }
-
-    private fun calculateDistance(point1: LatLng, point2: LatLng): Float {
-        val results = FloatArray(1)
-        Location.distanceBetween(
-            point1.latitude, point1.longitude,
-            point2.latitude, point2.longitude,
-            results
-        )
-        val distance = results[0]
-        //LogHelper.d("Расстояние между точками: ${point1.latitude},${point1.longitude} и ${point2.latitude},${point2.longitude} = ${distance}м")
-        return distance
+        pointsRenderer.refreshMarkersForLocation(location)
     }
 
     private fun requestForLocation() {
@@ -1136,7 +839,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 LogHelper.d("Обновление местоположения через LocationService: ${location.latitude}, ${location.longitude}")
 
                 // Центрируем карту на текущем местоположении при первом получении
-                if (currentLocationMarker == null) {
+                if (!pointsRenderer.hasLocationMarker) {
                     val latLng = LatLng(location.latitude, location.longitude)
                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
                 }
@@ -1235,9 +938,14 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun showPlayersPickerDialog() {
-        val userPoints = pointsOfInterest.values
-            .map { it.first }
-            .filter { it.type == "USER" }
+        if (!::pointsRenderer.isInitialized) {
+            // Карта ещё грузится асинхронно (onMapReady не вызван) — до этого момента точек
+            // ещё нет и искать некого. Раньше pointsOfInterest было полем, инициализированным
+            // сразу, поэтому этот случай просто давал пустой список — сохраняем то же поведение.
+            Toast.makeText(this, "Игроки не найдены", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val userPoints = pointsRenderer.usersSnapshot()
             .distinctBy { it.pointId }
             .sortedBy { (it.description ?: it.pointId).lowercase(Locale.getDefault()) }
 
@@ -1270,8 +978,5 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     companion object {
         private const val REQUEST_CODE_LOCATION_PERMISSION = 100
-        private const val MIN_RADIUS_METERS = 5.0
-        private const val MAX_RADIUS_METERS = 3000.0
-        private const val DEFAULT_CUSTOM_RADIUS_METERS = 50.0
     }
 }

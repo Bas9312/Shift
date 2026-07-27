@@ -79,18 +79,4 @@ object TimePickerHelper {
         LogHelper.d("TimePickerHelper: Could not parse timeString: '$timeString'")
         return null
     }
-    
-    fun getTimeOptions(): List<Pair<String, Int>> {
-        val options = mutableListOf<Pair<String, Int>>()
-        
-        // Добавляем варианты от 30 минут до 24 часов с шагом 30 минут
-        for (totalMinutes in 30..1440 step 30) {
-            val hours = totalMinutes / 60
-            val minutes = totalMinutes % 60
-            val timeString = formatTime(hours, minutes)
-            options.add(timeString to totalMinutes)
-        }
-        
-        return options
-    }
 }

@@ -1,30 +1,24 @@
 package bas.app.shift
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.startActivity
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityMainBinding
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.User
 import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraHiddenRequest
 import bas.app.shift.models.Effect
 import bas.app.shift.models.FamiliarData
-import bas.app.shift.models.PointRequest
-import bas.app.shift.models.PointType
-import bas.app.shift.services.LocationService
+import bas.app.shift.services.NewMessagesChecker
 import bas.app.shift.ui.terminal.TerminalActivity
 import bas.app.shift.ui.ChatsListActivity
 import androidx.lifecycle.lifecycleScope
@@ -48,7 +42,8 @@ class MainActivity : AppCompatActivity() {
     private var isMgUser = false
     private var isExtrasensory = false
     private var currentAura: Aura? = null
-    private val ritualTick = Runnable { updateRitualButtonState() }
+    private val ritualManager by lazy { RitualManager(this, binding.btnRitual) }
+    private val mainActivityPermissions by lazy { MainActivityPermissions(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,7 +55,7 @@ class MainActivity : AppCompatActivity() {
         setAppVersionLabel()
         
         // Запрашиваем разрешения последовательно
-        checkPermissionsSequentially()
+        mainActivityPermissions.checkPermissionsSequentially()
         
         // Проверяем состояние игры и запускаем сервис если нужно
         checkAndStartLocationService()
@@ -98,8 +93,13 @@ class MainActivity : AppCompatActivity() {
         }
         checkUserDisciplines()
 
-        // Проверяем обновления
-        checkForUpdates()
+        // Проверяем обновления один раз за время жизни процесса — иначе каждый возврат
+        // с карты/чата заново дёргает сеть и может повторно показать диалог обновления
+        // поверх текущего экрана.
+        if (!updateCheckedThisSession) {
+            updateCheckedThisSession = true
+            checkForUpdates()
+        }
 
         // Проверяем состояние сервиса при запуске активности
         if (!isFinishing && !isDestroyed) {
@@ -144,6 +144,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        ritualManager.cancelScheduledUpdates()
         if (ShiftApplication.instance.isInGame() && ShiftApplication.instance.isLocationServiceRunning()) {
             LogHelper.d("MainActivity: Приложение уходит в фон, LocationService продолжает работать")
         } else if (ShiftApplication.instance.isInGame() && !ShiftApplication.instance.isLocationServiceRunning()) {
@@ -162,10 +163,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             LogHelper.d("MainActivity: Activity уничтожается, режим 'в игре' выключен")
         }
-        
-        // Останавливаем сервис обновления профиля при уничтожении активности
-        // ProfileUpdateService.stopService(this) // Удалено
-        LogHelper.d("MainActivity: ProfileUpdateService остановлен при уничтожении")
     }
 
     private fun setupToolbar() {
@@ -229,7 +226,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnRitual.setOnClickListener {
-            performRitual()
+            ritualManager.perform()
         }
 
         // Кнопки для МГ пользователей
@@ -260,13 +257,13 @@ class MainActivity : AppCompatActivity() {
             updateUI()
             // Запускаем сервис с небольшой задержкой, чтобы UI обновился
             binding.root.post {
-                if (hasLocationPermission()) {
+                if (mainActivityPermissions.hasLocationPermission()) {
                     ShiftApplication.instance.startLocationService()
                     LogHelper.d("MainActivity: LocationService запущен через переключатель")
                 } else {
                     LogHelper.w("MainActivity: Нет разрешений на геолокацию для запуска LocationService")
                     // Запрашиваем разрешения
-                    requestLocationPermission()
+                    mainActivityPermissions.requestLocationPermission()
                 }
                 
                 // Очищаем кэш сообщений только при первом запуске приложения
@@ -277,31 +274,23 @@ class MainActivity : AppCompatActivity() {
                     
                     // Очищаем кэш только если сменился пользователь или это первый запуск
                     if (lastUserId != userId) {
-                        prefs.edit()
-                            .remove("last_known_message_ids_$lastUserId") // Очищаем кэш предыдущего пользователя
-                            .putString("last_user_id", userId) // Сохраняем текущего пользователя
-                            .apply()
+                        if (!lastUserId.isNullOrEmpty()) {
+                            NewMessagesChecker.clearCache(this@MainActivity, lastUserId) // Очищаем кэш предыдущего пользователя
+                        }
+                        prefs.edit().putString("last_user_id", userId).apply() // Сохраняем текущего пользователя
                         LogHelper.d("MainActivity: Кэш сообщений очищен для смены пользователя: $lastUserId -> $userId")
                     }
                 }
             }
-            
-            // Запускаем сервис обновления профиля
-            // ProfileUpdateService.startService(this) // Удалено
-            LogHelper.d("MainActivity: ProfileUpdateService запущен")
         } else {
             ShiftApplication.instance.setIsInGame(false)
             updateUI()
             ShiftApplication.instance.stopLocationService()
             LogHelper.d("MainActivity: LocationService остановлен через переключатель")
-            
-            // Останавливаем сервис обновления профиля
-            // ProfileUpdateService.stopService(this) // Удалено
-            LogHelper.d("MainActivity: ProfileUpdateService остановлен")
         }
     }
 
-    private fun updateUI() {
+    internal fun updateUI() {
         LogHelper.d("MainActivity: updateUI - isMgUser: $isMgUser, isInGame: ${ShiftApplication.instance.isInGame()}")
         binding.btnOpenMap.isEnabled = ShiftApplication.instance.isInGame()
 
@@ -313,7 +302,12 @@ class MainActivity : AppCompatActivity() {
             binding.openAuraButton.visibility = View.GONE
             binding.btnScanArtifact.visibility = View.GONE
             binding.btnToggleAuraHidden.visibility = View.GONE
-            
+            // Ритуал — механика игрока (дисциплина "Ритуалистика"), у МГ её не бывает.
+            // Раньше эта ветка не трогала btnRitual вовсе, поэтому кнопка могла остаться
+            // видимой, если до этого (например, из-за более раннего updateUI() с ещё не
+            // установленным isMgUser) видимость уже была выставлена в VISIBLE.
+            binding.btnRitual.visibility = View.GONE
+
             // Показываем кнопки для МГ
             binding.btnAuraEditor.visibility = View.VISIBLE
             binding.btnCreateArtifact.visibility = View.VISIBLE
@@ -402,7 +396,7 @@ class MainActivity : AppCompatActivity() {
         // Кнопка управления точками скрыта для всех
 
         // Кулдаун ритуала (если кнопка видима) переопределяет простое isEnabled = isInGame()
-        updateRitualButtonState()
+        ritualManager.updateButtonState()
     }
 
     private fun loadUserAura(userId: String) {
@@ -461,11 +455,11 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
                 } else {
                     LogHelper.e("MainActivity: Ошибка обновления ауры: ${response.code()}")
-                    Toast.makeText(this@MainActivity, "Ошибка обновления ауры: ${response.code()}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, NetworkErrors.http(response.code()), Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 LogHelper.e("MainActivity: Ошибка сети при обновлении ауры: ${e.localizedMessage}")
-                Toast.makeText(this@MainActivity, "Ошибка сети: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, NetworkErrors.network(e), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -583,10 +577,7 @@ class MainActivity : AppCompatActivity() {
         
         // Останавливаем сервис локации
         ShiftApplication.instance.stopLocationService()
-        
-        // Останавливаем сервис обновления профиля
-        // ProfileUpdateService.stopService(this) // Удалено
-        
+
         // Сбрасываем состояние игры
         ShiftApplication.instance.setIsInGame(false)
         
@@ -597,140 +588,30 @@ class MainActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun checkPermissionsSequentially() {
-        LogHelper.d("MainActivity: Начинаем последовательную проверку разрешений")
-        // Сначала проверяем разрешение на уведомления
-        if (!hasNotificationPermission()) {
-            LogHelper.d("MainActivity: Запрашиваем разрешение на уведомления")
-            requestNotificationPermission()
-        } else {
-            LogHelper.d("MainActivity: Разрешение на уведомления уже есть, проверяем местоположение")
-            // Если разрешение на уведомления уже есть, проверяем местоположение
-            checkLocationPermission()
-        }
-    }
-
-    private fun checkNotificationPermission() {
-        if (!hasNotificationPermission()) {
-            LogHelper.d("MainActivity: Запрашиваем разрешение на уведомления")
-            requestNotificationPermission()
-        } else {
-            LogHelper.d("MainActivity: Разрешение на уведомления уже есть, проверяем местоположение")
-            // Если разрешение на уведомления уже есть, проверяем местоположение
-            checkLocationPermission()
-        }
-    }
-
-    private fun hasNotificationPermission(): Boolean {
-        // POST_NOTIFICATIONS появился только в Android 13 (API 33). На более старых версиях
-        // разрешение выдаётся автоматически, отдельного runtime-запроса нет — считаем выданным.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun requestNotificationPermission() {
-        // На Android < 13 запрашивать нечего — сразу переходим к геолокации.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            LogHelper.d("MainActivity: API<33, POST_NOTIFICATIONS не требуется, проверяем геолокацию")
-            checkLocationPermission()
-            return
-        }
-        LogHelper.d("MainActivity: Отправляем запрос на разрешение уведомлений")
-        ActivityCompat.requestPermissions(
-            this,
-            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-            REQUEST_NOTIFICATION_PERMISSION
-        )
-    }
-
-    private fun checkLocationPermission() {
-        if (!hasLocationPermission()) {
-            LogHelper.d("MainActivity: Запрашиваем разрешение на местоположение")
-            requestLocationPermission()
-        } else {
-            LogHelper.d("MainActivity: Разрешение на местоположение уже есть")
-        }
-    }
-
-    private fun hasLocationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED ||
-        ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun requestLocationPermission() {
-        LogHelper.d("MainActivity: Отправляем запрос на разрешение местоположения")
-        ActivityCompat.requestPermissions(
-            this,
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
-            REQUEST_LOCATION_PERMISSION
-        )
-    }
-
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_NOTIFICATION_PERMISSION) {
-            LogHelper.d("MainActivity: Получен результат запроса разрешения на уведомления")
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                LogHelper.d("MainActivity: Разрешение на уведомления получено")
-                updateUI()
-                Toast.makeText(this, "Разрешение на уведомления получено", Toast.LENGTH_SHORT).show()
-                // После получения разрешения на уведомления, запрашиваем разрешение на геолокацию с небольшой задержкой
-                LogHelper.d("MainActivity: Планируем запрос разрешения на местоположение через 1 секунду")
-                binding.root.postDelayed({
-                    checkLocationPermission()
-                }, 1000) // 1 секунда задержки
-            } else {
-                LogHelper.w("MainActivity: Пользователь отказал в разрешении на уведомления")
-                Toast.makeText(this, "Для полноценной работы приложения требуется разрешение на уведомления", Toast.LENGTH_LONG).show()
-                // Даже если пользователь отказал в уведомлениях, все равно запрашиваем местоположение с задержкой
-                LogHelper.d("MainActivity: Планируем запрос разрешения на местоположение через 1 секунду (после отказа в уведомлениях)")
-                binding.root.postDelayed({
-                    checkLocationPermission()
-                }, 1000) // 1 секунда задержки
-            }
-        } else if (requestCode == REQUEST_LOCATION_PERMISSION) {
-            LogHelper.d("MainActivity: Получен результат запроса разрешения на местоположение")
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                LogHelper.d("MainActivity: Разрешение на местоположение получено")
-                updateUI()
-                Toast.makeText(this, "Разрешение на геолокацию получено", Toast.LENGTH_SHORT).show()
-                // Проверяем, нужно ли запустить LocationService
-                checkAndStartLocationService()
-            } else {
-                LogHelper.w("MainActivity: Пользователь отказал в разрешении на местоположение")
-                Toast.makeText(this, "Для полноценной работы приложения требуется разрешение на геолокацию", Toast.LENGTH_LONG).show()
-            }
-        }
+        mainActivityPermissions.onRequestPermissionsResult(requestCode, grantResults)
     }
 
-    private fun checkAndStartLocationService() {
+    /** Планирует action через delayMs на корневой view — используется MainActivityPermissions. */
+    internal fun scheduleOnRoot(delayMs: Long, action: () -> Unit) {
+        binding.root.postDelayed(action, delayMs)
+    }
+
+    internal fun checkAndStartLocationService() {
         if (ShiftApplication.instance.isInGame() && !ShiftApplication.instance.isLocationServiceRunning()) {
             // Проверяем разрешения на геолокацию
-            if (hasLocationPermission()) {
+            if (mainActivityPermissions.hasLocationPermission()) {
                 // Проверяем, что приложение активно
                 if (!isFinishing && !isDestroyed) {
                     ShiftApplication.instance.startLocationService()
                     LogHelper.d("MainActivity: Запуск LocationService")
                     
                     // Проверка сообщений теперь в LocationService
-                    
-                    // Запускаем сервис обновления профиля
-                    // ProfileUpdateService.startService(this) // Удалено
-                    LogHelper.d("MainActivity: ProfileUpdateService запущен")
                 } else {
                     LogHelper.w("MainActivity: Activity не активна, LocationService не запускается")
                 }
@@ -785,103 +666,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun performRitual() {
-        if (isRitualOnCooldown()) {
-            val minutes = ritualRemainingMs() / 60000 + 1
-            Toast.makeText(this, "Ритуал недавно проводился. Подождите ещё ~$minutes мин.", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        // Получаем текущую локацию
-        val location = LocationService.getCurrentLocation()
-        if (location == null) {
-            Toast.makeText(this, "Не удалось получить текущую локацию", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        // Получаем данные пользователя
-        val user = UserPrefsHelper.getUserData(this)
-        if (user == null) {
-            Toast.makeText(this, "Ошибка: данные пользователя не найдены", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        // Блокируем кнопку на время запроса
-        binding.btnRitual.isEnabled = false
-        binding.btnRitual.text = "Ритуал выполняется..."
-
-        // Создаем точку SHRINKING_CIRCLE
-        val pointRequest = PointRequest(
-            type = PointType.SHRINKING_CIRCLE.serverValue,
-            lat = location.latitude,
-            lng = location.longitude,
-            radius = 50.0, // Радиус 50 метров
-            ownerId = user.userId,
-            description = "Здесь случилась сильная магия",
-            textToShowOnEnter = "Здесь прошёл ритуал",
-        )
-
-        // Отправляем запрос на сервер
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val response = RetrofitClient.shiftApi.createPoint(pointRequest)
-                if (response.isSuccessful) {
-                    // Фиксируем время ритуала в prefs — кулдаун переживает поворот экрана,
-                    // уход на карту и даже перезапуск процесса (раньше жил только в поле Activity).
-                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
-                        .putLong(KEY_LAST_RITUAL, System.currentTimeMillis()).apply()
-                }
-                runOnUiThread {
-                    if (isFinishing || isDestroyed) return@runOnUiThread
-                    if (response.isSuccessful) {
-                        Toast.makeText(this@MainActivity, "Точка создана. Не забудьте написать МГ", Toast.LENGTH_LONG).show()
-                    } else {
-                        Toast.makeText(this@MainActivity, "Ошибка создания точки: ${response.code()}", Toast.LENGTH_SHORT).show()
-                    }
-                    updateRitualButtonState()
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    if (isFinishing || isDestroyed) return@runOnUiThread
-                    Toast.makeText(this@MainActivity, "Ошибка сети: ${e.message}", Toast.LENGTH_SHORT).show()
-                    updateRitualButtonState()
-                }
-            }
-        }
-    }
-
-    private fun isRitualOnCooldown(): Boolean = ritualRemainingMs() > 0
-
-    private fun ritualRemainingMs(): Long {
-        val last = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getLong(KEY_LAST_RITUAL, 0L)
-        return (RITUAL_COOLDOWN_MS - (System.currentTimeMillis() - last)).coerceAtLeast(0L)
-    }
-
-    /**
-     * Приводит состояние кнопки ритуала в соответствие с кулдауном из prefs.
-     * Вызывается из updateUI и после каждой попытки ритуала.
-     */
-    private fun updateRitualButtonState() {
-        if (binding.btnRitual.visibility != View.VISIBLE) return
-        binding.btnRitual.removeCallbacks(ritualTick)
-        val remaining = ritualRemainingMs()
-        if (remaining > 0) {
-            binding.btnRitual.isEnabled = false
-            binding.btnRitual.text = "Ритуал: ждите ~${remaining / 60000 + 1} мин"
-            // Перепланируем обновление подписи/разблокировку (не реже раза в минуту)
-            binding.btnRitual.postDelayed(ritualTick, minOf(remaining, 60000L))
-        } else {
-            binding.btnRitual.isEnabled = ShiftApplication.instance.isInGame()
-            binding.btnRitual.text = "Я провёл ритуал"
-        }
-    }
-
     companion object {
         const val PREFS_NAME = "game_state"
         const val KEY_IN_GAME = "is_in_game"
-        private const val KEY_LAST_RITUAL = "last_ritual_time"
-        private const val RITUAL_COOLDOWN_MS = 30 * 60 * 1000L // 30 минут
-        private const val REQUEST_NOTIFICATION_PERMISSION = 100
-        private const val REQUEST_LOCATION_PERMISSION = 101
+        private var updateCheckedThisSession = false
     }
 } 

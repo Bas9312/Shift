@@ -25,10 +25,11 @@ object RetrofitClient {
     private class RetryInterceptor(private val maxRetries: Int = 2) : Interceptor {
         override fun intercept(chain: Interceptor.Chain): Response {
             val request = chain.request()
+            var activeChain = chain
             var attempt = 0
             while (true) {
                 try {
-                    val response = chain.proceed(request)
+                    val response = activeChain.proceed(request)
                     val retryable = request.method == "GET" && response.code in 500..599
                     if (!retryable || attempt >= maxRetries) return response
                     response.close()
@@ -36,11 +37,21 @@ object RetrofitClient {
                     if (request.method != "GET" || attempt >= maxRetries) throw e
                 }
                 attempt++
+                // На повторных попытках режем connect/read timeout: если сети нет вообще
+                // (не блик, а настоящий обрыв), не даём каждой попытке заново ждать полные
+                // 30 сек — иначе 3 попытки складываются в ~90 сек ощущаемого зависания.
+                activeChain = activeChain
+                    .withConnectTimeout(RETRY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .withReadTimeout(RETRY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 try { Thread.sleep(300L * attempt) } catch (ie: InterruptedException) {
                     Thread.currentThread().interrupt()
                     throw IOException("Interrupted during retry backoff", ie)
                 }
             }
+        }
+
+        private companion object {
+            const val RETRY_TIMEOUT_SECONDS = 8
         }
     }
 

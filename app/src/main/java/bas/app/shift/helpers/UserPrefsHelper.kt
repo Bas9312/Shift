@@ -56,11 +56,6 @@ object UserPrefsHelper {
         return prefs.getString(KEY_USER_NAME, "Unknown User") ?: "Unknown User"
     }
 
-    fun hasUserData(context: Context): Boolean {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.contains(KEY_USER_DATA)
-    }
-
     fun clearUserData(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().clear().commit()

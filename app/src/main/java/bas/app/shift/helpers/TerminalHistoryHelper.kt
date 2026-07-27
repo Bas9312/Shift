@@ -46,11 +46,6 @@ object TerminalHistoryHelper {
         }
     }
 
-    fun clearHistory(context: Context) {
-        val prefs = getPrefs(context)
-        prefs.edit().remove(KEY_HISTORY).apply()
-    }
-
     /** Ограничивает и команды, и ответы последними MAX_HISTORY_SIZE записями. */
     private fun limited(history: TerminalHistory): TerminalHistory {
         val cmds = if (history.commands.size > MAX_HISTORY_SIZE) history.commands.takeLast(MAX_HISTORY_SIZE) else history.commands

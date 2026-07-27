@@ -85,8 +85,4 @@ class CommandAutocompleteAdapter(
             filteredCommands[position]
         } else null
     }
-    
-    fun getCommandNameAt(position: Int): String? {
-        return getCommandAt(position)?.name
-    }
 }

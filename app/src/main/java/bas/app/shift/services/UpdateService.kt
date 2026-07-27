@@ -12,6 +12,7 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
+import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import android.content.pm.PackageManager
@@ -25,6 +26,7 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 
 class UpdateService(
     private val context: Context,
@@ -205,6 +207,9 @@ class UpdateService(
         
         // Регистрируем BroadcastReceiver для отслеживания завершения загрузки
         LogHelper.d("UpdateService: Регистрируем BroadcastReceiver для отслеживания загрузки")
+        // Receiver и таймер-фоллбек ниже могут оба увидеть STATUS_SUCCESSFUL почти одновременно —
+        // этот флаг гарантирует, что установка/тост об ошибке запускается только один раз.
+        val downloadHandled = AtomicBoolean(false)
         val onComplete = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 LogHelper.d("UpdateService: BroadcastReceiver получил intent: ${intent?.action}")
@@ -230,7 +235,12 @@ class UpdateService(
                 } catch (e: Exception) {
                     LogHelper.w("UpdateService: Ошибка отмены receiver: ${e.message}")
                 }
-                
+
+                if (!downloadHandled.compareAndSet(false, true)) {
+                    LogHelper.d("UpdateService: Статус уже обработан таймером, пропускаем receiver")
+                    return
+                }
+
                 // Проверяем статус загрузки
                 val query = DownloadManager.Query().setFilterById(downloadId)
                 val cursor = downloadManager.query(query)
@@ -279,7 +289,26 @@ class UpdateService(
             priority = 1000 // Высокий приоритет
         }
         context.registerReceiver(onComplete, intentFilter, Context.RECEIVER_NOT_EXPORTED)
-        
+
+        // Страховка от утечки receiver'а: если экран уничтожен до завершения загрузки
+        // (пользователь закрыл приложение на медленной сети), receiver снимается здесь —
+        // иначе он остаётся зарегистрированным на context уничтоженной Activity до тех пор,
+        // пока DownloadManager не пришлёт broadcast (может не прийти вовсе, если процесс убьют).
+        val destroyObserver = object : DefaultLifecycleObserver {
+            override fun onDestroy(owner: LifecycleOwner) {
+                if (downloadHandled.compareAndSet(false, true)) {
+                    try {
+                        context.unregisterReceiver(onComplete)
+                        LogHelper.d("UpdateService: BroadcastReceiver отменен при уничтожении экрана")
+                    } catch (e: Exception) {
+                        LogHelper.w("UpdateService: Ошибка отмены receiver при onDestroy: ${e.message}")
+                    }
+                }
+                owner.lifecycle.removeObserver(this)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(destroyObserver)
+
         // Добавляем таймер для проверки статуса загрузки
         lifecycleOwner.lifecycleScope.launch {
             delay(5000) // Ждем 5 секунд
@@ -293,36 +322,45 @@ class UpdateService(
                 val status = cursor.getInt(columnIndex)
                 LogHelper.d("UpdateService: Статус загрузки (таймер): $status")
                 
-                if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                    LogHelper.i("UpdateService: Загрузка завершена (таймер), устанавливаем APK")
+                if (status == DownloadManager.STATUS_SUCCESSFUL || status == DownloadManager.STATUS_FAILED) {
+                    // Терминальный статус: это тот же результат, что мог заметить receiver —
+                    // гейтим общим флагом, чтобы установка/тост об ошибке не сработали дважды.
+                    if (!downloadHandled.compareAndSet(false, true)) {
+                        LogHelper.d("UpdateService: Статус уже обработан receiver-ом, пропускаем таймер")
+                        cursor.close()
+                        return@launch
+                    }
                     try {
                         context.unregisterReceiver(onComplete)
                     } catch (e: Exception) {
                         LogHelper.w("UpdateService: Ошибка отмены receiver (таймер): ${e.message}")
                     }
-                    
-                    val uri = downloadManager.getUriForDownloadedFile(downloadId)
-                    if (uri != null) {
-                        LogHelper.d("UpdateService: Получен URI (таймер): $uri")
-                        installApk(uri)
-                    } else {
-                        LogHelper.w("UpdateService: URI не получен (таймер), используем fallback")
-                        val apkFile = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), UPDATE_APK_FILENAME)
-                        if (apkFile.exists()) {
-                            LogHelper.d("UpdateService: APK найден по пути (таймер): ${apkFile.absolutePath}")
-                            installApk(FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                apkFile
-                            ))
+
+                    if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                        LogHelper.i("UpdateService: Загрузка завершена (таймер), устанавливаем APK")
+                        val uri = downloadManager.getUriForDownloadedFile(downloadId)
+                        if (uri != null) {
+                            LogHelper.d("UpdateService: Получен URI (таймер): $uri")
+                            installApk(uri)
                         } else {
-                            LogHelper.e("UpdateService: APK не найден по пути (таймер): ${apkFile.absolutePath}")
-                            Toast.makeText(context, "Ошибка: файл обновления не найден", Toast.LENGTH_LONG).show()
+                            LogHelper.w("UpdateService: URI не получен (таймер), используем fallback")
+                            val apkFile = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), UPDATE_APK_FILENAME)
+                            if (apkFile.exists()) {
+                                LogHelper.d("UpdateService: APK найден по пути (таймер): ${apkFile.absolutePath}")
+                                installApk(FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.fileprovider",
+                                    apkFile
+                                ))
+                            } else {
+                                LogHelper.e("UpdateService: APK не найден по пути (таймер): ${apkFile.absolutePath}")
+                                Toast.makeText(context, "Ошибка: файл обновления не найден", Toast.LENGTH_LONG).show()
+                            }
                         }
+                    } else {
+                        LogHelper.e("UpdateService: Загрузка не удалась (таймер), статус: $status")
+                        Toast.makeText(context, "Ошибка загрузки обновления", Toast.LENGTH_LONG).show()
                     }
-                } else if (status == DownloadManager.STATUS_FAILED) {
-                    LogHelper.e("UpdateService: Загрузка не удалась (таймер), статус: $status")
-                    Toast.makeText(context, "Ошибка загрузки обновления", Toast.LENGTH_LONG).show()
                 } else {
                     LogHelper.w("UpdateService: Загрузка еще не завершена (таймер), статус: $status")
                 }
