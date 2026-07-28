@@ -77,6 +77,9 @@ class AuraFragment : Fragment() {
         lifecycleScope.launch(Dispatchers.IO) {
             val response = auraApi.getAura(userId)
             withContext(Dispatchers.Main) {
+                // lifecycleScope живёт дольше view фрагмента (переживает onDestroyView);
+                // без этой проверки ответ, пришедший после разрушения view, упадёт на `binding!!`.
+                if (_binding == null) return@withContext
                 if (response.isSuccessful) {
                     val aura = response.body()
                     if (aura != null) {

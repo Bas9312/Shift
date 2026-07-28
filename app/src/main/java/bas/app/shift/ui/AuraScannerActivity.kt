@@ -102,14 +102,14 @@ class AuraScannerActivity : AppCompatActivity() {
                 val scannedContent = result.contents
                 LogHelper.d("AuraScannerActivity: Отсканирован QR-код: $scannedContent")
                 
-                // Пытаемся извлечь ID ауры
-                try {
-                    val auraId = scannedContent.toString()
-                    fetchAura(auraId)
-                } catch (e: NumberFormatException) {
+                // Валидируем содержимое QR-кода (userId не может быть пустым)
+                val auraId = scannedContent.trim()
+                if (auraId.isEmpty()) {
                     Toast.makeText(this, "Неверный формат QR-кода", Toast.LENGTH_LONG).show()
-                    LogHelper.e("AuraScannerActivity: Неверный формат QR-кода: $scannedContent")
+                    LogHelper.e("AuraScannerActivity: Пустое содержимое QR-кода")
                     finish()
+                } else {
+                    fetchAura(auraId)
                 }
             }
         } else {

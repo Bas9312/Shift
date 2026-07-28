@@ -49,6 +49,17 @@ data class User(
     val effects: List<Effect>? = emptyList()
 )
 
+/** Дисциплина, открывающая работу с аурами: свою чистку, чужие ауры и ауры мест. */
+const val DISCIPLINE_EXTRASENSORY = "Экстрасенсорика"
+
+/**
+ * Экстрасенс ли игрок. Проверка живёт здесь, а не по месту вызова: раньше строка
+ * «Экстрасенсорика» была вписана в двух местах MainActivity, и добавить третью проверку
+ * значило скопировать её ещё раз.
+ */
+val User.isExtrasensory: Boolean
+    get() = disciplines.any { it.name.equals(DISCIPLINE_EXTRASENSORY, ignoreCase = true) }
+
 // Модель для получения профиля с сервера (с ID массивами)
 data class ShortUser(
     @SerializedName("userId") val userId: String,

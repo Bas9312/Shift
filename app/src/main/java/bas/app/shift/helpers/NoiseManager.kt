@@ -223,5 +223,6 @@ class NoiseManager(private val context: Context) {
         onNoiseUpdateListener = null
         onGlobalNoiseUpdateListener = null
         onCommandSuccessListener = null
+        onCommandFailureListener = null
     }
 }

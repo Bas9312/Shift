@@ -18,6 +18,7 @@ import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraHiddenRequest
 import bas.app.shift.models.Effect
 import bas.app.shift.models.FamiliarData
+import bas.app.shift.models.isExtrasensory
 import bas.app.shift.services.NewMessagesChecker
 import bas.app.shift.ui.terminal.TerminalActivity
 import bas.app.shift.ui.ChatsListActivity
@@ -337,8 +338,7 @@ class MainActivity : AppCompatActivity() {
                 binding.btnScanArtifact.visibility = if (hasArtifactKnowledge) View.VISIBLE else View.GONE
                 
                 // Проверяем дисциплину "Экстрасенсорика"
-                val hasExtrasensory = user.disciplines.any { it.name.equals("Экстрасенсорика", ignoreCase = true) }
-                binding.openAuraButton.visibility = if (hasExtrasensory) View.VISIBLE else View.GONE
+                binding.openAuraButton.visibility = if (user.isExtrasensory) View.VISIBLE else View.GONE
                 
                 // Проверяем дисциплину "Шумомантия"
                 val hasNoisemancy = user.disciplines.any { it.id == 9 }
@@ -477,7 +477,7 @@ class MainActivity : AppCompatActivity() {
                         val hasArtifactKnowledge = user.modules.any { it.name.equals("Познание артефактов", ignoreCase = true) }
                         
                         // Проверяем дисциплину "Экстрасенсорика"
-                        val hasExtrasensory = user.disciplines.any { it.name.equals("Экстрасенсорика", ignoreCase = true) }
+                        val hasExtrasensory = user.isExtrasensory
                         
                         // Проверяем дисциплину "Шумомантия"
                         val hasNoisemancy = user.disciplines.any { it.name.equals("Шумомантия", ignoreCase = true) }

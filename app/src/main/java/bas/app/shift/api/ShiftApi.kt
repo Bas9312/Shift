@@ -18,10 +18,21 @@ interface ShiftApi {
     suspend fun createPoint(@Body pointRequest: PointRequest): Response<Point>
 
     @PATCH("/api_geo/api/v1/points/{id}")
-    suspend fun updatePointHidden(
+    suspend fun updatePoint(
         @Path("id") pointId: String,
-        @Body body: UpdatePointHiddenRequest,
+        @Body body: UpdatePointRequest,
     ): Response<Point>
+
+    /** Занять фамильяра под себя. 409, если с ним уже общается другой игрок. */
+    @POST("/api_geo/api/v1/points/{id}/bind")
+    suspend fun bindFamiliar(
+        @Path("id") pointId: String,
+        @Body body: BindFamiliarRequest,
+    ): Response<Point>
+
+    /** Продлить свою привязку (сервер двигает last_message_time, отсчёт 15 минут — заново). */
+    @POST("/api_geo/api/v1/points/{id}/touch")
+    suspend fun touchFamiliar(@Path("id") pointId: String): Response<Point>
 
     @DELETE("/api_geo/api/v1/points/{id}")
     suspend fun deletePoint(@Path("id") pointId: String): Response<Unit>

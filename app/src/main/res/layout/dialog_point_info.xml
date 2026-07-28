@@ -20,7 +20,7 @@
         android:layout_marginBottom="16dp" />
 
     <TextView
-        android:id="@+id/tvPointType"
+        android:id="@+id/tvPointRadius"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/point_radius_label"
@@ -28,20 +28,10 @@
         android:layout_marginBottom="8dp" />
 
     <TextView
-        android:id="@+id/tvPointRadius"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/point_coordinates_label"
-        android:textSize="16sp"
-        android:layout_marginBottom="8dp" />
-
-    <TextView
         android:id="@+id/tvPointCoordinates"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:autoLink="web|email|phone"
-        android:linksClickable="true"
-        android:text="@string/point_description_label"
+        android:text="@string/point_coordinates_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp" />
 
@@ -51,18 +41,44 @@
         android:layout_height="wrap_content"
         android:autoLink="web|email|phone"
         android:linksClickable="true"
+        android:text="@string/point_description_label"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/tvPointTextOnEnter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:autoLink="web|email|phone"
+        android:linksClickable="true"
         android:text="@string/point_text_on_enter_label"
         android:textSize="16sp"
         android:layout_marginBottom="8dp" />
 
     <TextView
-        android:id="@+id/tvPointTextToShowOnEnter"
+        android:id="@+id/tvAuraLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text=""
+        android:text="@string/aura_of_place_title"
         android:textSize="16sp"
-        android:layout_marginBottom="16dp"
-        android:visibility="gone" />
+        android:layout_marginBottom="8dp" />
+
+    <EditText
+        android:id="@+id/etAuraText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/point_aura_text_hint"
+        android:inputType="textMultiLine"
+        android:minLines="2"
+        android:maxLines="4"
+        android:layout_marginBottom="16dp" />
+
+    <CheckBox
+        android:id="@+id/cbTrackable"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/point_trackable_label"
+        android:layout_marginBottom="12dp" />
 
     <CheckBox
         android:id="@+id/cbHidden"

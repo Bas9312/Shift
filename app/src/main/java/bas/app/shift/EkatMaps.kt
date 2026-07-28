@@ -34,6 +34,7 @@ import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.models.Point
 import bas.app.shift.models.PointRequest
 import bas.app.shift.models.PointType
+import bas.app.shift.models.isExtrasensory
 import bas.app.shift.models.vLatOrLat
 import bas.app.shift.models.vLngOrLng
 import bas.app.shift.services.LocationService
@@ -75,6 +76,9 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     private val pointsUpdateInterval = 10000L // 10 секунд
     private var lastPointsUpdate = 0L
     private var isMgUser = false
+
+    /** Дисциплина «Экстрасенсорика»: такому игроку доступно чтение ауры места. */
+    private var isExtrasensory = false
     private val scope = CoroutineScope(Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -195,6 +199,15 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         mMap.uiSettings.isScrollGesturesEnabled = true
         mMap.uiSettings.isZoomGesturesEnabled = true
 
+        // Клик по кругу trackable-точки: единственный способ узнать, что сюда нужен мастер,
+        // НЕ доходя до места (маркер у обычного игрока появляется только внутри радиуса).
+        mMap.setOnCircleClickListener { circle ->
+            val point = pointsRenderer.findPointForCircle(circle)
+            if (point?.trackable == 1) {
+                showTrackableWarningDialog()
+            }
+        }
+
         // Добавляем обработчики событий для всех пользователей
         if (isMgUser) {
             LogHelper.d("Настройка карты для MG пользователя с дополнительным функционалом (лонг тапы)")
@@ -300,27 +313,92 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     private fun showFamiliarTalkDialog(point: Point, distance: Float) {
         LogHelper.d("Показ диалога разговора с фамильяром, расстояние: ${distance.toInt()}м")
-        
+
+        val myUserId = UserPrefsHelper.getUserId(this)
+        val holder = point.assigned_player
+
+        // Фамильяр занят кем-то другим. Данные из последнего опроса точек — сервер к этому
+        // моменту уже снял привязки, молчавшие дольше 15 минут, так что «занято» тут живое.
+        if (holder != null && holder != myUserId) {
+            LogHelper.d("Фамильяр ${point.pointId} занят игроком $holder")
+            showFamiliarBusyDialog()
+            return
+        }
+
         val familiarName = pointsRenderer.getPointTitle(PointType.fromServerValue(point.type))
         val message = getString(R.string.familiar_dialog_message, familiarName, distance.toInt())
-        
+
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.familiar_dialog_title))
             .setMessage(message)
-            .setPositiveButton(getString(R.string.familiar_talk_button)) { _, _ ->
-                // Открываем экран "фамильяр рядом"
-                openFamiliarFound(point)
+            .setPositiveButton(getString(R.string.familiar_talk_start_button)) { _, _ ->
+                bindAndOpenFamiliar(point, myUserId)
             }
             .setNegativeButton(getString(R.string.familiar_cancel_button), null)
             .show()
     }
 
+    /**
+     * Занимает фамильяра под игрока и открывает чат.
+     *
+     * Не занял — не пускаем, какой бы ни была причина. Смысл механики в том, что говорящий
+     * ровно один; если пускать при сбое сети, двое с плохой связью окажутся в чате вдвоём —
+     * ровно та ситуация, ради которой всё и делалось.
+     */
+    private fun bindAndOpenFamiliar(point: Point, myUserId: String) {
+        scope.launch {
+            try {
+                val response = ServerService.bindFamiliar(point.pointId, myUserId)
+                when {
+                    response.isSuccessful -> {
+                        LogHelper.d("Фамильяр ${point.pointId} занят игроком $myUserId")
+                        openFamiliarFound(point)
+                        updatePointsFromServer()
+                    }
+                    response.code() == 409 -> {
+                        LogHelper.d("Фамильяр ${point.pointId} перехвачен другим игроком")
+                        showFamiliarBusyDialog()
+                        updatePointsFromServer()
+                    }
+                    else -> {
+                        LogHelper.e("Не удалось занять фамильяра: ${response.code()}")
+                        showFamiliarBindFailedDialog()
+                    }
+                }
+            } catch (e: Exception) {
+                LogHelper.e("Исключение при попытке занять фамильяра: ${e.message}")
+                showFamiliarBindFailedDialog()
+            }
+        }
+    }
+
+    private fun showOkDialog(title: String, message: String) {
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("Понятно", null)
+            .show()
+    }
+
+    private fun showFamiliarBusyDialog() =
+        showOkDialog(getString(R.string.familiar_busy_title), getString(R.string.familiar_busy_message))
+
+    private fun showFamiliarBindFailedDialog() =
+        showOkDialog(getString(R.string.familiar_bind_failed_title), getString(R.string.familiar_bind_failed))
+
+    private fun showTrackableWarningDialog() =
+        showOkDialog(getString(R.string.point_trackable_player_title), getString(R.string.point_trackable_player_message))
+
     private fun showBasicPointInfoDialog(point: Point) {
         LogHelper.d("Показ базовой информации о точке: ${point.pointId}")
-        
+
         val title = pointsRenderer.getPointTitle(PointType.fromServerValue(point.type))
+        val trackableLine = if (point.trackable == 1) {
+            "⚠ " + getString(R.string.point_trackable_player_message) + "\n\n"
+        } else ""
         val message = if (point.type == "USER") "Здесь кто-то есть (мастер или игротех)"
-        else getString(R.string.point_basic_radius, point.radius) + "\n" +
+        else trackableLine +
+                getString(R.string.point_basic_radius, point.radius) + "\n" +
                 getString(R.string.point_basic_description, point.description ?: getString(R.string.point_no_description)) + "\n" +
                 if (point.textToShowOnEnter.isNullOrEmpty()) "" else "При входе: ${point.textToShowOnEnter}"
 
@@ -332,8 +410,50 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             movementMethod = LinkMovementMethod.getInstance()
         }
 
-        AlertDialog.Builder(this)
+        val builder = AlertDialog.Builder(this)
             .setTitle(title)
+            .setView(tv)
+            .setPositiveButton("OK", null)
+
+        if (canReadAuraOf(point)) {
+            builder.setNeutralButton(getString(R.string.aura_of_place_button)) { _, _ ->
+                showAuraOfPlaceDialog(point)
+            }
+        }
+
+        builder.show()
+    }
+
+    /**
+     * Кнопка чтения ауры места. Маркер игрок и так видит только внутри радиуса, но радиус
+     * бывает и в километр, поэтому отдельно требуем подойти вплотную — аура читается с места,
+     * а не с другого конца парка. У USER-точек (человек на карте) ауры места нет.
+     */
+    private fun canReadAuraOf(point: Point): Boolean {
+        if (!isExtrasensory || point.type == "USER") return false
+
+        val location = currentLocation ?: return false
+        val distance = pointsRenderer.calculateDistance(
+            LatLng(location.latitude, location.longitude),
+            LatLng(point.lat, point.lng)
+        )
+        return distance <= AURA_READ_MAX_DISTANCE_M
+    }
+
+    private fun showAuraOfPlaceDialog(point: Point) {
+        val auraText = point.aura_text?.takeIf { it.isNotBlank() }
+        LogHelper.d("Чтение ауры места ${point.pointId}: ${if (auraText == null) "текста нет" else "текст есть"}")
+
+        val tv = TextView(this).apply {
+            text = auraText ?: getString(R.string.aura_of_place_empty)
+            setTextIsSelectable(true)
+            setPadding(48, 32, 48, 16)
+            LinkifyCompat.addLinks(this, Linkify.ALL)
+            movementMethod = LinkMovementMethod.getInstance()
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.aura_of_place_title))
             .setView(tv)
             .setPositiveButton("OK", null)
             .show()
@@ -348,6 +468,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         
         val intent = Intent(this, FamiliarFoundActivity::class.java).apply {
             putExtra("familiar_id", familiarId)
+            // pointId нужен дальше в чате, чтобы продлевать привязку на каждое сообщение
+            putExtra("point_id", point.pointId)
         }
         startActivity(intent)
     }
@@ -389,21 +511,26 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
         // Заполняем информацию о точке
         dialogBinding.tvPointTitle.text = pointsRenderer.getPointTitle(PointType.fromServerValue(point.type))
-        dialogBinding.tvPointType.text = getString(R.string.point_radius_label) + " " + point.radius + "м"
-        dialogBinding.tvPointRadius.text = getString(R.string.point_coordinates_label) + " " + String.format("%.6f", point.lat) + ", " + String.format("%.6f", point.lng)
-        dialogBinding.tvPointCoordinates.text = getString(R.string.point_description_label) + " " + (point.description ?: getString(R.string.point_no_description))
-        dialogBinding.tvPointDescription.text = getString(R.string.point_text_on_enter_label) + " " + (point.textToShowOnEnter ?: getString(R.string.point_no_text_on_enter))
-        dialogBinding.tvPointTextToShowOnEnter.text = "" // Скрываем это поле, так как оно не всегда нужно
+        dialogBinding.tvPointRadius.text = getString(R.string.point_radius_label) + " " + point.radius + "м"
+        dialogBinding.tvPointCoordinates.text = getString(R.string.point_coordinates_label) + " " + String.format("%.6f", point.lat) + ", " + String.format("%.6f", point.lng)
+        dialogBinding.tvPointDescription.text = getString(R.string.point_description_label) + " " + (point.description ?: getString(R.string.point_no_description))
+        dialogBinding.tvPointTextOnEnter.text = getString(R.string.point_text_on_enter_label) + " " + (point.textToShowOnEnter ?: getString(R.string.point_no_text_on_enter))
+        // Aura of the place: what a psychic reads here. Editable, because the MG cannot see
+        // the current text anywhere else, and a typo used to mean recreating the point.
+        val initialAura = point.aura_text?.takeIf { it.isNotBlank() } ?: ""
+        dialogBinding.etAuraText.setText(initialAura)
 
-        listOf(dialogBinding.tvPointCoordinates, dialogBinding.tvPointDescription).forEach { tv ->
+        listOf(dialogBinding.tvPointDescription, dialogBinding.tvPointTextOnEnter).forEach { tv ->
             tv.setTextIsSelectable(true)
             LinkifyCompat.addLinks(tv, Linkify.ALL)
             tv.movementMethod = LinkMovementMethod.getInstance()
         }
 
-        // Скрытость (по доку приходит 0/1)
+        // Скрытость и «нужен мастер» (по доку приходят 0/1)
         val initialHidden = point.hidden == 1
+        val initialTrackable = point.trackable == 1
         dialogBinding.cbHidden.isChecked = initialHidden
+        dialogBinding.cbTrackable.isChecked = initialTrackable
 
         // Создаем bottom sheet
         val dialog = BottomSheetDialog(this)
@@ -412,20 +539,29 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
         dialogBinding.btnSavePoint.setOnClickListener {
             val newHidden = dialogBinding.cbHidden.isChecked
-            if (newHidden == initialHidden) {
+            val newTrackable = dialogBinding.cbTrackable.isChecked
+            val newAura = dialogBinding.etAuraText.text.toString().trim()
+            if (newHidden == initialHidden && newTrackable == initialTrackable && newAura == initialAura) {
                 dialog.dismiss()
                 return@setOnClickListener
             }
 
             scope.launch {
                 try {
-                    val response = ServerService.updatePointHidden(point.pointId, newHidden)
+                    // Шлём только реально изменившееся: null в теле означает «не трогать».
+                    // Для ауры пустая строка — это «стереть», её отличаем от null осознанно.
+                    val response = ServerService.updatePoint(
+                        pointId = point.pointId,
+                        hidden = newHidden.takeIf { it != initialHidden },
+                        trackable = newTrackable.takeIf { it != initialTrackable },
+                        auraText = newAura.takeIf { it != initialAura },
+                    )
                     if (response.isSuccessful) {
                         Toast.makeText(this@EkatMaps, getString(R.string.save), Toast.LENGTH_SHORT).show()
                         updatePointsFromServer()
                     } else {
                         Toast.makeText(this@EkatMaps, "Ошибка при сохранении", Toast.LENGTH_SHORT).show()
-                        LogHelper.e("Ошибка при обновлении hidden: ${response.code()}")
+                        LogHelper.e("Ошибка при обновлении точки: ${response.code()}")
                     }
                 } catch (e: Exception) {
                     Toast.makeText(this@EkatMaps, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -609,7 +745,9 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             val selectedPosition = dialogBinding.spinnerPointType.selectedItemPosition
             val selectedType = pointTypeValues[selectedPosition]
             val textToShowOnEnter = dialogBinding.etTextToShowOnEnter.text.toString()
+            val auraText = dialogBinding.etAuraText.text.toString()
             val isHidden = dialogBinding.cbHidden.isChecked
+            val isTrackable = dialogBinding.cbTrackable.isChecked
             val radius: Double? = if (dialogBinding.cbCustomRadius.isChecked) {
                 PointRadiusMath.radiusFromSlider(dialogBinding.sliderRadius.value)
             } else {
@@ -677,7 +815,9 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         ownerId = userId,
                         description = description,
                         textToShowOnEnter = textToShowOnEnter.takeIf { it.isNotEmpty() },
+                        aura_text = auraText.takeIf { it.isNotBlank() },
                         hidden = isHidden,
+                        trackable = isTrackable,
                         createdAt = createdAt,
                     )
                     
@@ -865,7 +1005,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     private fun checkIfMgUser() {
         val userName = UserPrefsHelper.getUserId(this)
         isMgUser = userName.startsWith("MG", ignoreCase = true)
-        LogHelper.d("Проверка MG пользователя: $userName, результат: $isMgUser")
+        isExtrasensory = UserPrefsHelper.getUserData(this)?.isExtrasensory == true
+        LogHelper.d("Проверка MG пользователя: $userName, результат: $isMgUser, экстрасенс: $isExtrasensory")
     }
 
     private fun setupVisibilityToggleButton() {
@@ -978,5 +1119,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     companion object {
         private const val REQUEST_CODE_LOCATION_PERMISSION = 100
+
+        /** Насколько близко надо подойти, чтобы прочитать ауру места. Как у фамильяров. */
+        private const val AURA_READ_MAX_DISTANCE_M = 50.0
     }
 }

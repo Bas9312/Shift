@@ -137,6 +137,9 @@ class ArtifactCreatorActivity : AppCompatActivity() {
     }
 
     private fun createArtifact() {
+        // Защита от повторного тапа, пока предыдущее создание ещё выполняется
+        if (!binding.saveButton.isEnabled) return
+
         // Валидация полей
         val name = binding.nameEditText.text.toString().trim()
         val level = binding.levelAutoComplete.text.toString().trim()
@@ -192,7 +195,8 @@ class ArtifactCreatorActivity : AppCompatActivity() {
             properties = properties
         )
 
-        // Отправка запроса
+        // Отправка запроса — кнопка отключается сразу перед сетевым вызовом, чтобы
+        // отсечь дубли от быстрых повторных тапов
         binding.saveButton.isEnabled = false
         binding.saveButton.text = "Создание..."
 

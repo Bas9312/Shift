@@ -8,6 +8,33 @@ Android-клиент оффлайн-игры/квеста (Kotlin, View + viewBi
 Сборка: `cd /home/bas/Shift && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew :app:assembleDebug --offline`
 Эмулятор: `emulator-5554` (Pixel_6_API_35); adb — `/home/bas/Android/Sdk/platform-tools/adb`.
 
+## Language (since 2026-07-28)
+
+Write **everything in English** unless the owner says otherwise for a specific task: chat
+replies, analysis documents, code comments, commit messages. The existing Russian comments
+and docs stay as they are — do not retranslate them, just write new text in English.
+
+The one exception is **user-facing Android string resources** (`res/values/strings.xml` and
+anything else players read in game): those stay Russian, because they are game text, not
+communication with the owner.
+
+## Server side
+
+The backend (PHP + MySQL on beget, served at `shift96.ru`) is owned by Тари, but the owner
+authorised direct edits and FTP uploads. A local mirror lives in the project:
+
+- `SERVER/` — mirror of `public_html`; the geo API is `SERVER/public_html/api_geo/api.php`
+- `API/` — API documentation as `.txt`
+
+Both are **gitignored** (`SERVER/` contains DB credentials in `config.php`).
+
+FTP: host `bas931wn.beget.tech`, user `bas931wn_claude`; the FTP root **is** `public_html`.
+The password is in the private memory file `shift-server-ftp.md`, not in this repo.
+
+**Always download the live file and diff it against the local copy before uploading** — Тари
+may have changed it in the meantime. Client-facing base path is
+`http://shift96.ru/api_geo/api/v1/...`.
+
 ## RAG-поиск по проекту (используй ДО слепого grep/чтения больших областей)
 
 Проект проиндексирован в локальный семантический индекс (эмбеддинги — Ollama

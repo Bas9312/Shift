@@ -24,6 +24,9 @@ class FamiliarChatActivity : AppCompatActivity() {
     private lateinit var chatAdapter: ChatAdapter
     private var familiar: String = ""
     private var userId: String = ""
+
+    /** Точка фамильяра на карте, если в чат пришли с неё. Нужна, чтобы держать привязку. */
+    private var pointId: String? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,6 +34,7 @@ class FamiliarChatActivity : AppCompatActivity() {
         setContentView(binding.root)
         
         // Получаем данные из intent
+        pointId = intent.getStringExtra("point_id")
         familiar = intent.getStringExtra("familiar") ?: ""
         if (familiar.isEmpty()) {
             Toast.makeText(this, "Ошибка: не указан фамильяр", Toast.LENGTH_SHORT).show()
@@ -59,8 +63,31 @@ class FamiliarChatActivity : AppCompatActivity() {
         binding.btnSend.setOnClickListener {
             sendMessage()
         }
+
+        binding.tvDisclaimer.setOnClickListener { showDisclaimerDialog() }
+        showDisclaimerOnFirstOpen()
     }
-    
+
+    /**
+     * Фамильяр — это ИИ: он может пообещать игроку что угодно (предмет, эффект, «иди туда»),
+     * и прецеденты уже были. Полный текст показываем принудительно при первом открытии чата,
+     * дальше он остаётся доступен по тапу на плашку, которая видна всегда.
+     */
+    private fun showDisclaimerOnFirstOpen() {
+        val prefs = getSharedPreferences(DISCLAIMER_PREFS, MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_DISCLAIMER_SHOWN, false)) return
+        showDisclaimerDialog()
+        prefs.edit().putBoolean(KEY_DISCLAIMER_SHOWN, true).apply()
+    }
+
+    private fun showDisclaimerDialog() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.familiar_chat_disclaimer_title)
+            .setMessage(R.string.familiar_chat_disclaimer)
+            .setPositiveButton("Понятно", null)
+            .show()
+    }
+
     private fun setupRecyclerView() {
         chatAdapter = ChatAdapter()
         binding.rvChat.layoutManager = LinearLayoutManager(this)
@@ -112,7 +139,11 @@ class FamiliarChatActivity : AppCompatActivity() {
         // Добавляем в чат
         chatAdapter.addMessage(userMessage)
         scrollToBottom()
-        
+
+        // Продлеваем захват фамильяра: 15 минут отсчитываются от последнего сообщения,
+        // так что пока разговор идёт, чужие сюда не влезут.
+        pointId?.let { bas.app.shift.services.ServerService.touchFamiliar(it) }
+
         // Отправляем на сервер
         lifecycleScope.launch {
             try {
@@ -159,5 +190,10 @@ class FamiliarChatActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         finish()
         return true
+    }
+
+    private companion object {
+        const val DISCLAIMER_PREFS = "familiar_chat_prefs"
+        const val KEY_DISCLAIMER_SHOWN = "disclaimer_shown"
     }
 }

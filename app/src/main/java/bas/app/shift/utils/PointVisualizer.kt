@@ -4,10 +4,22 @@ import android.graphics.Color
 import bas.app.shift.models.PointType
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CircleOptions
+import com.google.android.gms.maps.model.Dash
+import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 
 object PointVisualizer {
+    /**
+     * Точки, требующие мастера (trackable=1), обводим жирным янтарным пунктиром.
+     * До входа в круг игрок видит на карте ТОЛЬКО круг — маркер создаётся лишь когда игрок
+     * внутри радиуса (см. MapPointsRenderer.refreshMarkersForLocation), поэтому обводка —
+     * единственное место, где можно предупредить заранее, до того как игрок туда пойдёт.
+     */
+    private val TRACKABLE_STROKE_COLOR = Color.parseColor("#FFC107") // янтарный
+    private const val TRACKABLE_STROKE_WIDTH = 7f
+    private val TRACKABLE_STROKE_PATTERN = listOf(Dash(40f), Gap(24f))
+
     private val circleColors = mapOf(
         PointType.USER to Color.parseColor("#4CAF50"),        // Зеленый
         PointType.FAMILIAR to Color.parseColor("#1CAF50"),        // Зеленый
@@ -30,13 +42,30 @@ object PointVisualizer {
         PointType.APPROACHING_VIRTUAL to BitmapDescriptorFactory.HUE_YELLOW,
     )
 
-    fun getCircleOptions(center: LatLng, radius: Float, type: PointType): CircleOptions {
+    fun getCircleOptions(
+        center: LatLng,
+        radius: Float,
+        type: PointType,
+        isTrackable: Boolean = false
+    ): CircleOptions {
         val color = circleColors[type] ?: Color.GRAY
-        return CircleOptions()
+        val options = CircleOptions()
             .center(center)
             .radius(radius.toDouble())
             .fillColor(Color.argb(128, Color.red(color), Color.green(color), Color.blue(color)))
-            .strokeWidth(2f)
+
+        return if (isTrackable) {
+            options
+                .strokeColor(TRACKABLE_STROKE_COLOR)
+                .strokeWidth(TRACKABLE_STROKE_WIDTH)
+                .strokePattern(TRACKABLE_STROKE_PATTERN)
+                // Кликабельность нужна, чтобы игрок мог ткнуть в круг ИЗДАЛЕКА и прочитать,
+                // что сюда нужен мастер. Обычные точки некликабельны — иначе по ним можно
+                // было бы собрать информацию, не доходя до места.
+                .clickable(true)
+        } else {
+            options.strokeWidth(2f)
+        }
     }
 
     fun getMarkerOptions(position: LatLng, type: PointType, title: String, snippet: String): MarkerOptions {

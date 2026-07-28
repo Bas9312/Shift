@@ -107,8 +107,9 @@ class ArtifactDetailsFragment : Fragment() {
     }
 
     private fun showError(msg: String) {
-        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
         LogHelper.e("ArtifactDetailsFragment: $msg")
+        val ctx = context ?: return
+        Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
     }
 
     private fun showBindingEditDialog() {
@@ -123,6 +124,7 @@ class ArtifactDetailsFragment : Fragment() {
         RetrofitClient.userProfileApi.getAllUserShortProfiles()
             .enqueue(object : Callback<List<ShortUser>> {
                 override fun onResponse(call: Call<List<ShortUser>>, response: Response<List<ShortUser>>) {
+                    if (!isAdded) return
                     if (response.isSuccessful && response.body() != null) {
                         val userServers = response.body()!!
                         users = userServers
@@ -203,7 +205,7 @@ class ArtifactDetailsFragment : Fragment() {
                         if (_binding != null && isAdded) {
                             binding.artifactBindingToName.text = if (updatedArtifact.bindingToName.isNullOrBlank()) "не привязан" else updatedArtifact.bindingToName
                         }
-                        Toast.makeText(context, "Привязка обновлена", Toast.LENGTH_SHORT).show()
+                        context?.let { Toast.makeText(it, "Привязка обновлена", Toast.LENGTH_SHORT).show() }
                     } else {
                         showError(NetworkErrors.http(response.code()))
                     }

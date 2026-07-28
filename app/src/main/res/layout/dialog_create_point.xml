@@ -94,6 +94,23 @@
         android:layout_marginBottom="16dp" />
 
     <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/aura_of_place_title"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp" />
+
+    <EditText
+        android:id="@+id/etAuraText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/point_aura_text_hint"
+        android:inputType="textMultiLine"
+        android:minLines="2"
+        android:maxLines="4"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
         android:id="@+id/tvExpireLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -185,6 +202,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/point_hidden_label"
+        android:layout_marginBottom="8dp" />
+
+    <CheckBox
+        android:id="@+id/cbTrackable"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/point_trackable_label"
         android:layout_marginBottom="16dp" />
 
     <Button

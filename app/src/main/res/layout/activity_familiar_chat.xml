@@ -13,6 +13,21 @@
         android:theme="@style/ThemeOverlay.Material3.Dark.ActionBar"
         app:navigationIcon="@drawable/ic_arrow_back_24" />
 
+    <!-- Постоянная плашка: фамильяр — ИИ, его ответы ничего не значат для игры.
+         Тап открывает полный текст (он же показывается автоматически при первом входе). -->
+    <TextView
+        android:id="@+id/tvDisclaimer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#4A3B00"
+        android:textColor="#FFD966"
+        android:textStyle="bold"
+        android:textSize="13sp"
+        android:padding="10dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:text="@string/familiar_chat_disclaimer_short" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvChat"
         android:layout_width="match_parent"

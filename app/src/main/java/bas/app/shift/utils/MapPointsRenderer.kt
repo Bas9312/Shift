@@ -127,6 +127,10 @@ class MapPointsRenderer(
     fun findPointForMarker(marker: Marker): Point? =
         pointsOfInterest.values.find { (_, _, markerRef) -> markerRef == marker }?.first
 
+    /** Точка по клику на круг — кликабельны только круги trackable-точек (см. PointVisualizer). */
+    fun findPointForCircle(circle: Circle): Point? =
+        (circle.tag as? String)?.let { pointsOfInterest[it]?.first }
+
     /** Снимок игроков (точки типа USER) для диалога поиска игрока (кнопка МГ). */
     fun usersSnapshot(): List<Point> =
         pointsOfInterest.values.map { it.first }.filter { it.type == "USER" }
@@ -198,9 +202,10 @@ class MapPointsRenderer(
                 PointVisualizer.getCircleOptions(
                     LatLng(point.vLat ?: point.lat, point.vLng ?: point.lng),
                     point.radius.toFloat(),
-                    PointType.fromServerValue(point.type)
+                    PointType.fromServerValue(point.type),
+                    isTrackable = point.trackable == 1
                 )
-            )
+            ).also { it.tag = point.pointId }
         }
 
         // Сохраняем точку, круг и null для маркера (он будет добавлен позже, в refreshMarkersForLocation)
@@ -218,8 +223,9 @@ class MapPointsRenderer(
             return
         }
         val (oldPoint, circle, marker) = existing
-        // Смена типа влияет на цвет круга и иконку маркера — тут проще пересоздать
-        if (oldPoint.type != point.type) {
+        // Смена типа влияет на цвет круга и иконку маркера, смена trackable — на стиль обводки
+        // и кликабельность круга. И то и другое задаётся при создании, поэтому пересоздаём.
+        if (oldPoint.type != point.type || oldPoint.trackable != point.trackable) {
             circle?.remove()
             marker?.remove()
             pointsOfInterest.remove(point.pointId)

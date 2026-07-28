@@ -3,7 +3,6 @@ package bas.app.shift.ui
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.view.MotionEvent
-import android.widget.Toast
 import com.journeyapps.barcodescanner.CaptureActivity
 import bas.app.shift.helpers.LogHelper
 
@@ -38,15 +37,11 @@ class CustomScannerActivity : CaptureActivity() {
     }
     
     private fun focusOnTouch(x: Float, y: Float) {
-        try {
-            // Простая реализация фокуса по тапу
-            LogHelper.d("CustomScannerActivity: Фокус по тапу в точке ($x, $y)")
-            runOnUiThread {
-                Toast.makeText(this@CustomScannerActivity, "Фокус установлен", Toast.LENGTH_SHORT).show()
-            }
-        } catch (e: Exception) {
-            LogHelper.e("CustomScannerActivity: Ошибка фокуса по тапу: ${e.message}")
-        }
+        // Раньше здесь показывался Toast «Фокус установлен» при каждом тапе, хотя камерой
+        // тут ничего не управлялось (заглушка) — это вводило игрока/МГ в заблуждение, будто
+        // тап действительно перефокусирует камеру. Оставлен только лог для диагностики;
+        // непрерывный автофокус камеры (по умолчанию у CaptureActivity) работает сам по себе.
+        LogHelper.d("CustomScannerActivity: Тап в точке ($x, $y) — автофокус камеры работает сам")
     }
     
     override fun onPause() {

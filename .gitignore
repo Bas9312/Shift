@@ -14,3 +14,8 @@
 .cxx
 local.properties
 /app/release/output-metadata.json
+
+# Server sources and API docs: mirrored here for reference only, the source of truth is the
+# hosting. Kept out of git — they carry DB credentials in config.php.
+/SERVER/
+/API/

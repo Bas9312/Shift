@@ -88,13 +88,47 @@ object ServerService {
         }
     }
 
-    suspend fun updatePointHidden(pointId: String, hidden: Boolean): Response<Point> {
-        LogHelper.d("Обновление hidden для точки $pointId: $hidden")
+    /** Меняет только переданные поля: null означает «не трогать» (Gson их не сериализует). */
+    suspend fun updatePoint(
+        pointId: String,
+        hidden: Boolean? = null,
+        trackable: Boolean? = null,
+        auraText: String? = null,
+    ): Response<Point> {
+        LogHelper.d("Обновление точки $pointId: hidden=$hidden, trackable=$trackable, aura=${auraText ?: "не трогаем"}")
         return try {
-            api.updatePointHidden(pointId, bas.app.shift.models.UpdatePointHiddenRequest(hidden))
+            api.updatePoint(pointId, bas.app.shift.models.UpdatePointRequest(hidden, trackable, auraText))
         } catch (e: Exception) {
-            LogHelper.e("Ошибка при обновлении hidden: ${e.message}")
+            LogHelper.e("Ошибка при обновлении точки: ${e.message}")
             throw e
+        }
+    }
+
+    /** Занять фамильяра под себя. 409 — с ним уже общается другой игрок. */
+    suspend fun bindFamiliar(pointId: String, playerId: String): Response<Point> {
+        LogHelper.d("Привязка фамильяра $pointId к игроку $playerId")
+        return try {
+            api.bindFamiliar(pointId, bas.app.shift.models.BindFamiliarRequest(playerId))
+        } catch (e: Exception) {
+            LogHelper.e("Ошибка при привязке фамильяра: ${e.message}")
+            throw e
+        }
+    }
+
+    /**
+     * Продлевает привязку к фамильяру. Ошибки намеренно только логируются: не продлившийся
+     * захват освободит фамильяра раньше срока, но помешать игроку писать — хуже.
+     */
+    fun touchFamiliar(pointId: String) {
+        scope.launch {
+            try {
+                val response = api.touchFamiliar(pointId)
+                if (!response.isSuccessful) {
+                    LogHelper.w("Не удалось продлить привязку к фамильяру $pointId: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                LogHelper.w("Не удалось продлить привязку к фамильяру $pointId: ${e.message}")
+            }
         }
     }
 }

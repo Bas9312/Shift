@@ -149,6 +149,11 @@ class NoiseEffectManager(private val context: Context) {
                 withContext(Dispatchers.Main) {
                     if (response.isSuccessful) {
                         LogHelper.d("NoiseEffectManager: Level 3 effect applied successfully")
+                        // Без этого дедуп (checkAndApplyLevel3Effect) продолжит читать старый
+                        // кеш профиля до следующего фонового обновления (LocationService, ~раз в
+                        // минуту) и может применить эффект повторно при повторном пересечении
+                        // порога — см. NO2.
+                        refreshUserProfile(userId)
                     } else {
                         LogHelper.e("NoiseEffectManager: Failed to apply level 3 effect: ${response.code()}")
                         LogHelper.e("NoiseEffectManager: Response body: ${response.errorBody()?.string()}")
@@ -183,13 +188,16 @@ class NoiseEffectManager(private val context: Context) {
                     )
                     
                     val problemResponse = RetrofitClient.auraApi.addAuraProblem(userId, problemRequest)
-                    
+
                     withContext(Dispatchers.Main) {
                         if (problemResponse.isSuccessful) {
                             LogHelper.d("NoiseEffectManager: Level 4 effect and aura problem applied successfully")
                         } else {
                             LogHelper.e("NoiseEffectManager: Failed to apply level 4 aura problem: ${problemResponse.code()}")
                         }
+                        // Эффект (дедуп-ключ) создан независимо от исхода проблемы ауры —
+                        // обновляем кеш профиля в любом случае, см. NO2.
+                        refreshUserProfile(userId)
                     }
                 } else {
                     withContext(Dispatchers.Main) {
@@ -231,13 +239,16 @@ class NoiseEffectManager(private val context: Context) {
                     )
                     
                     val problemResponse = RetrofitClient.auraApi.addAuraProblem(userId, problemRequest)
-                    
+
                     withContext(Dispatchers.Main) {
                         if (problemResponse.isSuccessful) {
                             LogHelper.d("NoiseEffectManager: Level 5 effect and aura problem applied successfully")
                         } else {
                             LogHelper.e("NoiseEffectManager: Failed to apply level 5 aura problem: ${problemResponse.code()}")
                         }
+                        // Эффект (дедуп-ключ) создан независимо от исхода проблемы ауры —
+                        // обновляем кеш профиля в любом случае, см. NO2.
+                        refreshUserProfile(userId)
                     }
                 } else {
                     withContext(Dispatchers.Main) {

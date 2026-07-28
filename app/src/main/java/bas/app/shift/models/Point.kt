@@ -18,6 +18,9 @@ data class Point(
     val next_point_id: String? = null,
     val trackable: Int? = null,
     val hidden: Int? = null,
+    /** Кто сейчас общается с фамильяром. Сервер снимает привязку сам через 15 минут молчания. */
+    val assigned_player: String? = null,
+    val last_message_time: String? = null,
 )
 
 val Point.vLatOrLat: Double

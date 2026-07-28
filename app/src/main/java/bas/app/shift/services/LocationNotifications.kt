@@ -17,6 +17,7 @@ import bas.app.shift.helpers.ProfileChange
 import bas.app.shift.helpers.ProfileDiffer
 import bas.app.shift.models.FamiliarData
 import bas.app.shift.models.Point
+import bas.app.shift.ui.AuraActivity
 import bas.app.shift.ui.ChatsListActivity
 import bas.app.shift.ui.MessagesChatActivity
 import bas.app.shift.ui.NotificationDetailActivity
@@ -241,6 +242,32 @@ class LocationNotifications(private val context: Context) {
 
         notificationManager().notify(MESSAGES_NOTIFICATION_ID, notification)
         LogHelper.d("LocationNotifications: Показано уведомление о $unreadCount новых сообщениях (isMG: $isMG)")
+    }
+
+    /** Fired by [bas.app.shift.receivers.AuraCleanupReadyReceiver] when a cleanup timer runs out. */
+    fun showAuraCleanupReadyNotification(entityId: String, slot: Int) {
+        val intent = Intent(context, AuraActivity::class.java).apply {
+            putExtra("aura_id", entityId)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val notificationId = "aura_cleanup_$entityId$slot".hashCode()
+        val pendingIntent = PendingIntent.getActivity(
+            context, notificationId, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, POINTS_CHANNEL_ID)
+            .setContentTitle("Чистка ауры завершена")
+            .setContentText("Подойдите подтвердить результат")
+            .setSmallIcon(R.drawable.ic_notification_icon)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .build()
+
+        notificationManager().notify(notificationId, notification)
+        LogHelper.d("LocationNotifications: Показано уведомление о готовой чистке ауры $entityId slot=$slot")
     }
 
     private fun notificationManager(): NotificationManager =

@@ -93,6 +93,10 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <receiver
+            android:name=".receivers.AuraCleanupReadyReceiver"
+            android:exported="false" />
+
         <activity
             android:name=".ui.AuraActivity"
             android:exported="false" />

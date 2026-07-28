@@ -135,19 +135,18 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
             finish()
         }
 
-        // Создаем фрагмент ауры
+        // Создаем фрагмент ауры. commitNow() синхронно доводит фрагмент до onViewCreated,
+        // поэтому callback можно ставить сразу — без post{} и связанной с ним гонки
+        // (AU5: до отработки post долгое нажатие по метке могло не сработать).
         auraFragment = AuraFragment()
         supportFragmentManager.beginTransaction()
             .replace(binding.auraContainer.id, auraFragment)
-            .commit()
-        
-        // Устанавливаем callback с небольшой задержкой, чтобы фрагмент успел создаться
-        binding.auraContainer.post {
-            LogHelper.d("AuraEditorActivity: Setting callbacks to auraFragment")
-            auraFragment.setMarkCallback(this)
-            auraFragment.setAuraEditorCallback(this)
-            LogHelper.d("AuraEditorActivity: Callbacks set successfully")
-        }
+            .commitNow()
+
+        LogHelper.d("AuraEditorActivity: Setting callbacks to auraFragment")
+        auraFragment.setMarkCallback(this)
+        auraFragment.setAuraEditorCallback(this)
+        LogHelper.d("AuraEditorActivity: Callbacks set successfully")
     }
 
     private fun loadUsers() {
@@ -155,17 +154,22 @@ class AuraEditorActivity : AppCompatActivity(), AuraMarkCallback, AuraEditorCall
         RetrofitClient.userProfileApi.getAllUserShortProfiles()
             .enqueue(object : Callback<List<ShortUser>> {
                 override fun onResponse(call: Call<List<ShortUser>>, response: Response<List<ShortUser>>) {
+                    binding.loadingLayout.visibility = View.GONE
                     if (response.isSuccessful && response.body() != null) {
                         users = response.body()!!
                         LogHelper.d("AuraEditorActivity: Users loaded successfully: ${users.size}")
                         setupUserSpinner()
+                        binding.userSelectionLayout.visibility = View.VISIBLE
                     } else {
                         LogHelper.e("AuraEditorActivity: Ошибка загрузки списка пользователей: ${response.code()}")
+                        Toast.makeText(this@AuraEditorActivity, NetworkErrors.http(response.code()), Toast.LENGTH_SHORT).show()
                     }
                 }
 
                 override fun onFailure(call: Call<List<ShortUser>>, t: Throwable) {
                     LogHelper.e("AuraEditorActivity: Ошибка сети при загрузке пользователей: ${t.localizedMessage}")
+                    binding.loadingLayout.visibility = View.GONE
+                    Toast.makeText(this@AuraEditorActivity, NetworkErrors.network(t), Toast.LENGTH_SHORT).show()
                 }
             })
     }

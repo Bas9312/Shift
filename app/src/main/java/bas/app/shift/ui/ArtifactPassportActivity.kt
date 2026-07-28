@@ -93,10 +93,14 @@ class ArtifactPassportActivity : AppCompatActivity() {
     private fun showArtifactDetails(artifact: Artifact) {
         // Создаем фрагмент с деталями артефакта
         val fragment = ArtifactDetailsFragment.newInstance(artifact.id)
-        
+
+        // commitAllowingStateLoss: выбор в спиннере может прийти асинхронно (например, во
+        // время сворачивания экрана), когда commit() после onSaveInstanceState кидает
+        // IllegalStateException. Транзакция ничего не мутирует на сервере и не хранит
+        // важное состояние — потеря этой транзакции при пересоздании активности не критична.
         supportFragmentManager.beginTransaction()
             .replace(R.id.artifact_details_container, fragment)
-            .commit()
+            .commitAllowingStateLoss()
     }
 
     private fun hideArtifactDetails() {
@@ -105,7 +109,7 @@ class ArtifactPassportActivity : AppCompatActivity() {
         if (fragment != null) {
             supportFragmentManager.beginTransaction()
                 .remove(fragment)
-                .commit()
+                .commitAllowingStateLoss()
         }
     }
 

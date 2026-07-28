@@ -114,6 +114,13 @@ class MessagesAdapter(
             android.util.Log.d("MessagesAdapter", "Attachment clicked: ${attachment.originalName}")
         }
 
+        init {
+            rvAttachments.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(
+                itemView.context, androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL, false
+            )
+            rvAttachments.adapter = attachmentsAdapter
+        }
+
         fun bind(message: Message) {
             // Определяем, является ли текущий пользователь отправителем
             val isCurrentUser = message.senderId == currentUserId
@@ -189,8 +196,6 @@ class MessagesAdapter(
             // Показываем вложения, если они есть
             if (message.attachments.isNotEmpty()) {
                 attachmentsContainer.visibility = View.VISIBLE
-                rvAttachments.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(itemView.context, androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL, false)
-                rvAttachments.adapter = attachmentsAdapter
                 attachmentsAdapter.updateAttachments(message.attachments)
             } else {
                 attachmentsContainer.visibility = View.GONE

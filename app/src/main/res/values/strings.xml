@@ -108,7 +108,11 @@
     <string name="point_radius_current">Текущий радиус: %1$s</string>
     <string name="point_custom_created_at_label">Задать время создания</string>
     <string name="point_created_at_current">Время создания: %1$s</string>
-    
+    <string name="point_trackable_label">Нужен мастер или игротех (взаимодействие только через МГ)</string>
+    <!-- Что видит игрок про точку, требующую мастера -->
+    <string name="point_trackable_player_title">Нужен мастер</string>
+    <string name="point_trackable_player_message">Здесь без мастера или игротеха ничего не произойдёт. Не ходи сюда просто так — сначала договорись с мастером, иначе съездишь впустую.</string>
+
     <!-- Базовый диалог информации о точке -->
     <string name="point_basic_info_title">Информация о точке</string>
     <string name="point_basic_type">Тип: %1$s</string>
@@ -121,7 +125,41 @@
     <string name="familiar_cancel_button">Отмена</string>
     <string name="familiar_too_far_message">Вы слишком далеко от фамильяра (%1$dм). Подойдите ближе (до %2$dм)</string>
     <string name="location_unavailable">Локация недоступна</string>
-    
+
+    <!-- «Начинаю общаться»: пока один игрок общается с фамильяром, остальные ждут -->
+    <string name="familiar_talk_start_button">Начинаю общаться</string>
+    <string name="familiar_busy_title">Фамильяр занят</string>
+    <string name="familiar_busy_message">С фамильяром сейчас общается другой. Подожди — он освободится сам, если разговор затихнет минут на 15.</string>
+    <string name="familiar_bind_failed_title">Не вышло</string>
+    <string name="familiar_bind_failed">Не получилось занять фамильяра — похоже, беда со связью. Поговорить сейчас нельзя, попробуй ещё раз через минуту.</string>
+
+    <!-- Аура места: экстрасенс может «прочитать» точку, если стоит рядом -->
+    <string name="aura_of_place_button">Прочитать ауру места</string>
+    <string name="aura_of_place_title">Аура места</string>
+    <string name="aura_of_place_empty">Ты прислушиваешься, но ничего внятного не считываешь — аура этого места не описана.\n\nЕсли для тебя это важно, спроси у мастеров: они расскажут, что здесь можно почувствовать.</string>
+    <string name="point_aura_text_hint">Аура места (что почувствует экстрасенс)</string>
+
+    <!-- Дисклеймер в чате с фамильяром: фамильяр — это ИИ, его ответы ничего не значат для игры -->
+    <string name="familiar_chat_disclaimer_title">Это просто текст</string>
+    <string name="familiar_chat_disclaimer">Фамильяр — это ИИ. Всё, что он отвечает — просто текст.\n\nОн может пообещать тебе что угодно: прислать предмет, наложить эффект, отправить в нужное место, позвать кого-то на помощь. Ничего из этого не произойдёт — сам по себе фамильяр на игру не влияет. Такое уже случалось, поэтому не верь его обещаниям и не ходи туда, куда он тебя отправил. Любое игровое действие — только через мастеров.\n\nА вот сообщения от тебя - игровые.</string>
+    <string name="familiar_chat_disclaimer_short">Фамильяр — это ИИ, его ответы это просто текст. Нажми, чтобы прочитать.</string>
+
+    <!-- Чистка проблем в ауре экстрасенсом -->
+    <string name="aura_cleanup_title">Чистка ауры</string>
+    <string name="aura_cleanup_empty_slot">Пустой слот %1$d</string>
+    <string name="aura_cleanup_master_only">«%1$s» — эту проблему экстрасенс не снимает. Решается через мастера.</string>
+    <string name="aura_cleanup_start_question">Начать чистку: «%1$s»?\n\nЗаймёт %2$d мин. По истечении времени нужно будет подтвердить результат — само оно не применится.</string>
+    <string name="aura_cleanup_start_button">Начать чистку</string>
+    <string name="aura_cleanup_in_progress">Чистка «%1$s» идёт.\n\nОсталось: %2$s</string>
+    <string name="aura_cleanup_ready">Чистка «%1$s» завершена.\n\n%2$s</string>
+    <string name="aura_cleanup_result_removed">Проблема снимается полностью.</string>
+    <string name="aura_cleanup_result_converted">Проблема превращается в «%1$s».</string>
+    <string name="aura_cleanup_confirm_button">Подтвердить</string>
+    <string name="aura_cleanup_cancel_button">Прервать чистку</string>
+    <string name="aura_cleanup_applied">Готово</string>
+    <string name="aura_cleanup_error">Не удалось применить: %1$s</string>
+    <string name="aura_cleanup_problem_changed">Проблема в этом слоте изменилась, пока шла чистка. Чистка отменена — начните заново.</string>
+
     <!-- Управление видимостью на карте для MG пользователей -->
     <string name="show_on_map_button">Показать меня на карте</string>
     <string name="hide_on_map_button">Скрыть меня на карте</string>

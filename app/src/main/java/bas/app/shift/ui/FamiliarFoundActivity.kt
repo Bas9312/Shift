@@ -71,6 +71,9 @@ class FamiliarFoundActivity : AppCompatActivity() {
                 val famId = intent.getStringExtra("familiar_id") ?: "familiar_malachite_lizard"
                 val chatIntent = Intent(this, FamiliarChatActivity::class.java)
                     .putExtra("familiar", famId) // используем тот же ключ!
+                    // Может отсутствовать: из уведомления и с экрана «свой фамильяр» точки нет,
+                    // тогда чат просто не продлевает привязку — занимать нечего.
+                    .putExtra("point_id", intent.getStringExtra("point_id"))
                 startActivity(chatIntent)
             }
         }
