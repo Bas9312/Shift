@@ -197,18 +197,23 @@ class ProfileEditFragment : Fragment() {
         }
     }
 
-    private fun updateModulesDisplay() {
-        val modulesLayout = binding.profileModulesList
-        modulesLayout.removeAllViews()
-        
-        if (currentUserDisplay?.modules?.isNotEmpty() == true) {
-            currentUserDisplay!!.modules.forEachIndexed { index, module ->
+    private fun <T> updateRemovableListDisplay(
+        layout: LinearLayout,
+        items: List<T>,
+        emptyText: String,
+        itemText: (T) -> String,
+        onRemove: (Int) -> Unit
+    ) {
+        layout.removeAllViews()
+
+        if (items.isNotEmpty()) {
+            items.forEachIndexed { index, item ->
                 val container = LinearLayout(requireContext())
                 container.orientation = LinearLayout.HORIZONTAL
                 container.setPadding(0, 8, 0, 8)
 
                 val tv = TextView(requireContext())
-                tv.text = module.name
+                tv.text = itemText(item)
                 tv.textSize = 16f
                 tv.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 container.addView(tv)
@@ -216,87 +221,49 @@ class ProfileEditFragment : Fragment() {
                 val btnRemove = Button(requireContext())
                 btnRemove.text = "Удалить"
                 btnRemove.setOnClickListener {
-                    removeModule(index)
+                    onRemove(index)
                 }
                 container.addView(btnRemove)
 
-                modulesLayout.addView(container)
+                layout.addView(container)
             }
         } else {
             val tv = TextView(requireContext())
-            tv.text = "Нет модулей"
+            tv.text = emptyText
             tv.textSize = 16f
             tv.setPadding(0, 8, 0, 8)
-            modulesLayout.addView(tv)
+            layout.addView(tv)
         }
+    }
+
+    private fun updateModulesDisplay() {
+        updateRemovableListDisplay(
+            binding.profileModulesList,
+            currentUserDisplay?.modules.orEmpty(),
+            "Нет модулей",
+            { it.name },
+            ::removeModule
+        )
     }
 
     private fun updateDisciplinesDisplay() {
-        val disciplinesLayout = binding.profileDisciplinesList
-        disciplinesLayout.removeAllViews()
-        
-        if (currentUserDisplay?.disciplines?.isNotEmpty() == true) {
-            currentUserDisplay!!.disciplines.forEachIndexed { index, discipline ->
-                val container = LinearLayout(requireContext())
-                container.orientation = LinearLayout.HORIZONTAL
-                container.setPadding(0, 8, 0, 8)
-
-                val tv = TextView(requireContext())
-                tv.text = discipline.name
-                tv.textSize = 16f
-                tv.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                container.addView(tv)
-
-                val btnRemove = Button(requireContext())
-                btnRemove.text = "Удалить"
-                btnRemove.setOnClickListener {
-                    removeDiscipline(index)
-                }
-                container.addView(btnRemove)
-
-                disciplinesLayout.addView(container)
-            }
-        } else {
-            val tv = TextView(requireContext())
-            tv.text = "Нет дисциплин"
-            tv.textSize = 16f
-            tv.setPadding(0, 8, 0, 8)
-            disciplinesLayout.addView(tv)
-        }
+        updateRemovableListDisplay(
+            binding.profileDisciplinesList,
+            currentUserDisplay?.disciplines.orEmpty(),
+            "Нет дисциплин",
+            { it.name },
+            ::removeDiscipline
+        )
     }
 
     private fun updateMiscDisplay() {
-        val miscLayout = binding.profileMiscList
-        miscLayout.removeAllViews()
-        
-        if (currentUserDisplay?.misc?.isNotEmpty() == true) {
-            currentUserDisplay!!.misc.forEachIndexed { index, misc ->
-                val container = LinearLayout(requireContext())
-                container.orientation = LinearLayout.HORIZONTAL
-                container.setPadding(0, 8, 0, 8)
-
-                val tv = TextView(requireContext())
-                tv.text = misc
-                tv.textSize = 16f
-                tv.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                container.addView(tv)
-
-                val btnRemove = Button(requireContext())
-                btnRemove.text = "Удалить"
-                btnRemove.setOnClickListener {
-                    removeMisc(index)
-                }
-                container.addView(btnRemove)
-
-                miscLayout.addView(container)
-            }
-        } else {
-            val tv = TextView(requireContext())
-            tv.text = "Нет особенностей"
-            tv.textSize = 16f
-            tv.setPadding(0, 8, 0, 8)
-            miscLayout.addView(tv)
-        }
+        updateRemovableListDisplay(
+            binding.profileMiscList,
+            currentUserDisplay?.misc.orEmpty(),
+            "Нет особенностей",
+            { it },
+            ::removeMisc
+        )
     }
 
     private fun showAddAbilityDialog() {

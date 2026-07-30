@@ -105,14 +105,7 @@ class MainActivity : AppCompatActivity() {
         // Проверяем состояние сервиса при запуске активности
         if (!isFinishing && !isDestroyed) {
             checkAndStartLocationService()
-            // Логируем текущее состояние
-            if (ShiftApplication.instance.isInGame() && ShiftApplication.instance.isLocationServiceRunning()) {
-                LogHelper.d("MainActivity: Activity запущена, LocationService активен")
-            } else if (ShiftApplication.instance.isInGame() && !ShiftApplication.instance.isLocationServiceRunning()) {
-                LogHelper.w("MainActivity: Activity запущена, но LocationService не запущен")
-            } else {
-                LogHelper.d("MainActivity: Activity запущена, режим 'в игре' выключен")
-            }
+            logLocationServiceState("Activity запущена")
         }
     }
 
@@ -121,15 +114,8 @@ class MainActivity : AppCompatActivity() {
         // Проверяем состояние сервиса при возвращении в приложение
         if (!isFinishing && !isDestroyed) {
             checkAndStartLocationService()
-            // Логируем текущее состояние
-            if (ShiftApplication.instance.isInGame() && ShiftApplication.instance.isLocationServiceRunning()) {
-                LogHelper.d("MainActivity: Приложение вернулось из фона, LocationService активен")
-            } else if (ShiftApplication.instance.isInGame() && !ShiftApplication.instance.isLocationServiceRunning()) {
-                LogHelper.w("MainActivity: Приложение вернулось из фона, но LocationService не запущен")
-            } else {
-                LogHelper.d("MainActivity: Приложение вернулось из фона, режим 'в игре' выключен")
-            }
-            
+            logLocationServiceState("Приложение вернулось из фона")
+
             // Проверяем отложенное обновление
             if (::updateService.isInitialized) {
                 LogHelper.d("MainActivity: Проверяем отложенное обновление в onResume")
@@ -137,7 +123,7 @@ class MainActivity : AppCompatActivity() {
             } else {
                 LogHelper.d("MainActivity: UpdateService не инициализирован")
             }
-            
+
             // Показываем эффекты для обычных игроков
             showEffectsForRegularPlayers()
         }
@@ -146,23 +132,26 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         ritualManager.cancelScheduledUpdates()
-        if (ShiftApplication.instance.isInGame() && ShiftApplication.instance.isLocationServiceRunning()) {
-            LogHelper.d("MainActivity: Приложение уходит в фон, LocationService продолжает работать")
-        } else if (ShiftApplication.instance.isInGame() && !ShiftApplication.instance.isLocationServiceRunning()) {
-            LogHelper.w("MainActivity: Приложение уходит в фон, но LocationService не запущен")
-        } else {
-            LogHelper.d("MainActivity: Приложение уходит в фон, режим 'в игре' выключен")
-        }
+        logLocationServiceState("Приложение уходит в фон", activeSuffix = "LocationService продолжает работать")
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        logLocationServiceState("Activity уничтожается", activeSuffix = "LocationService продолжает работать в фоне")
+    }
+
+    /**
+     * Логирует текущее состояние LocationService/режима "в игре" с указанным контекстом
+     * (например, "Activity запущена"). Раньше этот 3-веточный if/else дублировался
+     * побитово в onStart/onResume/onPause/onDestroy — вынесено, чтобы не разъезжались формулировки.
+     */
+    private fun logLocationServiceState(actionPhrase: String, activeSuffix: String = "LocationService активен") {
         if (ShiftApplication.instance.isInGame() && ShiftApplication.instance.isLocationServiceRunning()) {
-            LogHelper.d("MainActivity: Activity уничтожается, LocationService продолжает работать в фоне")
+            LogHelper.d("MainActivity: $actionPhrase, $activeSuffix")
         } else if (ShiftApplication.instance.isInGame() && !ShiftApplication.instance.isLocationServiceRunning()) {
-            LogHelper.w("MainActivity: Activity уничтожается, но LocationService не запущен")
+            LogHelper.w("MainActivity: $actionPhrase, но LocationService не запущен")
         } else {
-            LogHelper.d("MainActivity: Activity уничтожается, режим 'в игре' выключен")
+            LogHelper.d("MainActivity: $actionPhrase, режим 'в игре' выключен")
         }
     }
 

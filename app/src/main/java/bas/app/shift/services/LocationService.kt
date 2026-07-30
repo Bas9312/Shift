@@ -176,7 +176,7 @@ class LocationService : Service() {
             LogHelper.e("Ошибка при запуске обновления геолокации: ${e.message}")
             // Если не удалось запустить как Foreground Service, останавливаем
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                stopForeground(true)
+                stopForeground(STOP_FOREGROUND_REMOVE)
             }
             stopSelf()
         }
@@ -198,7 +198,7 @@ class LocationService : Service() {
         
         // Останавливаем Foreground Service
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            stopForeground(true)
+            stopForeground(STOP_FOREGROUND_REMOVE)
         }
         
         LogHelper.d("LocationService: Обновление геолокации, проверка точек и обновление профиля остановлены")
@@ -354,14 +354,9 @@ class LocationService : Service() {
     }
     
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val r = 6371000.0 // Радиус Земли в метрах
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLon = Math.toRadians(lon2 - lon1)
-        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2)
-        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-        return r * c
+        val results = FloatArray(1)
+        Location.distanceBetween(lat1, lon1, lat2, lon2, results)
+        return results[0].toDouble()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

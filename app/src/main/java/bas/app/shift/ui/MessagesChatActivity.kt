@@ -199,7 +199,7 @@ class MessagesChatActivity : AppCompatActivity() {
                             } else {
                                 Toast.makeText(
                                     this@MessagesChatActivity,
-                                    "Ошибка: ${response.code()}",
+                                    NetworkErrors.http(response.code()),
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
@@ -208,7 +208,7 @@ class MessagesChatActivity : AppCompatActivity() {
                         override fun onFailure(call: retrofit2.Call<MarkAsReadResponse>, t: Throwable) {
                             Toast.makeText(
                                 this@MessagesChatActivity,
-                                "Ошибка сети: ${t.message ?: "неизвестная"}",
+                                NetworkErrors.network(t),
                                 Toast.LENGTH_SHORT
                             ).show()
                         }

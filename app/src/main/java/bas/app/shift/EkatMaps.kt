@@ -12,6 +12,7 @@ import android.text.method.LinkMovementMethod
 import android.text.util.Linkify
 import android.view.LayoutInflater
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.helpers.PointRadiusMath
 import android.view.View
 import android.widget.TextView
@@ -475,22 +476,11 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun extractFamiliarIdFromPoint(point: Point): String {
-        // Пытаемся извлечь ID фамильяра из pointId или description
-        // Если не получается, используем дефолтный
-        val familiarId = when {
-            point.description?.contains("familiar_") == true -> {
-                // Ищем familiar_ в описании
-                val match = Regex("familiar_[a-zA-Z_]+").find(point.description)
-                match?.value ?: "familiar_malachite_lizard"
-            }
-            point.pointId.contains("familiar_") -> {
-                // Ищем familiar_ в pointId
-                val match = Regex("familiar_[a-zA-Z_]+").find(point.pointId)
-                match?.value ?: "familiar_malachite_lizard"
-            }
-            else -> "familiar_malachite_lizard" // Дефолтный фамильяр
-        }
-        
+        // Пытаемся извлечь ID фамильяра из description или pointId, иначе дефолтный
+        val defaultFamiliarId = "familiar_malachite_lizard"
+        val source = point.description?.takeIf { it.contains("familiar_") } ?: point.pointId
+        val familiarId = Regex("familiar_[a-zA-Z_]+").find(source)?.value ?: defaultFamiliarId
+
         LogHelper.d("Извлечен ID фамильяра: $familiarId")
         return familiarId
     }
@@ -564,7 +554,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         LogHelper.e("Ошибка при обновлении точки: ${response.code()}")
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(this@EkatMaps, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@EkatMaps, NetworkErrors.network(e), Toast.LENGTH_SHORT).show()
                     LogHelper.e("Исключение при обновлении hidden: ${e.message}")
                 }
             }
@@ -587,7 +577,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         LogHelper.e("Ошибка при удалении точки: ${response.code()}")
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(this@EkatMaps, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@EkatMaps, NetworkErrors.network(e), Toast.LENGTH_SHORT).show()
                     LogHelper.e("Исключение при удалении точки: ${e.message}")
                 }
             }
@@ -841,7 +831,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         LogHelper.e("Ошибка при создании точки: ${response.code()}")
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(this@EkatMaps, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@EkatMaps, NetworkErrors.network(e), Toast.LENGTH_SHORT).show()
                     LogHelper.e("Исключение при создании точки: ${e.message}")
                 }
             }

@@ -45,8 +45,6 @@ class EffectEditorActivity : AppCompatActivity() {
             return
         }
 
-
-
         setupToolbar()
         setupUI()
         loadEffects()
@@ -60,9 +58,6 @@ class EffectEditorActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        binding.toolbar.title = "Редактор эффектов"
-        binding.toolbar.setNavigationOnClickListener { finish() }
-
         binding.addEffectButton.setOnClickListener {
             showAddEffectDialog()
         }
@@ -187,11 +182,6 @@ class EffectEditorActivity : AppCompatActivity() {
         }
 
         // Обработчик клика на тип метки
-        dialogBinding.markTypeInput.setOnClickListener {
-            showMarkTypeSelector(dialogBinding)
-        }
-
-        // Обработчик изменения типа метки
         dialogBinding.markTypeInput.setOnClickListener {
             showMarkTypeSelector(dialogBinding)
         }

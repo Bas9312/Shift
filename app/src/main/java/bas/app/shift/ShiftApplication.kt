@@ -7,9 +7,8 @@ import android.content.Intent
 
 import androidx.lifecycle.ViewModelProvider.NewInstanceFactory.Companion.instance
 import androidx.lifecycle.ProcessLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleObserver
-import androidx.lifecycle.OnLifecycleEvent
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import bas.app.shift.MainActivity.Companion.KEY_IN_GAME
 import bas.app.shift.MainActivity.Companion.PREFS_NAME
 import bas.app.shift.helpers.AndroidStandardLogger
@@ -20,7 +19,7 @@ import bas.app.shift.services.LocationService
 import com.bugfender.sdk.Bugfender
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 
-class ShiftApplication : Application(), LifecycleObserver {
+class ShiftApplication : Application(), DefaultLifecycleObserver {
 
     fun isInGame(): Boolean = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         .getBoolean(KEY_IN_GAME, true)
@@ -99,7 +98,7 @@ class ShiftApplication : Application(), LifecycleObserver {
     }
 
     override fun onCreate() {
-        super.onCreate()
+        super<Application>.onCreate()
         LogHelper.setLogLevel(LogHelper.LogLevel.DEBUG)
         //LogHelper.addLogger(AndroidStandardLogger())
         LogHelper.addLogger(BugfenderLogger())
@@ -116,8 +115,7 @@ class ShiftApplication : Application(), LifecycleObserver {
         // Сервис будет запускаться только при активации приложения
     }
     
-    @OnLifecycleEvent(Lifecycle.Event.ON_START)
-    fun onAppForegrounded() {
+    override fun onStart(owner: LifecycleOwner) {
         LogHelper.d("ShiftApplication: Приложение перешло в передний план")
         // Приложение активировано, можно попробовать запустить сервис
         if (isInGame()) {
@@ -125,9 +123,8 @@ class ShiftApplication : Application(), LifecycleObserver {
             startLocationService()
         }
     }
-    
-    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
-    fun onAppBackgrounded() {
+
+    override fun onStop(owner: LifecycleOwner) {
         LogHelper.d("ShiftApplication: Приложение перешло в фон")
         // Приложение ушло в фон, но сервис продолжает работать
         // так как он Foreground Service

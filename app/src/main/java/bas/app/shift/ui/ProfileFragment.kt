@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
@@ -124,58 +125,12 @@ class ProfileFragment : Fragment() {
         // Тип
         binding.profileType.text = getAuraTypeDisplayName(user.type)
         // Дисциплины (теперь List<NamedEntity>)
-        val disciplinesLayout = binding.profileDisciplinesList
-        disciplinesLayout.removeAllViews()
-        if (user.disciplines.isNotEmpty()) {
-            user.disciplines.forEach { discipline ->
-                if (isAdded && context != null) {
-                    val tv = TextView(context)
-                    tv.text = discipline.name
-                    disciplinesLayout.addView(tv)
-                }
-            }
-        } else {
-            if (isAdded && context != null) {
-                val tv = TextView(context)
-                tv.text = "Нет дисциплин"
-                disciplinesLayout.addView(tv)
-            }
-        }
+        renderTextList(binding.profileDisciplinesList, user.disciplines, "Нет дисциплин") { it.name }
         // Модули (теперь List<NamedEntity>)
-        val modulesLayout = binding.profileModulesList
-        modulesLayout.removeAllViews()
-        if (user.modules.isNotEmpty()) {
-            user.modules.forEach { module ->
-                if (isAdded && context != null) {
-                    val tv = TextView(context)
-                    tv.text = module.name
-                    modulesLayout.addView(tv)
-                }
-            }
-        } else {
-            if (isAdded && context != null) {
-                val tv = TextView(context)
-                tv.text = "Нет модулей"
-                modulesLayout.addView(tv)
-            }
-        }
+        renderTextList(binding.profileModulesList, user.modules, "Нет модулей") { it.name }
         // Способности (теперь List<Ability>)
-        val abilitiesLayout = binding.profileAbilitiesList
-        abilitiesLayout.removeAllViews()
-        if (user.abilities.isNotEmpty()) {
-            user.abilities.forEach { ability ->
-                if (isAdded && context != null) {
-                    val tv = TextView(context)
-                    tv.text = "Тип: ${ability.type}\nОписание: ${ability.description}"
-                    abilitiesLayout.addView(tv)
-                }
-            }
-        } else {
-            if (isAdded && context != null) {
-                val tv = TextView(context)
-                tv.text = "Нет способностей"
-                abilitiesLayout.addView(tv)
-            }
+        renderTextList(binding.profileAbilitiesList, user.abilities, "Нет способностей") {
+            "Тип: ${it.type}\nОписание: ${it.description}"
         }
         // Артефакты (только если есть Артефактология)
         val hasArtifactology = user.disciplines.any { it.id == 1 } // ID дисциплины Артефактология
@@ -220,21 +175,24 @@ class ProfileFragment : Fragment() {
         }
         binding.profileFamiliar.text = familiarName
         // Прочее
-        val miscLayout = binding.profileMiscList
-        miscLayout.removeAllViews()
-        if (user.misc.isNotEmpty()) {
-            user.misc.forEach {
+        renderTextList(binding.profileMiscList, user.misc, "Нет особенностей") { it }
+    }
+
+    private fun <T> renderTextList(layout: LinearLayout, items: List<T>, emptyText: String, itemText: (T) -> String) {
+        layout.removeAllViews()
+        if (items.isNotEmpty()) {
+            items.forEach { item ->
                 if (isAdded && context != null) {
                     val tv = TextView(context)
-                    tv.text = it
-                    miscLayout.addView(tv)
+                    tv.text = itemText(item)
+                    layout.addView(tv)
                 }
             }
         } else {
             if (isAdded && context != null) {
                 val tv = TextView(context)
-                tv.text = "Нет особенностей"
-                miscLayout.addView(tv)
+                tv.text = emptyText
+                layout.addView(tv)
             }
         }
     }
