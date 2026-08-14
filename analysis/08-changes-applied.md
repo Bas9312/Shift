@@ -496,6 +496,59 @@ an age-guarded sweep on screen open clears anything orphaned by a killed process
 so it cannot delete an upload still in flight from a previous instance after a rotation.
 **Not verified live:** doing so means posting a real message into production chat.
 
+### Wave 26 — Doze mitigations (2026-08-15)
+
+Audit row 13 (R4/R5) has always had two halves: a live test on real hardware that nobody has
+run, and the code around it. This wave does the code half. **None of it is proven on a real
+device** — the verification protocol is written out in [11-status.md](11-status.md).
+
+The underlying problem: `LocationService` polls through `Handler.postDelayed`, which counts
+`SystemClock.uptimeMillis()`, and that clock stops during deep sleep. A phone lying still with
+the screen off can stop checking points and messages entirely.
+
+- **`helpers/BatteryOptimization.kt`** (new) + `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` — an app
+  the user has exempted is not subject to Doze network and alarm restrictions, which is the
+  single biggest lever available. `MainActivity` asks for it at the moment the player goes
+  "в игре", with an explanation of what it buys and what refusing costs. Asking is throttled to
+  once per 24 h, so it does not nag on every toggle but does come back on game day. Falls back
+  to the general battery-optimisation settings screen if the ROM does not support the direct
+  request intent, and to a toast explaining where to look if neither resolves.
+- **`receivers/LocationHeartbeatReceiver.kt`** (new) — an `AlarmManager.setAndAllowWhileIdle`
+  heartbeat, rescheduled on every firing (repeating alarms do not run in Doze). It wakes
+  `LocationService` with the new `ACTION_TICK`, which refreshes the last known location and runs
+  one point/message check. `setAndAllowWhileIdle` was chosen over `setExactAndAllowWhileIdle`
+  deliberately: it fires in Doze and needs **no** permission, whereas the exact variant needs
+  `SCHEDULE_EXACT_ALARM` on Android 12+, which the user would have to grant by hand. The system
+  throttles it to roughly one firing per 9–15 min, hence the 15-minute interval — asking more
+  often would only be deferred. Scheduled when the service starts, cancelled when it stops.
+- **`LocationService.onHeartbeatTick()`** — reuses the existing check functions rather than
+  adding new logic, so their interval guards prevent double work if the service has just run
+  normally. If the tick finds the service inactive it restarts location updates.
+- **`receivers/BootCompletedReceiver.kt`** (new) + `RECEIVE_BOOT_COMPLETED` — restarts the
+  service after a phone reboot and after `MY_PACKAGE_REPLACED` (the self-update path kills the
+  process). Only when the character is actually in game and location permission is present.
+
+**Verified on `emulator-5554` under forced deep idle** (`dumpsys battery unplug` +
+`dumpsys deviceidle force-idle`), end to end:
+
+- the exemption dialog renders and opens the system `RequestIgnoreBatteryOptimizations` screen;
+- the heartbeat registers as `*walarm*:bas.app.shift/.receivers.LocationHeartbeatReceiver`
+  (`RTC_WAKEUP`), and its `policyWhenElapsed` shows `device_idle=--` — Doze is **not** deferring
+  it, which is the property the whole design rests on;
+- it fired for real in the `IDLE_MAINTENANCE` window ~15 min later: `LocationHeartbeatReceiver:
+  пульс` → `LocationService: Пульс из Doze` → an actual `GET http://shift96.ru/messages_api/chats`
+  went out **from inside Doze**, then the alarm rescheduled itself exactly +15 min;
+- `MY_PACKAGE_REPLACED` (triggered by reinstalling over the top while in game) restarted the
+  service, with the system logging `Background started FGS: Allowed … code:PACKAGE_REPLACED`;
+- leaving the game cancels the alarm (`reason=alarm_cancelled` in the alarm history);
+- zero `AndroidRuntime:E` throughout; emulator state restored (`MG_Bas`, `is_in_game=false`).
+
+What this does **not** prove: the emulator never truly suspends its CPU, so `Handler.postDelayed`
+kept ticking through forced idle there — exactly the failure this wave exists to cover. The
+mechanism is confirmed working; whether it is *sufficient* can only be answered on real hardware
+(A1). The exemption itself was deliberately **not** granted on the emulator: that is a device
+setting, and it is the owner's to make.
+
 ---
 
 ## Backlog

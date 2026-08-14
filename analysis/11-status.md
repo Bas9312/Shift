@@ -15,10 +15,10 @@
 |---|---|
 | Version | `versionCode 18` / `versionName 3.0` (was 2.5 at audit time) |
 | SDK | `minSdk 26`, `targetSdk 35` |
-| Size | 118 Kotlin files, ~14.7k lines (audit: 101 files / ~13.8k) |
+| Size | 121 Kotlin files, ~15.1k lines (audit: 101 files / ~13.8k) |
 | Tests | 16 test files, 146 unit tests, `testDebugUnitTest --offline` green |
 | Build | `assembleDebug --offline` green (exit 0) |
-| Working tree | **clean** — everything through nightly session 56 is committed in `16362d1`, the 2026-08-15 doc restructure and P1–P3 fixes in the commit after it |
+| Working tree | **clean** — everything through nightly session 56 is committed in `16362d1`; the 2026-08-15 doc restructure, the P1–P3 fixes and the Doze mitigations are in the two commits after it |
 | God-class sizes | `EkatMaps` 1119 (was 1237), `MainActivity` 663 (837), `TerminalActivity` 543 (1325), `LocationService` 402 (1030) |
 | Remaining compiler warnings | one: `ShiftApplication.isLocationServiceRunning()` uses deprecated `getRunningServices` (deliberate, see below) |
 
@@ -67,7 +67,7 @@ are current — every line reference in documents 01–07 is stale after the ref
 | 10 | `HttpLoggingInterceptor.BODY` always on | *out of scope* | `RetrofitClient.kt:61`, `:104` |
 | 11 | Release built as debug | *out of scope* | `app/build.gradle:37-40` |
 | 12 | `GlobalScope` / bare scopes instead of `lifecycleScope` | **FIXED** (2026-08-15, P2) | `GlobalScope` gone project-wide; the last unjustified bare scope (`EkatMaps`) moved to `lifecycleScope`. The remaining ones (`ServerService`, `LocationService`, `NoiseEffectManager`, `AuraCanvasView`) are deliberate and documented |
-| 13 | Handler polling vulnerable to Doze / process kill | **PARTIAL** | Still Handler polling + `START_STICKY`. Added since: service restart on foreground via `ProcessLifecycleOwner` (`ShiftApplication.kt:110`). Still missing: battery-optimization exemption prompt, boot receiver. Plus the never-done live test (A1) |
+| 13 | Handler polling vulnerable to Doze / process kill | **PARTIAL** | Mitigated 2026-08-15 (Wave 26): battery-optimisation exemption prompt, a `setAndAllowWhileIdle` heartbeat that wakes the service every 15 min in Doze (verified firing under forced idle), and a boot/self-update receiver. Core polling is still `Handler`-based. **Sufficiency unproven on real hardware** — the live test (A1) is what decides |
 | 14 | Ritual cooldown in an Activity field | **FIXED** | `RitualManager.kt:66`, persisted in prefs, survives rotation and process death |
 | 15 | Terminal history unbounded, O(n) per response | **FIXED** | `MAX_HISTORY_SIZE = 100`, in-memory append + debounced flush |
 | 16 | `USER.FORMAT` without confirmation; prefix command match | **FIXED** | Confirm dialog `TerminalActivity.kt:220`; exact first-token match `TerminalCommandManager.kt:66`, unit-tested |
@@ -107,7 +107,7 @@ exists. Worth a comment in the code if it stays.
 
 | # | Item | Why it is stuck |
 |---|------|-----------------|
-| A1 | **Doze / locked-screen background behaviour** (audit R4/R5) | Needs 30–60 min with a real phone locked, battery optimisation disabled. Not delegable to an emulator session. Open since 2026-07-22, never once attempted. **Highest-value open item before a live game.** |
+| A1 | **Doze / locked-screen background behaviour** (audit R4/R5) | Needs 30–60 min with a real phone locked. Not delegable to an emulator session. Open since 2026-07-22, never once attempted. **Highest-value open item before a live game.** Mitigations were added 2026-08-15 (Wave 26) but are unproven on real hardware — the protocol is below. |
 | A2 | Terminal noise visual effects live (`showNoise`, `applyGlitch`, `showRedScrim`, `demonJumpScare` in `helpers/TerminalVisualEffects.kt`) | Requires raising real personal noise to level ≥ 2 on the live account, i.e. mutating production game state. |
 | A3 | `SHIFT.PROXY.DEPLOY` / `CROSS.LINK` live run (Proxy & Cross-Link branches of `NoiseManager.adjustNoise`) | Real POSTs to `shift96.ru`, 24 h effects with one-shot gates. Owner must do it. |
 | A4 | Successful QR/barcode scan path in `AuraScannerActivity` / `ArtifactScannerActivity` | Emulator back camera is `virtualscene`; a test QR needs a poster swap through Extended Controls (GUI, not scriptable). Cancel and permission-denial paths *are* verified. |
@@ -157,6 +157,63 @@ re-opens them as "findings": keystore and signing passwords in the repo, clearte
   normalises to the 0..5 UI scale (`$globalRaw / 2.0`). Harmless today — the client no longer
   has that endpoint (dead `NoiseApi.getGlobalNoise()` removed in session 56) — but it would
   return a doubled value if anything is hung on it later.
+
+## The Doze test protocol (A1) — how to actually run it
+
+Written down so it does not get lost again. It has been the top open item since 2026-07-22 and
+has never been executed. Everything below needs a **real phone**; the emulator does not model
+deep sleep faithfully (it can be forced into Doze for a smoke test, which is what was done on
+2026-08-15, but it never actually suspends the CPU the way hardware does).
+
+**Why it matters.** All background game mechanics live in `LocationService`: it polls location,
+asks the server for points, decides whether the player entered a radius, and raises the
+notification. The polling loop is `Handler.postDelayed`, which counts `SystemClock.uptimeMillis()`
+— and that clock **does not advance while the device is in deep sleep**. So a phone lying still
+in a pocket with the screen off can stop checking entirely until someone wakes it. For a field
+game where the whole loop is "walk into a zone → get a notification", that is the difference
+between the game working and not working.
+
+**What was added on 2026-08-15 (Wave 26).** The mechanism is confirmed working on the emulator
+under forced deep idle — the alarm is not deferred by Doze, it fires, and the service does real
+network work from inside Doze (details in [08-changes-applied.md](08-changes-applied.md)). What
+is still unproven is whether it is *enough*, because an emulator never truly suspends its CPU:
+1. A battery-optimisation exemption prompt when the player goes "в игре" (`BatteryOptimization`).
+   An exempt app is not subject to Doze network and alarm restrictions at all — this is the
+   single biggest lever, and it depends on the player actually tapping "Allow".
+2. An `AlarmManager.setAndAllowWhileIdle` heartbeat every 15 min (`LocationHeartbeatReceiver`)
+   that wakes the service and runs one point/message check. This alarm type fires in Doze and
+   needs no special permission; the system caps it at roughly one firing per 9–15 min, which is
+   why the interval is 15.
+3. A boot receiver that restarts the service after a reboot or a self-update
+   (`BootCompletedReceiver`).
+
+**The protocol (~40 min, plus a second pass):**
+
+1. Install the debug APK on a real phone, log in as a player, grant location **"Allow all the
+   time"** (not "only while using"), turn on "В игре". When the exemption dialog appears, tap
+   **"Не сейчас"** — the first run must measure the *unexempted* behaviour.
+2. `adb logcat > doze-run1.log` and leave it running.
+3. Lock the screen and put the phone down **completely still** — Doze requires the device to be
+   stationary. Do not touch it for 30–40 minutes.
+4. Unlock, stop the log. In the log, check:
+   - did the `checkPointsInRange` / `checkForNewMessages` cycles keep ticking, or are there
+     30-minute holes;
+   - does `LocationHeartbeatReceiver: пульс` appear roughly every 15 min through the sleep —
+     this is the mitigation doing its job;
+   - is the foreground service still alive at the end.
+5. Now grant the exemption (Settings → Battery → Shift → Unrestricted) and repeat steps 2–4 into
+   `doze-run2.log`.
+6. Compare. The gap between run 1 and run 2 is exactly what the exemption buys, and tells you
+   how hard to push players to grant it on game day.
+
+**Also worth testing while you have the phone:** reboot it with "В игре" on and confirm the
+service comes back by itself (`BootCompletedReceiver`); and install an update over the top and
+confirm the same (`MY_PACKAGE_REPLACED`).
+
+**If run 1 shows holes and run 2 does not**, the conclusion is operational, not code: every
+player must grant the exemption before the game starts, and that belongs in the briefing.
+**If run 2 also shows holes**, the next code step is moving the polling off `Handler` entirely
+onto `setAndAllowWhileIdle` alarms, or shortening the heartbeat and accepting the battery cost.
 
 ## Closed directions — do not redo
 

@@ -192,4 +192,10 @@
     <!-- Эффекты -->
     <string name="profile_effects">Эффекты (Игротехника!)</string>
     <string name="no_effects">Нет активных эффектов</string>
+    <!-- Оптимизация батареи (Doze) -->
+    <string name="battery_optimization_title">Разрешить работу в фоне</string>
+    <string name="battery_optimization_message">Чтобы уведомления о точках и сообщениях приходили вовремя, когда телефон лежит в кармане с потухшим экраном, приложению нужно работать без ограничений батареи.\n\nСейчас откроются настройки — выберите «Разрешить» (или «Без ограничений»).\n\nМожно отказаться: игра будет работать, но уведомления могут приходить с задержкой.</string>
+    <string name="battery_optimization_open">Открыть настройки</string>
+    <string name="battery_optimization_later">Не сейчас</string>
+    <string name="battery_optimization_unavailable">Не удалось открыть настройки батареи. Найдите Shift в настройках батареи и выберите «Без ограничений».</string>
 </resources>

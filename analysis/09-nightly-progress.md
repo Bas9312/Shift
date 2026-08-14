@@ -595,5 +595,22 @@ opens and syncs 46 points, chat list opens, zero `AndroidRuntime:E`. Emulator pr
 exactly as found (`MG_Bas`, `is_in_game=false`), no server state mutated. P3 not verified
 live — that needs a real message posted to production (see 11-status §A7).
 
-**FINISHED:** 2026-08-15 00:45 — docs restructured and rotating, P1/P2/P3 fixed, everything
-committed by the owner's request.
+### Doze mitigations (second half of the session)
+
+Owner asked to take a run at the Doze problem rather than leave it purely as a test item.
+Wave 26 in [08-changes-applied.md](08-changes-applied.md): battery-optimisation exemption
+prompt on entering the game, a `setAndAllowWhileIdle` heartbeat that wakes `LocationService`
+every 15 min (the only alarm type that fires in Doze without extra permissions), and a
+boot / self-update receiver. All of it is mitigation, none of it is proof — the real test
+protocol is now written down in [11-status.md](11-status.md) so it stops getting lost.
+
+Verified on the emulator under forced deep idle end to end: the alarm is not deferred by Doze,
+it fired in the maintenance window, the service got `ACTION_TICK` and issued a real
+`GET /messages_api/chats` from inside Doze, then rescheduled itself; `MY_PACKAGE_REPLACED`
+restarted the service; leaving the game cancelled the alarm. The mechanism works — but an
+emulator never truly suspends its CPU, so whether it is *enough* is still a real-hardware
+question (A1).
+
+**FINISHED:** 2026-08-15 01:15 — docs restructured and rotating, P1/P2/P3 fixed, Doze
+mitigations added with the test protocol recorded, everything committed by the owner's
+request.

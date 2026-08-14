@@ -21,6 +21,7 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import android.os.Handler
 import bas.app.shift.helpers.UserPrefsHelper
+import bas.app.shift.receivers.LocationHeartbeatReceiver
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.models.User
 import retrofit2.Call
@@ -122,6 +123,10 @@ class LocationService : Service() {
                 LogHelper.d("LocationService: Остановка обновлений локации")
                 stopLocationUpdates()
             }
+            ACTION_TICK -> {
+                LogHelper.d("LocationService: Пульс из Doze")
+                onHeartbeatTick()
+            }
             else -> {
                 LogHelper.d("LocationService: Неизвестная команда, запускаем обновления")
                 startLocationUpdates()
@@ -171,6 +176,10 @@ class LocationService : Service() {
             handler.post(messagesCheckRunnable)
             
             isActive = true
+
+            // Пульс на случай Doze: во сне handler.postDelayed не тикает, будильник тикает.
+            LocationHeartbeatReceiver.schedule(this)
+
             LogHelper.d("Обновление геолокации, проверка точек и обновление профиля запущены")
         } catch (e: Exception) {
             LogHelper.e("Ошибка при запуске обновления геолокации: ${e.message}")
@@ -194,6 +203,7 @@ class LocationService : Service() {
         handler.removeCallbacks(pointsCheckRunnable)
         handler.removeCallbacks(profileUpdateRunnable)
         handler.removeCallbacks(messagesCheckRunnable)
+        LocationHeartbeatReceiver.cancel(this)
         isActive = false
         
         // Останавливаем Foreground Service
@@ -386,9 +396,59 @@ class LocationService : Service() {
         messagesChecker.check(userId)
     }
 
+    /**
+     * Один цикл проверок, вызванный будильником [LocationHeartbeatReceiver] в Doze.
+     *
+     * Обычные таймеры сервиса (`handler.postDelayed`) во время глубокого сна не тикают, так
+     * что без этого проверка точек и сообщений замирает до разблокировки экрана. Здесь мы
+     * ничего нового не делаем — дёргаем ровно те же функции, что и таймеры; их собственные
+     * защиты по интервалу не дадут выполнить работу дважды, если сервис только что и так
+     * отработал.
+     *
+     * Если сервис оказался неактивен (система его усыпила и подняла заново), сначала
+     * поднимаем обновления локации — иначе тикать будет нечему.
+     */
+    @SuppressLint("MissingPermission")
+    private fun onHeartbeatTick() {
+        if (!isActive) {
+            LogHelper.d("LocationService: пульс застал сервис неактивным, перезапускаем обновления")
+            startLocationUpdates()
+            return
+        }
+
+        // Свежая локация: во сне колбэк не приходил, а проверка точек без координат
+        // бессмысленна. lastLocation дешёвая — это последнее, что уже знает система.
+        if (hasLocationPermission()) {
+            try {
+                fusedLocationProviderClient.lastLocation.addOnSuccessListener { location ->
+                    if (location != null) {
+                        currentLocation = location
+                        _locationSource.value = location
+                    }
+                    runHeartbeatChecks()
+                }.addOnFailureListener { e ->
+                    LogHelper.w("LocationService: не удалось получить lastLocation на пульсе: ${e.message}")
+                    runHeartbeatChecks()
+                }
+            } catch (e: Exception) {
+                LogHelper.w("LocationService: ошибка запроса lastLocation на пульсе: ${e.message}")
+                runHeartbeatChecks()
+            }
+        } else {
+            runHeartbeatChecks()
+        }
+    }
+
+    private fun runHeartbeatChecks() {
+        checkPointsInRange()
+        checkForNewMessages()
+    }
+
     companion object {
         const val ACTION_START = "bas.app.shift.ACTION_START_LOCATION"
         const val ACTION_STOP = "bas.app.shift.ACTION_STOP_LOCATION"
+        /** Толчок из Doze, см. [LocationHeartbeatReceiver]. */
+        const val ACTION_TICK = "bas.app.shift.ACTION_TICK_LOCATION"
         private const val PREFS_NAME = "game_state"
         private const val KEY_IN_GAME = "is_in_game"
         private val _locationSource = MutableStateFlow<Location?>(null)

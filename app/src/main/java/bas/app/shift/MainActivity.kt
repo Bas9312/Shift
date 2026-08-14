@@ -12,6 +12,7 @@ import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityMainBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.NetworkErrors
+import bas.app.shift.helpers.BatteryOptimization
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.helpers.UserRoles
 import bas.app.shift.models.User
@@ -249,6 +250,7 @@ class MainActivity : AppCompatActivity() {
             ShiftApplication.instance.setIsInGame(true)
             updateUI()
             // Запускаем сервис с небольшой задержкой, чтобы UI обновился
+            maybeAskBatteryOptimizationExemption()
             binding.root.post {
                 if (mainActivityPermissions.hasLocationPermission()) {
                     ShiftApplication.instance.startLocationService()
@@ -546,6 +548,40 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             })
+    }
+
+    /**
+     * Просит вывести приложение из-под оптимизации батареи — момент входа в игру для этого
+     * самый уместный: именно с него начинает работать фоновая механика.
+     *
+     * Ничего не блокирует: отказ означает лишь, что в Doze уведомления о точках и сообщениях
+     * могут приходить с задержкой. Повторно спрашиваем не чаще раза в сутки (см.
+     * [BatteryOptimization]), чтобы не дёргать на каждое переключение.
+     */
+    private fun maybeAskBatteryOptimizationExemption() {
+        if (!BatteryOptimization.shouldAsk(this)) return
+        BatteryOptimization.markAsked(this)
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.battery_optimization_title)
+            .setMessage(R.string.battery_optimization_message)
+            .setPositiveButton(R.string.battery_optimization_open) { _, _ ->
+                val intent = BatteryOptimization.requestIntent(this)
+                    ?: BatteryOptimization.settingsIntent(this)
+                if (intent == null) {
+                    LogHelper.w("MainActivity: прошивка не умеет открывать настройки оптимизации батареи")
+                    Toast.makeText(this, R.string.battery_optimization_unavailable, Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                try {
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    LogHelper.e("MainActivity: не удалось открыть настройки оптимизации батареи: ${e.message}")
+                    Toast.makeText(this, R.string.battery_optimization_unavailable, Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton(R.string.battery_optimization_later, null)
+            .show()
     }
 
     private fun checkIfMgUser() {

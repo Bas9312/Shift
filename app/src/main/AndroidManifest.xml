@@ -11,6 +11,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+
+    <!-- Фоновая механика игры (вход в зону точки, новые сообщения) держится на
+         LocationService. Без исключения из оптимизации батареи Doze режет ему сеть и
+         усыпляет таймеры; после перезагрузки телефона сервис надо поднять обратно. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     
     <!-- Разрешения для доступа к медиафайлам -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
@@ -95,6 +101,22 @@
         <receiver
             android:name=".receivers.AuraCleanupReadyReceiver"
             android:exported="false" />
+
+        <!-- Пульс для LocationService в Doze: будит сервис, когда handler.postDelayed
+             замирает во время глубокого сна. -->
+        <receiver
+            android:name=".receivers.LocationHeartbeatReceiver"
+            android:exported="false" />
+
+        <!-- Поднимает LocationService после перезагрузки телефона и после самообновления. -->
+        <receiver
+            android:name=".receivers.BootCompletedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".ui.AuraActivity"
