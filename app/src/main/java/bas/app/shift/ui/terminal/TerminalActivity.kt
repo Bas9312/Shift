@@ -493,25 +493,15 @@ class TerminalActivity : AppCompatActivity() {
         }
         
         // Проверяем, нужно ли отправлять эту команду
-        if (shouldSkipCommand(command)) {
+        if (TerminalCommandManager.shouldSkipMgNotification(command)) {
             LogHelper.d("TerminalActivity: Skipping command: $command")
             return
         }
-        
+
         LogHelper.d("TerminalActivity: Sending command to MG: $command")
-        
+
         // Отправляем сообщение в чат
         sendCommandToMg(command)
-    }
-    
-    private fun shouldSkipCommand(command: String): Boolean {
-        return when {
-            command.startsWith("SHIFT.PROXY") -> true
-            command.startsWith("USER.") && !command.startsWith("USER.FORMAT") -> true
-            command.startsWith("UTILS.") -> true
-            command.startsWith("SYSTEM.") -> true
-            else -> false
-        }
     }
     
     private fun sendCommandToMg(command: String) {

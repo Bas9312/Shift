@@ -38,5 +38,20 @@ object DateTimeHelper {
             expireAt
         }
     }
-    
+
+    /**
+     * Серверный timestamp ("yyyy-MM-dd HH:mm:ss") -> "HH:mm" для списков чатов/сообщений.
+     * При ошибке парсинга возвращает исходную строку как есть.
+     */
+    fun formatMessageTime(createdAt: String): String {
+        return try {
+            val inputFormat = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
+            val outputFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+            val date = inputFormat.parse(createdAt)
+            outputFormat.format(date ?: Date())
+        } catch (e: Exception) {
+            createdAt
+        }
+    }
+
 }

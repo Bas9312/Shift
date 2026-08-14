@@ -4,9 +4,9 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import bas.app.shift.databinding.ItemChatBinding
+import bas.app.shift.helpers.DateTimeHelper
+import bas.app.shift.helpers.DisplayNames
 import bas.app.shift.models.Chat
-import java.text.SimpleDateFormat
-import java.util.*
 
 class ChatsAdapter(
     private val onChatClick: (Chat) -> Unit
@@ -41,32 +41,15 @@ class ChatsAdapter(
         fun bind(chat: Chat) {
             binding.apply {
                 // Формируем имя в формате interlocutor_name / interlocutor_player_name
-                val displayName = when {
-                    !chat.interlocutorName.isNullOrEmpty() && !chat.interlocutorPlayerName.isNullOrEmpty() -> 
-                        "${chat.interlocutorName} / ${chat.interlocutorPlayerName}"
-                    !chat.interlocutorName.isNullOrEmpty() -> 
-                        chat.interlocutorName
-                    !chat.interlocutorPlayerName.isNullOrEmpty() -> 
-                        chat.interlocutorPlayerName
-                    else -> 
-                        chat.interlocutor
-                }
-                tvUserName.text = displayName
+                tvUserName.text = DisplayNames.combine(
+                    chat.interlocutorName,
+                    chat.interlocutorPlayerName,
+                    chat.interlocutor
+                )
                 tvLastMessage.text = chat.lastMessage?.content ?: "Нет сообщений"
-                
+
                 // Форматируем время
-                chat.lastMessage?.createdAt?.let { timeStr ->
-                    try {
-                        val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                        val outputFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-                        val date = inputFormat.parse(timeStr)
-                        tvTime.text = outputFormat.format(date ?: Date())
-                    } catch (e: Exception) {
-                        tvTime.text = timeStr
-                    }
-                } ?: run {
-                    tvTime.text = ""
-                }
+                tvTime.text = chat.lastMessage?.createdAt?.let { DateTimeHelper.formatMessageTime(it) } ?: ""
 
                 // Показываем счетчик непрочитанных
                 if (chat.unreadCount > 0) {

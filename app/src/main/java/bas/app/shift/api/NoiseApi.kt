@@ -1,6 +1,5 @@
 package bas.app.shift.api
 
-import bas.app.shift.models.GlobalNoiseResponse
 import bas.app.shift.models.NoiseAdjustRequest
 import bas.app.shift.models.NoiseAdjustResponse
 import bas.app.shift.models.NoiseState
@@ -20,6 +19,4 @@ interface NoiseApi {
         @Body body: NoiseAdjustRequest
     ): Call<NoiseAdjustResponse>
 
-    @GET("/noize_api/api/v1/global")
-    fun getGlobalNoise(): Call<GlobalNoiseResponse>
 }

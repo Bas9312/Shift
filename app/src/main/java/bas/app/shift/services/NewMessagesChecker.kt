@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.UserRoles
 import bas.app.shift.models.Chat
 import bas.app.shift.models.Message
 import retrofit2.Call
@@ -22,7 +23,7 @@ class NewMessagesChecker(
 
     fun check(userId: String) {
         try {
-            if (userId.startsWith("MG_")) {
+            if (UserRoles.isMg(userId)) {
                 // Для MG пользователей используем getChats для получения списка чатов
                 RetrofitClient.messagesApi.getChats(userId).enqueue(object : Callback<List<Chat>> {
                     override fun onResponse(call: Call<List<Chat>>, response: Response<List<Chat>>) {
@@ -71,7 +72,7 @@ class NewMessagesChecker(
                 val messageId = message.id.toString()
                 newMessageIds.add(messageId)
 
-                if (!lastKnownMessageIds.contains(messageId) && !message.senderId.startsWith("MG_")) {
+                if (!lastKnownMessageIds.contains(messageId) && !UserRoles.isMg(message.senderId)) {
                     newMessageIdsToNotify.add(messageId)
                     LogHelper.d("NewMessagesChecker: Найдено новое сообщение от ${message.senderId} (id=${message.id})")
                 }
@@ -113,12 +114,12 @@ class NewMessagesChecker(
         if (newMessageIdsToNotify.isEmpty()) return
 
         val notifiedMessageIds = prefs.getStringSet(notifiedKey(userId), emptySet()) ?: emptySet()
-        val shouldNotify = newMessageIdsToNotify.any { !notifiedMessageIds.contains(it) }
+        val notYetNotifiedIds = newMessageIdsToNotify.filterNot { notifiedMessageIds.contains(it) }
 
-        if (shouldNotify) {
+        if (notYetNotifiedIds.isNotEmpty()) {
             val updatedNotifiedIds = notifiedMessageIds + newMessageIdsToNotify
             prefs.edit().putStringSet(notifiedKey(userId), updatedNotifiedIds).apply()
-            onNewMessages(1, isMG)
+            onNewMessages(notYetNotifiedIds.size, isMG)
         }
     }
 

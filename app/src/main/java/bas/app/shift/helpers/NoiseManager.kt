@@ -91,36 +91,33 @@ class NoiseManager(private val context: Context) {
     
     fun adjustNoise(delta: Double) {
         val currentUserId = userId ?: return
-        // selfDelta — та часть шума, что в итоге придётся на самого пользователя.
-        // Каждый активный эффект «отщипывает» от неё половину в пользу другого узла.
-        // Важно: суммарный шум сохраняется, и себе он начисляется ровно один раз (в конце),
-        // без прежнего двойного начисления при ненайденном Cross-Link партнёре.
-        var selfDelta = delta
 
-        // Proxy: половина уходит на Proxy-узел
         val hasProxyEffect = noiseEffectManager.hasProxyEffect()
-        if (hasProxyEffect && selfDelta > 0) {
-            val proxyDelta = selfDelta / 2.0
-            selfDelta -= proxyDelta
-            LogHelper.d("NoiseManager: Proxy effect active, splitting $delta: $proxyDelta -> proxy, остаток $selfDelta")
-            adjustNoiseForUser("${currentUserId}_Proxy", proxyDelta)
+        val hasCrossLinkEffect = noiseEffectManager.hasCrossLinkEffect()
+        val partnerName = if (hasCrossLinkEffect) noiseEffectManager.getCrossLinkPartnerName() else null
+
+        // Чистый расчёт деления (см. NoiseHelperTest) — сколько уходит на Proxy-узел, сколько
+        // партнёру по Cross-Link, сколько остаётся самому пользователю. Партнёру делим долю,
+        // только если его имя реально распознано (иначе делить нечего — секция ниже это учитывает).
+        val split = NoiseHelper.calculateNoiseSplit(delta, hasProxyEffect, hasCrossLinkEffect && partnerName != null)
+
+        if (split.proxyDelta > 0) {
+            LogHelper.d("NoiseManager: Proxy effect active, splitting $delta: ${split.proxyDelta} -> proxy, остаток ${delta - split.proxyDelta}")
+            adjustNoiseForUser("${currentUserId}_Proxy", split.proxyDelta)
         }
 
-        // Cross-Link: половина оставшегося уходит партнёру
-        val hasCrossLinkEffect = noiseEffectManager.hasCrossLinkEffect()
-        if (hasCrossLinkEffect && selfDelta > 0) {
-            val partnerName = noiseEffectManager.getCrossLinkPartnerName()
+        if (hasCrossLinkEffect) {
             if (partnerName != null) {
-                val partnerDelta = selfDelta / 2.0
-                selfDelta -= partnerDelta
-                LogHelper.d("NoiseManager: Cross-Link active, $partnerDelta -> партнёр '$partnerName', остаток $selfDelta")
-                findUserByName(partnerName) { partnerId ->
-                    if (partnerId != null) {
-                        adjustNoiseForUser(partnerId, partnerDelta)
-                    } else {
-                        // Партнёр не найден — возвращаем его долю себе, чтобы не потерять шум
-                        LogHelper.e("NoiseManager: partner ID для '$partnerName' не найден, доля возвращается пользователю")
-                        adjustNoiseForUser(currentUserId, partnerDelta)
+                if (split.partnerDelta > 0) {
+                    LogHelper.d("NoiseManager: Cross-Link active, ${split.partnerDelta} -> партнёр '$partnerName', остаток ${split.selfDelta}")
+                    findUserByName(partnerName) { partnerId ->
+                        if (partnerId != null) {
+                            adjustNoiseForUser(partnerId, split.partnerDelta)
+                        } else {
+                            // Партнёр не найден — возвращаем его долю себе, чтобы не потерять шум
+                            LogHelper.e("NoiseManager: partner ID для '$partnerName' не найден, доля возвращается пользователю")
+                            adjustNoiseForUser(currentUserId, split.partnerDelta)
+                        }
                     }
                 }
             } else {
@@ -128,7 +125,7 @@ class NoiseManager(private val context: Context) {
             }
         }
 
-        adjustNoiseForUser(currentUserId, selfDelta)
+        adjustNoiseForUser(currentUserId, split.selfDelta)
     }
     
     private fun adjustNoiseForUser(targetUserId: String, delta: Double) {

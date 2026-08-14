@@ -1,5 +1,6 @@
 package bas.app.shift.ui
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -8,6 +9,8 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import bas.app.shift.R
 import bas.app.shift.databinding.FragmentProfileBinding
@@ -21,10 +24,16 @@ class ProfileFragment : Fragment() {
     private var _binding: FragmentProfileBinding? = null
     private val binding get() = _binding!!
     private var currentUserId: String? = null
-    
-    companion object {
-        private const val REQUEST_CODE_EDIT_EFFECTS = 1001
-    }
+
+    private val editEffectsLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK && isAdded && context != null) {
+                // Обновляем профиль после редактирования эффектов
+                // Здесь можно добавить логику для перезагрузки данных пользователя
+                // Пока что просто показываем сообщение
+                Toast.makeText(context, "Эффекты обновлены", Toast.LENGTH_SHORT).show()
+            }
+        }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -113,7 +122,7 @@ class ProfileFragment : Fragment() {
                 if (isAdded && context != null) {
                     val intent = Intent(context, EffectEditorActivity::class.java)
                     intent.putExtra("userId", user.userId)
-                    startActivityForResult(intent, REQUEST_CODE_EDIT_EFFECTS)
+                    editEffectsLauncher.launch(intent)
                 }
             }
         } else {
@@ -218,16 +227,4 @@ class ProfileFragment : Fragment() {
         }
     }
     
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        
-        if (requestCode == REQUEST_CODE_EDIT_EFFECTS && resultCode == android.app.Activity.RESULT_OK) {
-            // Обновляем профиль после редактирования эффектов
-            // Здесь можно добавить логику для перезагрузки данных пользователя
-            // Пока что просто показываем сообщение
-            if (isAdded && context != null) {
-                Toast.makeText(context, "Эффекты обновлены", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
 }

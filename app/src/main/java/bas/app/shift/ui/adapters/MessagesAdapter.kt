@@ -9,9 +9,9 @@ import androidx.recyclerview.widget.RecyclerView
 import bas.app.shift.R
 import bas.app.shift.models.Message
 import bas.app.shift.models.Disciplines
+import bas.app.shift.helpers.DateTimeHelper
 import bas.app.shift.helpers.UserPrefsHelper
-import java.text.SimpleDateFormat
-import java.util.*
+import bas.app.shift.helpers.UserRoles
 
 class MessagesAdapter(
     private val onMessageClick: (Message) -> Unit = {},
@@ -127,8 +127,8 @@ class MessagesAdapter(
             val isSelected = selectedMessageId == message.id
             
             // Для МГ пользователей: все сообщения от МГ считаются "своими" для подсвечивания
-            val isFromMG = message.senderId.startsWith("MG_")
-            val shouldHighlightAsOwn = if (currentUserId.startsWith("MG_")) {
+            val isFromMG = UserRoles.isMg(message.senderId)
+            val shouldHighlightAsOwn = if (UserRoles.isMg(currentUserId)) {
                 isFromMG // Если мы МГ, то все МГ сообщения подсвечиваем как свои
             } else {
                 isCurrentUser // Если мы не МГ, то только свои сообщения
@@ -141,7 +141,7 @@ class MessagesAdapter(
                 "Вы"
             } else {
                 // Для МГ пользователей проверяем, является ли отправитель собеседником
-                if (currentUserId.startsWith("MG_")) {
+                if (UserRoles.isMg(currentUserId)) {
                     // Если это сообщение от собеседника (с кем открыт чат), показываем имя
                     if (message.senderId == interlocutorId) {
                         interlocutorName ?: message.senderId
@@ -178,7 +178,7 @@ class MessagesAdapter(
             }
             
             // Отображаем статус прочтения
-            if (currentUserId.startsWith("MG_") && isCurrentUser) {
+            if (UserRoles.isMg(currentUserId) && isCurrentUser) {
                 // Для МГ пользователей: на своих сообщениях галочки не показываем
                 tvReadStatus.visibility = View.GONE
             } else if (message.readStatus == "read") {
@@ -233,15 +233,6 @@ class MessagesAdapter(
             }
         }
         
-        private fun formatTime(createdAt: String): String {
-            return try {
-                val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                val outputFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-                val date = inputFormat.parse(createdAt)
-                outputFormat.format(date ?: Date())
-            } catch (e: Exception) {
-                createdAt
-            }
-        }
+        private fun formatTime(createdAt: String): String = DateTimeHelper.formatMessageTime(createdAt)
     }
 }

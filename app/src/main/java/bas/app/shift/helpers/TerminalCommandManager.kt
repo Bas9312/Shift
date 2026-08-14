@@ -102,4 +102,18 @@ object TerminalCommandManager {
             else -> "0"
         }
     }
+
+    /**
+     * Команды, ответ на которые не нужно дублировать в MG-чат (либо у них свой канал
+     * общения с MG, либо это чисто локальные/служебные команды).
+     */
+    fun shouldSkipMgNotification(command: String): Boolean {
+        return when {
+            command.startsWith("SHIFT.PROXY") -> true
+            command.startsWith("USER.") && !command.startsWith("USER.FORMAT") -> true
+            command.startsWith("UTILS.") -> true
+            command.startsWith("SYSTEM.") -> true
+            else -> false
+        }
+    }
 }

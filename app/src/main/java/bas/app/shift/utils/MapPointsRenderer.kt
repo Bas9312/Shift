@@ -74,11 +74,6 @@ class MapPointsRenderer(
             pointsOfInterest.forEach { (id, pointData) ->
                 val (point, circle, currentMarker) = pointData
 
-                // Пропускаем точки типа USER (у них нет кругов и они не нужны на карте)
-                if (point.type == "USER" && !isMgUser) {
-                    return@forEach
-                }
-
                 // Если маркера еще нет - создаем его
                 if (currentMarker == null) {
                     val newMarker = map.addMarker(

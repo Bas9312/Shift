@@ -38,28 +38,24 @@ class NoiseEffectManager(private val context: Context) {
         val newLevel = NoiseHelper.getNoiseLevel(newNoise)
         
         LogHelper.d("NoiseEffectManager: Checking effects - oldNoise: $oldNoise (level $oldLevel) -> newNoise: $newNoise (level $newLevel)")
-        
-        // Применяем эффекты ВСЕХ пройденных порогов, а не только первого.
-        // Раньше здесь был `when` (только одна ветка), поэтому скачок шума, например 0 -> 5,
-        // применял лишь эффект уровня 3, а критичные эффекты уровней 4 и 5 терялись.
-        var triggered = false
-        if (oldLevel < 3 && newLevel >= 3) {
+
+        // Применяем эффекты ВСЕХ пройденных порогов, а не только первого (см. NoiseHelperTest
+        // для покрытия граничных случаев вроде скачка 0 -> 5).
+        val crossed = NoiseHelper.thresholdsCrossed(oldLevel, newLevel)
+        if (crossed.isEmpty()) {
+            LogHelper.d("NoiseEffectManager: No effect triggered")
+        }
+        if (3 in crossed) {
             LogHelper.d("NoiseEffectManager: Triggering level 3 effect")
             checkAndApplyLevel3Effect(userId)
-            triggered = true
         }
-        if (oldLevel < 4 && newLevel >= 4) {
+        if (4 in crossed) {
             LogHelper.d("NoiseEffectManager: Triggering level 4 effect")
             checkAndApplyLevel4Effect(userId)
-            triggered = true
         }
-        if (oldLevel < 5 && newLevel >= 5) {
+        if (5 in crossed) {
             LogHelper.d("NoiseEffectManager: Triggering level 5 effect")
             checkAndApplyLevel5Effect(userId)
-            triggered = true
-        }
-        if (!triggered) {
-            LogHelper.d("NoiseEffectManager: No effect triggered")
         }
     }
     

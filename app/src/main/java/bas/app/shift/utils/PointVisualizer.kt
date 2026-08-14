@@ -37,7 +37,6 @@ object PointVisualizer {
         PointType.FAKE_FAMILIAR_BITER to BitmapDescriptorFactory.HUE_ROSE,
         PointType.OPEN_PROBLEM to BitmapDescriptorFactory.HUE_RED,
         PointType.APPROACHING_BITER to BitmapDescriptorFactory.HUE_VIOLET,
-        PointType.OPEN_PROBLEM to BitmapDescriptorFactory.HUE_BLUE,
         PointType.SHRINKING_CIRCLE to BitmapDescriptorFactory.HUE_CYAN,
         PointType.APPROACHING_VIRTUAL to BitmapDescriptorFactory.HUE_YELLOW,
     )

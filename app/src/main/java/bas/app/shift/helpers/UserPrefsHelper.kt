@@ -2,7 +2,6 @@ package bas.app.shift.helpers
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.system.Os.remove
 import androidx.core.content.edit
 import bas.app.shift.models.User
 import com.google.gson.Gson

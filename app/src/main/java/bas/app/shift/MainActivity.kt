@@ -13,6 +13,7 @@ import bas.app.shift.databinding.ActivityMainBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.helpers.UserPrefsHelper
+import bas.app.shift.helpers.UserRoles
 import bas.app.shift.models.User
 import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraHiddenRequest
@@ -206,7 +207,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnMessagesChat.setOnClickListener {
             val userId = UserPrefsHelper.getUserId(this)
-            if (userId?.startsWith("MG_") == true) {
+            if (UserRoles.isMg(userId)) {
                 // Для МГ пользователей - показываем список чатов
                 startActivity(Intent(this, ChatsListActivity::class.java))
             } else {

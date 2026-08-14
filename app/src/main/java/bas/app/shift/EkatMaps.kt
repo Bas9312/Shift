@@ -407,7 +407,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             text = message
             setTextIsSelectable(true)
             setPadding(48, 32, 48, 16)
-            LinkifyCompat.addLinks(this, Linkify.ALL)
+            LinkifyCompat.addLinks(this, LINKIFY_MASK)
             movementMethod = LinkMovementMethod.getInstance()
         }
 
@@ -449,7 +449,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             text = auraText ?: getString(R.string.aura_of_place_empty)
             setTextIsSelectable(true)
             setPadding(48, 32, 48, 16)
-            LinkifyCompat.addLinks(this, Linkify.ALL)
+            LinkifyCompat.addLinks(this, LINKIFY_MASK)
             movementMethod = LinkMovementMethod.getInstance()
         }
 
@@ -512,7 +512,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
         listOf(dialogBinding.tvPointDescription, dialogBinding.tvPointTextOnEnter).forEach { tv ->
             tv.setTextIsSelectable(true)
-            LinkifyCompat.addLinks(tv, Linkify.ALL)
+            LinkifyCompat.addLinks(tv, LINKIFY_MASK)
             tv.movementMethod = LinkMovementMethod.getInstance()
         }
 
@@ -1112,5 +1112,9 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
         /** Насколько близко надо подойти, чтобы прочитать ауру места. Как у фамильяров. */
         private const val AURA_READ_MAX_DISTANCE_M = 50.0
+
+        // Linkify.ALL is deprecated because it includes MAP_ADDRESSES (unreliable geocoding-based
+        // matching); everything else it covers is still current, so list those flags explicitly.
+        private const val LINKIFY_MASK = Linkify.WEB_URLS or Linkify.EMAIL_ADDRESSES or Linkify.PHONE_NUMBERS
     }
 }

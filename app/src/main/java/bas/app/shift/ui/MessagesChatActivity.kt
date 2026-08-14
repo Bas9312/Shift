@@ -10,6 +10,8 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -22,6 +24,7 @@ import bas.app.shift.databinding.DialogTagsSelectionBinding
 import bas.app.shift.databinding.DialogDisciplineSelectionBinding
 import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.helpers.UserPrefsHelper
+import bas.app.shift.helpers.UserRoles
 import bas.app.shift.models.*
 import bas.app.shift.ui.adapters.MessagesAdapter
 import bas.app.shift.ui.adapters.DisciplinesAdapter
@@ -57,8 +60,34 @@ class MessagesChatActivity : AppCompatActivity() {
     private var interlocutorName: String? = null
     private var isScreenActive = false
     
+    private val pickFilesLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                result.data?.let { intent ->
+                    if (intent.clipData != null) {
+                        // Множественный выбор
+                        val count = intent.clipData!!.itemCount
+                        for (i in 0 until count) {
+                            val uri = intent.clipData!!.getItemAt(i).uri
+                            selectedFiles.add(uri)
+                        }
+                    } else if (intent.data != null) {
+                        // Одиночный выбор
+                        selectedFiles.add(intent.data!!)
+                    }
+
+                    if (selectedFiles.isNotEmpty()) {
+                        Toast.makeText(this, "Выбрано файлов: ${selectedFiles.size}", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this, "Файлы не выбраны", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } else if (result.resultCode == Activity.RESULT_CANCELED) {
+                Toast.makeText(this, "Выбор файлов отменен", Toast.LENGTH_SHORT).show()
+            }
+        }
+
     companion object {
-        private const val REQUEST_CODE_PICK_FILES = 1001
         private const val REQUEST_CODE_PERMISSIONS = 1002
     }
     
@@ -77,7 +106,7 @@ class MessagesChatActivity : AppCompatActivity() {
         
         // Получаем реципиента из Intent или определяем по логике
         selectedRecipient = intent.getStringExtra("recipient_id") ?: run {
-            if (userId.startsWith("MG_")) {
+            if (UserRoles.isMg(userId)) {
                 // Для МГ пользователей - если нет реципиента, перенаправляем на список чатов
                 Toast.makeText(this, "Выберите чат из списка", Toast.LENGTH_SHORT).show()
                 finish()
@@ -89,7 +118,7 @@ class MessagesChatActivity : AppCompatActivity() {
         }
         
         android.util.Log.d("MessagesChat", "Initialized: userId=$userId, selectedRecipient=$selectedRecipient")
-        android.util.Log.d("MessagesChat", "userId starts with MG_: ${userId.startsWith("MG_")}")
+        android.util.Log.d("MessagesChat", "userId starts with MG_: ${UserRoles.isMg(userId)}")
         
         // Обновляем заголовок если есть имя реципиента
         val recipientName = intent.getStringExtra("recipient_name")
@@ -150,7 +179,7 @@ class MessagesChatActivity : AppCompatActivity() {
     }
     
     private fun updateSendButtonState() {
-        if (userId.startsWith("MG_")) {
+        if (UserRoles.isMg(userId)) {
             // Для МГ пользователей кнопки видны только при выбранном сообщении
             val isVisible = selectedMessageForReply != null
             binding.btnSend.visibility = if (isVisible) android.view.View.VISIBLE else android.view.View.GONE
@@ -167,7 +196,7 @@ class MessagesChatActivity : AppCompatActivity() {
     }
     
     private fun markSelectedMessageAsRead() {
-        if (!userId.startsWith("MG_")) return
+        if (!UserRoles.isMg(userId)) return
 
         val message = selectedMessageForReply
         if (message == null) {
@@ -231,7 +260,7 @@ class MessagesChatActivity : AppCompatActivity() {
             },
             onMessageLongClick = { message ->
                 // Обработка длинного клика по сообщению (только для МГ)
-                if (userId.startsWith("MG_")) {
+                if (UserRoles.isMg(userId)) {
                     selectMessageForReply(message)
                 }
             }
@@ -253,7 +282,7 @@ class MessagesChatActivity : AppCompatActivity() {
             showLoading(true)
         }
         
-        val call = if (userId.startsWith("MG_")) {
+        val call = if (UserRoles.isMg(userId)) {
             // Для МГ пользователей используем новый API истории чата
             android.util.Log.d("MessagesChat", "Loading chat history: userId=$userId, peerId=$selectedRecipient")
             RetrofitClient.messagesApi.getChatHistory(
@@ -327,7 +356,7 @@ class MessagesChatActivity : AppCompatActivity() {
         }
         
         // Проверяем, является ли пользователь МГ
-        if (!userId.startsWith("MG_")) {
+        if (!UserRoles.isMg(userId)) {
             // Для не-МГ пользователей показываем диалог выбора дисциплины
             showDisciplineSelectionDialog(text, selectedFiles.toList())
             return
@@ -498,8 +527,8 @@ class MessagesChatActivity : AppCompatActivity() {
         // Создаем chooser с обоими вариантами
         val chooserIntent = Intent.createChooser(pickIntent, "Выберите изображения")
         chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(getContentIntent))
-        
-        startActivityForResult(chooserIntent, REQUEST_CODE_PICK_FILES)
+
+        pickFilesLauncher.launch(chooserIntent)
     }
     
     override fun onRequestPermissionsResult(
@@ -513,35 +542,6 @@ class MessagesChatActivity : AppCompatActivity() {
                 pickFiles()
             } else {
                 Toast.makeText(this, "Разрешение на доступ к файлам необходимо для прикрепления", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-    
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_CODE_PICK_FILES) {
-            if (resultCode == Activity.RESULT_OK) {
-                data?.let { intent ->
-                    if (intent.clipData != null) {
-                        // Множественный выбор
-                        val count = intent.clipData!!.itemCount
-                        for (i in 0 until count) {
-                            val uri = intent.clipData!!.getItemAt(i).uri
-                            selectedFiles.add(uri)
-                        }
-                    } else if (intent.data != null) {
-                        // Одиночный выбор
-                        selectedFiles.add(intent.data!!)
-                    }
-                    
-                    if (selectedFiles.isNotEmpty()) {
-                        Toast.makeText(this, "Выбрано файлов: ${selectedFiles.size}", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(this, "Файлы не выбраны", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } else if (resultCode == Activity.RESULT_CANCELED) {
-                Toast.makeText(this, "Выбор файлов отменен", Toast.LENGTH_SHORT).show()
             }
         }
     }

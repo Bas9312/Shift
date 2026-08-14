@@ -9,20 +9,52 @@ import bas.app.shift.R
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.button.MaterialButton
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.models.Artifact
-import com.google.zxing.integration.android.IntentIntegrator
-import com.google.zxing.integration.android.IntentResult
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
 class ArtifactScannerActivity : AppCompatActivity() {
+
+    private val barcodeLauncher = registerForActivityResult(ScanContract()) { result ->
+        val scannedContent = result.contents
+        if (scannedContent == null) {
+            // Сканирование отменено
+            Toast.makeText(this, "Сканирование отменено", Toast.LENGTH_SHORT).show()
+            finish()
+        } else {
+            LogHelper.d("ArtifactScannerActivity: Отсканирован штрих-код: $scannedContent")
+
+            // Пытаемся извлечь ID артефакта
+            try {
+                val artifactId = scannedContent.toInt()
+                fetchArtifact(artifactId)
+            } catch (e: NumberFormatException) {
+                Toast.makeText(this, "Неверный формат штрих-кода", Toast.LENGTH_LONG).show()
+                LogHelper.e("ArtifactScannerActivity: Неверный формат штрих-кода: $scannedContent")
+                finish()
+            }
+        }
+    }
+
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            startScanner()
+        } else {
+            Toast.makeText(this, "Для сканирования штрих-кода требуется разрешение на камеру", Toast.LENGTH_LONG).show()
+            finish()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,77 +99,25 @@ class ArtifactScannerActivity : AppCompatActivity() {
     }
 
     private fun requestCameraPermission() {
-        ActivityCompat.requestPermissions(
-            this,
-            arrayOf(Manifest.permission.CAMERA),
-            REQUEST_CAMERA_PERMISSION
-        )
+        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
     private fun startScanner() {
         // Настраиваем сканер с улучшенными параметрами
-        val integrator = IntentIntegrator(this)
-        integrator.setDesiredBarcodeFormats(IntentIntegrator.CODE_128, IntentIntegrator.CODE_39, IntentIntegrator.EAN_13, IntentIntegrator.EAN_8)
-        integrator.setPrompt("Наведите камеру на штрих-код артефакта\n\n💡 Совет: Тапните по экрану для фокусировки")
-        integrator.setCameraId(0) // Используем заднюю камеру
-        integrator.setBeepEnabled(false) // Отключаем звук
-        integrator.setBarcodeImageEnabled(false) // Не сохраняем изображение
-        integrator.setOrientationLocked(true) // Блокируем поворот экрана
-        integrator.setCaptureActivity(CustomScannerActivity::class.java)
-        
+        val options = ScanOptions()
+        options.setDesiredBarcodeFormats(ScanOptions.CODE_128, ScanOptions.CODE_39, ScanOptions.EAN_13, ScanOptions.EAN_8)
+        options.setPrompt("Наведите камеру на штрих-код артефакта\n\n💡 Совет: Тапните по экрану для фокусировки")
+        options.setCameraId(0) // Используем заднюю камеру
+        options.setBeepEnabled(false) // Отключаем звук
+        options.setBarcodeImageEnabled(false) // Не сохраняем изображение
+        options.setOrientationLocked(true) // Блокируем поворот экрана
+        options.setCaptureActivity(CustomScannerActivity::class.java)
+
         // Дополнительные настройки для лучшего качества сканирования
-        integrator.setTimeout(30000) // 30 секунд таймаут
-        integrator.setTorchEnabled(false) // Отключаем фонарик
-        
-        integrator.initiateScan()
-    }
+        options.setTimeout(30000) // 30 секунд таймаут
+        options.setTorchEnabled(false) // Отключаем фонарик
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CAMERA_PERMISSION) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startScanner()
-            } else {
-                Toast.makeText(this, "Для сканирования штрих-кода требуется разрешение на камеру", Toast.LENGTH_LONG).show()
-                finish()
-            }
-        }
-    }
-
-    companion object {
-        private const val REQUEST_CAMERA_PERMISSION = 101
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        val result: IntentResult? = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
-        
-        if (result != null) {
-            if (result.contents == null) {
-                // Сканирование отменено
-                Toast.makeText(this, "Сканирование отменено", Toast.LENGTH_SHORT).show()
-                finish()
-            } else {
-                // Получили результат сканирования
-                val scannedContent = result.contents
-                LogHelper.d("ArtifactScannerActivity: Отсканирован штрих-код: $scannedContent")
-                
-                // Пытаемся извлечь ID артефакта
-                try {
-                    val artifactId = scannedContent.toInt()
-                    fetchArtifact(artifactId)
-                } catch (e: NumberFormatException) {
-                    Toast.makeText(this, "Неверный формат штрих-кода", Toast.LENGTH_LONG).show()
-                    LogHelper.e("ArtifactScannerActivity: Неверный формат штрих-кода: $scannedContent")
-                    finish()
-                }
-            }
-        } else {
-            super.onActivityResult(requestCode, resultCode, data)
-        }
+        barcodeLauncher.launch(options)
     }
 
     private fun fetchArtifact(artifactId: Int) {
