@@ -89,13 +89,21 @@ class MessagesChatActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_CODE_PERMISSIONS = 1002
+
+        /** Префикс временных копий вложений в cacheDir. */
+        private const val ATTACHMENT_TEMP_PREFIX = "attach_upload_"
+
+        /** Возраст, начиная с которого временная копия считается брошенной. */
+        private const val STALE_TEMP_FILE_AGE_MS = 60 * 60 * 1000L
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMessagesChatBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        
+
+        sweepStaleAttachmentTempFiles()
+
         // Получаем userId из SharedPreferences
         userId = UserPrefsHelper.getUserId(this) ?: ""
         if (userId.isEmpty()) {
@@ -405,25 +413,49 @@ class MessagesChatActivity : AppCompatActivity() {
         val tagsBody = if (tags.isNotEmpty()) tags.joinToString(",").toRequestBody("text/plain".toMediaTypeOrNull()) else null
         val answerToBody = replyMessage?.id?.takeIf { it > 0 }?.toString()?.toRequestBody("text/plain".toMediaTypeOrNull())
 
-        // Чтение вложений (крупное фото читается целиком в память) выносим на IO-поток,
-        // чтобы не блокировать UI и не ловить ANR/OOM на главном потоке.
+        // Вложения готовим на IO-потоке: UI не блокируется (нет ANR), и файл не читается
+        // целиком в память (нет OOM на большом фото со слабого телефона) — вместо
+        // readBytes() потоково копируем во временный файл в cacheDir и отдаём его
+        // OkHttp как File. Так у запроса остаётся честный Content-Length, то есть формат
+        // на проводе не меняется (никакого chunked, который серверу пришлось бы разбирать
+        // иначе).
         lifecycleScope.launch(Dispatchers.IO) {
             val fileParts = mutableListOf<MultipartBody.Part>()
+            val tempFiles = mutableListOf<File>()
             files.forEach { uri ->
+                var temp: File? = null
                 try {
                     val mimeType = contentResolver.getType(uri) ?: "image/*"
                     val fileName = getFileName(uri) ?: "file_${System.currentTimeMillis()}"
-                    contentResolver.openInputStream(uri)?.use { input ->
-                        val requestFile = input.readBytes().toRequestBody(mimeType.toMediaTypeOrNull())
-                        fileParts.add(MultipartBody.Part.createFormData("files", fileName, requestFile))
-                    } ?: android.util.Log.e("MessagesChat", "Could not open input stream for URI: $uri")
+                    temp = File.createTempFile(ATTACHMENT_TEMP_PREFIX, null, cacheDir)
+                    val copied = contentResolver.openInputStream(uri)?.use { input ->
+                        temp.outputStream().use { output -> input.copyTo(output) }
+                        true
+                    } ?: false
+                    if (!copied) {
+                        android.util.Log.e("MessagesChat", "Could not open input stream for URI: $uri")
+                        temp.delete()
+                        temp = null
+                        return@forEach
+                    }
+                    tempFiles.add(temp)
+                    fileParts.add(
+                        MultipartBody.Part.createFormData(
+                            "files",
+                            fileName,
+                            temp.asRequestBody(mimeType.toMediaTypeOrNull())
+                        )
+                    )
                 } catch (e: Exception) {
                     android.util.Log.e("MessagesChat", "Error processing file: ${e.message}")
+                    temp?.delete()
                 }
             }
 
             withContext(Dispatchers.Main) {
-                sendCreateMessageRequest(textBody, recipientBody, tagsBody, answerToBody, fileParts, tempId, replyMessage)
+                sendCreateMessageRequest(
+                    textBody, recipientBody, tagsBody, answerToBody, fileParts, tempId, replyMessage, tempFiles
+                )
             }
         }
     }
@@ -435,7 +467,9 @@ class MessagesChatActivity : AppCompatActivity() {
         answerToBody: okhttp3.RequestBody?,
         fileParts: List<MultipartBody.Part>,
         tempId: Int,
-        replyMessage: Message?
+        replyMessage: Message?,
+        /** Временные копии вложений в cacheDir — удаляем, когда запрос завершился. */
+        tempFiles: List<File> = emptyList()
     ) {
         RetrofitClient.messagesApi.createMessage(
             userId = userId,
@@ -476,13 +510,44 @@ class MessagesChatActivity : AppCompatActivity() {
                     Toast.makeText(this@MessagesChatActivity, NetworkErrors.http(response.code()), Toast.LENGTH_LONG).show()
                 }
                 selectedFiles.clear()
+                deleteTempFiles(tempFiles)
             }
 
             override fun onFailure(call: retrofit2.Call<CreateMessageResponse>, t: Throwable) {
                 Toast.makeText(this@MessagesChatActivity, NetworkErrors.network(t), Toast.LENGTH_LONG).show()
                 selectedFiles.clear()
+                deleteTempFiles(tempFiles)
             }
         })
+    }
+
+    /**
+     * Чистит временные копии вложений. Вызывается из обоих исходов запроса; если процесс
+     * умрёт между отправкой и ответом, файлы останутся в cacheDir — её чистит система, а
+     * [sweepStaleAttachmentTempFiles] подметает остатки при следующем входе в чат.
+     */
+    private fun deleteTempFiles(tempFiles: List<File>) {
+        tempFiles.forEach { file ->
+            if (file.exists() && !file.delete()) {
+                android.util.Log.w("MessagesChat", "Не удалось удалить временный файл ${file.name}")
+            }
+        }
+    }
+
+    /**
+     * Удаляет временные копии вложений, оставшиеся от убитого процесса. Трогает только
+     * заведомо протухшие (старше [STALE_TEMP_FILE_AGE_MS]), чтобы не снести файл отправки,
+     * которая ещё идёт в другом экземпляре экрана (например, после поворота).
+     */
+    private fun sweepStaleAttachmentTempFiles() {
+        try {
+            val deadline = System.currentTimeMillis() - STALE_TEMP_FILE_AGE_MS
+            cacheDir.listFiles { file ->
+                file.name.startsWith(ATTACHMENT_TEMP_PREFIX) && file.lastModified() < deadline
+            }?.forEach { it.delete() }
+        } catch (e: Exception) {
+            android.util.Log.w("MessagesChat", "Не удалось подмести временные файлы: ${e.message}")
+        }
     }
     
     private fun showDisciplineSelectionDialog(text: String, files: List<Uri>) {

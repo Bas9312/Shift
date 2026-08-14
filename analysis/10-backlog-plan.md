@@ -1,5 +1,14 @@
 # План по бэклогу (клиент Shift) — 2026-07-28
 
+> **Это игровой бэклог** (фичи, механики, расхождения с доками API, вопросы к Тари/Лёше/
+> Жене/Коле) — им владеет владелец проекта. Технический долг и надёжность сюда не пишем,
+> они живут в [11-status.md](11-status.md).
+>
+> **Статус на 2026-08-15:** с 2026-07-28 этот файл не двигался. Открытые пункты (#15, #3,
+> #25 и вопросы к Тари) продублированы в [11-status.md](11-status.md) §E как «заблокировано
+> на других людях». Ночные сессии этот бэклог не трогают.
+
+
 > **Status, 2026-07-28 (fifth pass).** See section 0д: the two remaining "small, unblocked"
 > tail items are done — the view-id mismatch in the point-info dialog is fixed, and the aura
 > cleanup notification now fires via AlarmManager + a BroadcastReceiver, tested live.

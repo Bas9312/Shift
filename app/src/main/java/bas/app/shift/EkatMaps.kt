@@ -32,6 +32,7 @@ import bas.app.shift.databinding.DialogPointInfoBinding
 import bas.app.shift.ui.FamiliarChatActivity
 import bas.app.shift.ui.FamiliarFoundActivity
 import bas.app.shift.helpers.UserPrefsHelper
+import bas.app.shift.helpers.UserRoles
 import bas.app.shift.models.Point
 import bas.app.shift.models.PointRequest
 import bas.app.shift.models.PointType
@@ -55,7 +56,6 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.Task
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -80,25 +80,25 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     /** Дисциплина «Экстрасенсорика»: такому игроку доступно чтение ауры места. */
     private var isExtrasensory = false
-    private val scope = CoroutineScope(Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LogHelper.d("EkatMaps: onCreate: запуск активности карты")
 
-        // Проверяем состояние игры
+        // Роль определяем ДО проверки состояния игры: мастеру карта нужна независимо от
+        // того, «в игре» ли он (он ей и пользуется, чтобы расставлять точки до начала).
+        checkIfMgUser()
+
+        // Проверяем состояние игры — только для игрока
         val isInGame = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
             .getBoolean(MainActivity.KEY_IN_GAME, false)
-        if (!isInGame) {
+        if (!isInGame && !isMgUser) {
             LogHelper.w("onCreate: персонаж не в игре")
             Toast.makeText(this, "Персонаж не в игре", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
 
-        // Проверяем, является ли пользователь MG
-        checkIfMgUser()
-        
         LogHelper.d("EkatMaps: onCreate: карта доступна всем пользователям, ${if (isMgUser) "MG пользователь получает дополнительный функционал (лонг тапы)" else "обычный пользователь получает базовый функционал (просмотр точек)"}")
         binding = ActivityEkatMapsBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -133,10 +133,12 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         super.onResume()
         LogHelper.d("EkatMaps: onResume: возобновление активности карты")
         
-        // Проверяем состояние игры
+        // Проверяем состояние игры — только для игрока: у МГ доступ к карте не зависит
+        // от «в игре» (та же логика, что в onCreate). Игрока, которого вывели из игры
+        // при открытой карте, экран по-прежнему закрывает.
         val isInGame = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
             .getBoolean(MainActivity.KEY_IN_GAME, false)
-        if (!isInGame) {
+        if (!isInGame && !isMgUser) {
             LogHelper.w("onResume: персонаж не в игре")
             Toast.makeText(this, "Персонаж не в игре", Toast.LENGTH_SHORT).show()
             finish()
@@ -347,7 +349,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
      * ровно та ситуация, ради которой всё и делалось.
      */
     private fun bindAndOpenFamiliar(point: Point, myUserId: String) {
-        scope.launch {
+        lifecycleScope.launch {
             try {
                 val response = ServerService.bindFamiliar(point.pointId, myUserId)
                 when {
@@ -536,7 +538,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 return@setOnClickListener
             }
 
-            scope.launch {
+            lifecycleScope.launch {
                 try {
                     // Шлём только реально изменившееся: null в теле означает «не трогать».
                     // Для ауры пустая строка — это «стереть», её отличаем от null осознанно.
@@ -564,7 +566,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         // Обработчик кнопки удаления
         dialogBinding.btnDeletePoint.setOnClickListener {
             LogHelper.d("Удаление точки: ${point.pointId}")
-            scope.launch {
+            lifecycleScope.launch {
                 try {
                     val response = ServerService.deletePoint(point.pointId)
                     if (response.isSuccessful) {
@@ -792,7 +794,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             }
             
             // Создаем точку
-            scope.launch {
+            lifecycleScope.launch {
                 try {
                     val userId = UserPrefsHelper.getUserId(this@EkatMaps)
                     LogHelper.d("Создание точки для пользователя: $userId")
@@ -994,7 +996,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     private fun checkIfMgUser() {
         val userName = UserPrefsHelper.getUserId(this)
-        isMgUser = userName.startsWith("MG", ignoreCase = true)
+        // Единое определение роли на весь проект (см. MainActivity.checkIfMgUser).
+        isMgUser = UserRoles.isMg(userName)
         isExtrasensory = UserPrefsHelper.getUserData(this)?.isExtrasensory == true
         LogHelper.d("Проверка MG пользователя: $userName, результат: $isMgUser, экстрасенс: $isExtrasensory")
     }

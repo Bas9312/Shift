@@ -19,3 +19,7 @@ local.properties
 # hosting. Kept out of git — they carry DB credentials in config.php.
 /SERVER/
 /API/
+
+# Emulator verification captures. Throwaway evidence for a single session (12 MB and growing);
+# the analysis documents describe what was checked, the images add nothing to the repo.
+/analysis/screenshots/

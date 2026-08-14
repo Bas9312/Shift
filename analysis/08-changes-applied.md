@@ -178,6 +178,10 @@
 
 ## Что осталось за кадром (кандидаты на будущее, НЕ сделано на момент 2026-07-22)
 
+> **Историческая секция, 2026-07-22.** Актуальный список открытых пунктов — в
+> [11-status.md](11-status.md). Ниже оставлено как есть, для контекста того захода.
+
+
 - ~~RxJava-рудимент~~ — сделано, см. Часть 3 (Wave 9).
 - ~~`О(n)` запись истории терминала~~ — сделано, см. Часть 3 (Wave 9).
 - **Проверка фона в Doze / при заблокированном экране** на реальном устройстве (R4/R5) — это
@@ -289,20 +293,212 @@
   унифицирован. `checkUserDisciplines()` сознательно НЕ трогали — там нюансированный текст по
   `userId`/коду ошибки и offline-tolerant ветвление (Wave 7), унификация потеряла бы нюанс.
 
-### Текущий бэклог (на момент этой записи)
+---
 
-- Визуально долетать до эффектов шума в терминале (`showNoise`/`applyGlitch`/`showRedScrim`/
-  `demonJumpScare`) живьём — требует реально поднять личный уровень шума до 2+, что означает
-  правки живого игрового состояния; сознательно отложено несколько сессий подряд.
-- Тап по маркеру точки на карте (`onMarkerClick` → диалог информации) — не проверено живьём
-  (это чтение, не мутация состояния — можно проверить безопасно, когда будет поднят эмулятор).
-- Doze/заблокированный экран — ручная 30–60 мин проверка живым человеком.
-- Дальнейшее упрощение `TerminalActivity` (ядро generic-пути, история, автодополнение) —
-  требует более рискованного рефакторинга, чем точечный вынос кластеров; не начато.
-- Низкорисковый бэклог из исходного R1–R13 аудита реальности исчерпан после ревизии в Wave 15 —
-  дальше либо живые проверки на эмуляторе, либо новые находки за пределами исходного аудита
-  (напр. точечный разбор `!!`-паттернов, а не массовая чистка — большинство идиоматичны и безопасны).
+# Part 4 — nightly sessions 18–56 (2026-07-27 → 2026-08-14)
 
-Полный журнал по сессиям, включая расхождения/находки/грабли (напр. K2-баг компилятора с
-`by lazy { T().apply {...} } `при переносе между классами, способ переключения пользователя
-на эмуляторе через `shared_prefs`) — см. [09-nightly-progress.md](09-nightly-progress.md).
+> Same format as Part 3: grouped by theme, not by session. Full per-session detail is in
+> [archive/09-nightly-sessions-01-39.md](archive/09-nightly-sessions-01-39.md) and
+> [archive/09-nightly-sessions-40-51.md](archive/09-nightly-sessions-40-51.md); the newest
+> sessions stay in [09-nightly-progress.md](09-nightly-progress.md).
+> Everything below is committed — `16362d1 Claude improvements4` (2026-08-15) closes the diff
+> that had been accumulating uncommitted since session 15.
+
+### Wave 16 — dead-code purge (sessions 18–21)
+
+Deleted, each confirmed unreferenced project-wide: `ServerService.notifyHiddenEffectEnter/Exit`
+(Toast + `TODO`, no endpoint behind them) with three orphaned imports;
+`MainActivity.checkNotificationPermission()` (byte-identical unused twin of
+`checkPermissionsSequentially()`); `TerminalCommandManager.getCommandsForAutocomplete/
+getCommandsForDisplay/getCommandNameOnly`; `NoiseHelper.isMaxNoiseLevel/isMinNoiseLevel`;
+`NoiseManager.getCurrentNoise()`; `UserPrefsHelper.hasUserData()`; `DateTimeHelper.isExpired()`
+and the unused `SERVER_TIMEZONE_OFFSET`; `LogHelper.getFirstOurAppEntryFromStacktrace/
+getShortStackTraceString` (the first filtered on `.knext.` — copy-paste from another project);
+`TimePickerHelper.getTimeOptions()`; `TerminalHistoryHelper.clearHistory()`;
+`CommandAutocompleteAdapter.getCommandNameAt()`; the never-wired
+`LocationService.clearMessagesCache` → `NewMessagesChecker.clearCache` chain; and five log
+sites in `MainActivity` referring to a `ProfileUpdateService` class that no longer exists.
+Also collapsed the identical Android 13+/12− branches in
+`MessagesChatActivity.checkPermissionsAndPickFiles()`.
+
+Sessions 20 and 21 independently concluded the dead-code direction was exhausted; a re-check in
+session 41 confirmed it.
+
+### Wave 17 — message cache and terminal session state (sessions 20, 23)
+
+- **`NewMessagesChecker`** gained a real `clearCache(context, userId)` clearing **both**
+  prefs keys, with the key formats extracted into private helpers.
+  `MainActivity.onCheckChanged()` now calls it instead of hand-building a `SharedPreferences`
+  removal that only cleared `last_known_message_ids_$userId` and silently missed
+  `notified_message_ids_$userId` — i.e. after a user switch, old messages could stay suppressed.
+- **T4 — REBOOT session survives process death**: `TerminalUpgradeRebootCommands` persists
+  `isRebootSessionActive` in `terminal_prefs`, so a rotation or process kill no longer strands
+  the player mid-`USER.REBOOT`.
+- **T3 — typing timers cancelled**: `ConsoleAdapter` tracks its recursive `postDelayed(25 ms)`
+  typing handlers and `TerminalActivity.onDestroy()` calls `cancelAllTyping()`.
+
+### Wave 18 — sweep of the `04-subsystems.md` findings (sessions 23–29)
+
+Maps:
+- **MA2** — `EkatMaps.onResume` unchecked `findFragmentById(R.id.map) as SupportMapFragment`
+  → `as?` + null check; removes a `ClassCastException`/NPE on the state-restore race.
+- **MA7** — `PointType.UNKNOWN` added; an unknown server type used to silently become `USER`,
+  i.e. an unknown point was drawn as a live player. `MapPointsRenderer.getPointTitle` and the
+  point-creation spinner updated accordingly.
+- **MA8** — `MapPointsRenderer.getPointDescription` no longer hardcodes "Длительность: 30 мин"
+  for `SHRINKING_CIRCLE`; it formats the real `expireAt`.
+
+Artifacts:
+- **AR1** — `ArtifactDetailsFragment` guards `context ?: return` before Toasts and
+  `if (!isAdded) return` before opening the binding dialog (which calls `requireContext()`).
+- **AR3** — `ArtifactPassportActivity` fragment transactions → `commitAllowingStateLoss()`
+  (the spinner callback can fire after `onSaveInstanceState`).
+- **AR4** — removed the misleading "Фокус установлен" Toast in `CustomScannerActivity`; no
+  real camera focus control existed behind it.
+- **AR5** — `ArtifactCreatorActivity.createArtifact()` blocks double-tap re-entry.
+
+Aura:
+- **AU10 (the most serious bug of the whole run)** — `activity_aura_editor.xml` hardcodes
+  `loadingLayout` visible and `userSelectionLayout` gone, and nothing in the Activity ever
+  toggled them: the **Aura Editor was permanently stuck on "Загрузка пользователей…" and user
+  selection was physically untappable**. `loadUsers()` now hides the loader on completion,
+  shows the selection on success, and reports failures through `NetworkErrors`.
+- **AU5** — `AuraEditorActivity.setupUI()` uses `commitNow()` so the mark/editor callbacks are
+  assigned synchronously in `onCreate`, closing a frame-long null-callback race.
+- **AU6** — QR generation (~640k `setPixel`) moved off the main thread to `Dispatchers.Default`.
+- **AU7** — `AuraScannerActivity` validates empty QR content instead of calling `getAura("")`;
+  an unreachable `catch (NumberFormatException)` removed.
+- **AU9** — `AuraFragment.loadAura()` returns early if `_binding == null` (fragment scope
+  outlives `onDestroyView`).
+
+Chat:
+- **CH7** — `MessagesAdapter` sets the attachment `RecyclerView`'s layout manager and adapter
+  once in the ViewHolder `init` instead of on every `bind()`.
+
+### Wave 19 — last `NetworkErrors` sites and the `NoiseManager` tail (sessions 29, 32–33)
+
+`NoiseManager.cleanup()` now also nulls `onCommandFailureListener` — it was the only one of
+four callbacks left dangling (finding NO3). `MessagesChatActivity.markAsRead` and three
+`catch` blocks in `EkatMaps` (point update / delete / create) switched to `NetworkErrors`.
+With that the unification is complete: the remaining raw `response.code()` sites are
+`LogHelper` diagnostics in background services with no user-facing text.
+
+### Wave 20 — duplication removed with generics (sessions 34–38)
+
+- `EffectEditorActivity` — duplicate toolbar setup and a second identical
+  `setOnClickListener` on the mark-type input removed.
+- `MainActivity` — four byte-identical three-branch `LocationService` logging blocks in
+  `onStart`/`onResume`/`onPause`/`onDestroy` → one `logLocationServiceState(...)`.
+- `ProfileEditFragment` — `updateModulesDisplay`/`updateDisciplinesDisplay`/`updateMiscDisplay`
+  → generic `updateRemovableListDisplay<T>(...)`.
+- `ProfileFragment` — four identical read-only list renderers → generic `renderTextList<T>(...)`.
+- `EkatMaps.extractFamiliarIdFromPoint` — two branch regexes merged into one.
+- `LocationService.calculateDistance()` — hand-rolled Haversine replaced with
+  `Location.distanceBetween(...)`, matching what `MapPointsRenderer` already used.
+
+### Wave 21 — migration off deprecated Android APIs (sessions 39–43, 48)
+
+`ShiftApplication` off `LifecycleObserver`/`@OnLifecycleEvent` → `DefaultLifecycleObserver`;
+`LocationService.stopForeground(true)` → `stopForeground(STOP_FOREGROUND_REMOVE)` in both call
+sites; five `LinkifyCompat.addLinks(..., Linkify.ALL)` calls → an explicit per-file
+`LINKIFY_MASK` (drops deprecated `MAP_ADDRESSES`); redundant `package="bas.app.shift"` removed
+from `AndroidManifest.xml` (already set via `namespace`); `startActivityForResult`/
+`onActivityResult` → `registerForActivityResult` in `ProfileFragment` and
+`MessagesChatActivity`; zxing `IntentIntegrator` → `ScanContract`/`ScanOptions` plus
+`ActivityResultContracts.RequestPermission()` in both scanner activities. After this the only
+compiler deprecation warning left in the project is `ShiftApplication.getRunningServices`,
+which is kept deliberately.
+
+### Wave 22 — unit test suite, 0 → 146 tests (sessions 44–52)
+
+New tests under `app/src/test/java/bas/app/shift/`, all on pure logic, zero production changes:
+`NetworkErrorsTest`, `DisplayNamesTest`, `AuraCleanupManagerTest`, `PointRadiusMathTest`,
+`NoiseHelperTest`, `TimePickerHelperTest`, `TerminalCommandManagerTest`, `ProfileDifferTest`,
+`UserRolesTest`, `DateTimeHelperTest`, `TerminalHistoryHelperTest`, `FamiliarDataTest`,
+`EnumFromServerValueTest`, `GsonTypeAdapterTest`, `LogHelperTest`. Two of them are explicit
+regression tests for bugs described in kdoc (`AuraMarkTypeAdapter` unknown value used to null
+out the mark; `LocalTimeAdapter` bad input used to break terminal history loading), and
+`TerminalCommandManagerTest` pins the `findCommand` exact-token match that fixed T5.
+
+### Wave 23 — shared helpers instead of copy-paste (sessions 46–50)
+
+- **`helpers/UserRoles.kt`** (new) — `UserRoles.isMg(userId)` replacing 12 hand-written
+  `userId.startsWith("MG_")` checks across `MessagesChatActivity`, `MessagesAdapter`,
+  `NewMessagesChecker`, `MainActivity`. Case sensitivity preserved 1:1.
+- **`NoiseHelper`** gained the pure `thresholdsCrossed(old, new)` and
+  `calculateNoiseSplit(delta, hasProxy, hasCrossLink)`; `NoiseEffectManager` and `NoiseManager`
+  now call them instead of inline `if`s. Behaviour 1:1, but the arithmetic is now unit-tested.
+- **`DateTimeHelper.formatMessageTime`** — inline time formatting in `MessagesAdapter` and
+  `ChatsAdapter` unified; `ChatsAdapter` also picked up the `DisplayNames.combine` it had
+  missed in Wave 11.
+- **`TerminalCommandManager.shouldSkipMgNotification(command)`** — moved out of
+  `TerminalActivity`, now testable.
+
+### Wave 24 — real bugs found by line-by-line reading (sessions 53–56)
+
+- **`utils/PointVisualizer.kt`** — `markerColors` listed `PointType.OPEN_PROBLEM` twice
+  (`HUE_RED`, then `HUE_BLUE`); Kotlin's `mapOf` keeps the last, so the marker rendered **blue
+  while its circle was red**. Duplicate removed, red kept. Verified visually under `MG_Bas`.
+- **`services/NewMessagesChecker.kt`** — `notifyIfNotAlreadyNotified` always passed
+  `onNewMessages(1, isMG)`, so a notification about several new messages always read
+  "У вас 1 новое сообщение". Now passes the real count of not-yet-notified ids.
+- **`utils/MapPointsRenderer.kt`** — unreachable branch `point.type == "USER" && !isMgUser`
+  inside a block that only runs when `isMgUser == true`, plus its misleading comment, removed.
+  No behaviour change; it was a refactoring leftover that read like a rule.
+- **`api/NoiseApi.kt`** — dead `getGlobalNoise()` (`GET /noize_api/api/v1/global`) and its
+  `models/GlobalNoiseResponse.kt` deleted; the client only ever reads global noise from
+  `NoiseState.globalNoise` in `GET /user/{id}`. Removing it surfaced a **server-side**
+  asymmetry, recorded in [11-status.md](11-status.md) §F for the owner.
+
+---
+
+### Wave 25 — the three defects the fix documents got wrong (2026-08-15)
+
+Found by re-verifying the 2026-07-22 top-20 table against current code rather than against the
+fix documents. All three were recorded as done, or not recorded at all.
+
+**P1 — the game master could not open the map or the chat list when not "в игре".**
+The audit blamed one line; the reality was four independent gates, and closing only the first
+would have looked fixed while staying broken:
+- `MainActivity.updateUI()` — the unconditional tail re-assigned `btnOpenMap`/`btnMessagesChat`
+  `isEnabled = isInGame()` right after the MG branch had enabled them. The tail now reads a
+  single local `inGame` and grants both buttons to MG explicitly.
+- `MainActivity` `btnOpenMap` click handler — silently did nothing unless `isInGame()`.
+- `EkatMaps.onCreate()` — checked `is_in_game` *before* determining the role and finished the
+  Activity. Role detection moved ahead of the check; the check now applies to players only.
+- `EkatMaps.onResume()` — the same check again, so even a started map closed itself.
+  Same treatment. A player pulled out of the game mid-session is still ejected, as before.
+
+Verified live under `MG_Bas` with `is_in_game=false`: both buttons enabled, the map opens and
+syncs 46 points, the chat list opens, no `FATAL` in logcat, emulator state left as found.
+
+**Side finding, fixed with it:** three different definitions of "who is MG" coexisted —
+`UserRoles.isMg` (strict `MG_` prefix, the project standard since Wave 23) against
+`startsWith("MG", ignoreCase = true)` in `MainActivity.checkIfMgUser` and
+`EkatMaps.checkIfMgUser`. Button state and click behaviour could disagree about the same user.
+Both now delegate to `UserRoles.isMg`.
+
+**P2 — `EkatMaps` held a `CoroutineScope(Dispatchers.Main)` that was never cancelled.**
+It drove point create/update/delete and familiar binding, and every one of those continues
+after the response with `Toast`, `updatePointsFromServer()`, `mMap.animateCamera(...)` or
+`startActivity(...)` — all unsafe on a destroyed Activity. `onDestroy()` only logged. All four
+call sites moved to `lifecycleScope`; the field and its now-unused import are gone. Accepted
+trade-off: a write in flight is cancelled if the screen dies, which is how the rest of the app
+already behaves.
+
+**P3 — chat attachments were still read fully into memory.** Wave 2 moved `readBytes()` off
+the UI thread, which removed the ANR but not the OOM; the unused `asRequestBody` import sitting
+in the file showed the streaming change had been started and dropped. Attachments are now
+copied to a temp file in `cacheDir` with a bounded buffer and sent via `File.asRequestBody`, so
+the request keeps an honest `Content-Length` and the wire format is unchanged (no chunked
+encoding for the PHP side to deal with). Temp files are deleted in both request outcomes, and
+an age-guarded sweep on screen open clears anything orphaned by a killed process — age-guarded
+so it cannot delete an upload still in flight from a previous instance after a rotation.
+**Not verified live:** doing so means posting a real message into production chat.
+
+---
+
+## Backlog
+
+The live backlog is **not** in this file. See **[11-status.md](11-status.md)** — current state,
+open items, closed directions, and field notes. This document only records what was changed.

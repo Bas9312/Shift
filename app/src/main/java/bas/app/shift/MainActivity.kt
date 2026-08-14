@@ -177,8 +177,10 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnOpenMap.setOnClickListener {
             // Карта не должна зависеть от разрешения на уведомления (важно для Android < 13,
-            // где POST_NOTIFICATIONS не существует). Достаточно того, что персонаж в игре.
-            if (ShiftApplication.instance.isInGame()) {
+            // где POST_NOTIFICATIONS не существует). Достаточно того, что персонаж в игре —
+            // либо это МГ, которому карта нужна независимо от состояния игры (та же логика,
+            // что и у isEnabled в updateUI()).
+            if (ShiftApplication.instance.isInGame() || isMgUser) {
                 startActivity(Intent(this, EkatMaps::class.java))
             }
         }
@@ -282,8 +284,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     internal fun updateUI() {
-        LogHelper.d("MainActivity: updateUI - isMgUser: $isMgUser, isInGame: ${ShiftApplication.instance.isInGame()}")
-        binding.btnOpenMap.isEnabled = ShiftApplication.instance.isInGame()
+        val inGame = ShiftApplication.instance.isInGame()
+        LogHelper.d("MainActivity: updateUI - isMgUser: $isMgUser, isInGame: $inGame")
 
         // Для МГ пользователей скрываем терминал и профиль
         if (isMgUser) {
@@ -305,12 +307,13 @@ class MainActivity : AppCompatActivity() {
             binding.btnMgProfileView.visibility = View.VISIBLE
             binding.btnArtifactPassport.visibility = View.VISIBLE
             
-            // МГ пользователи всегда имеют доступ к кнопкам, независимо от состояния игры
+            // МГ пользователи всегда имеют доступ к кнопкам, независимо от состояния игры.
+            // Карта и чат тоже: их isEnabled выставляется ниже, в общем хвосте, чтобы
+            // хвост не перетирал установленное здесь значение.
             binding.btnAuraEditor.isEnabled = true
             binding.btnCreateArtifact.isEnabled = true
             binding.btnMgProfileView.isEnabled = true
             binding.btnArtifactPassport.isEnabled = true
-            binding.btnOpenMap.isEnabled = true
 
             LogHelper.d("MainActivity: Кнопки МГ установлены как активные")
             
@@ -363,15 +366,20 @@ class MainActivity : AppCompatActivity() {
             // Включаем/выключаем кнопки в зависимости от состояния игры
         }
 
-        binding.openTerminalButton.isEnabled = ShiftApplication.instance.isInGame()
-        binding.openAuraButton.isEnabled = ShiftApplication.instance.isInGame()
-        binding.btnOpenProfile.isEnabled = ShiftApplication.instance.isInGame()
-        binding.btnScanArtifact.isEnabled = ShiftApplication.instance.isInGame()
-        binding.btnFamiliar.isEnabled = ShiftApplication.instance.isInGame()
-        binding.btnToggleAuraHidden.isEnabled = ShiftApplication.instance.isInGame()
-        binding.btnMessagesChat.isEnabled = ShiftApplication.instance.isInGame()
-        binding.btnOpenMap.isEnabled = ShiftApplication.instance.isInGame()
-        binding.btnRitual.isEnabled = ShiftApplication.instance.isInGame()
+        binding.openTerminalButton.isEnabled = inGame
+        binding.openAuraButton.isEnabled = inGame
+        binding.btnOpenProfile.isEnabled = inGame
+        binding.btnScanArtifact.isEnabled = inGame
+        binding.btnFamiliar.isEnabled = inGame
+        binding.btnToggleAuraHidden.isEnabled = inGame
+        binding.btnRitual.isEnabled = inGame
+
+        // Карта и чат для МГ доступны всегда, а не только «в игре»: список чатов —
+        // единственный способ ответить игрокам, а карта нужна мастеру, чтобы видеть точки.
+        // Раньше этот хвост безусловно перетирал isEnabled = true из МГ-ветки выше, из-за
+        // чего мастер вне игры оставался с обеими кнопками неактивными.
+        binding.btnMessagesChat.isEnabled = inGame || isMgUser
+        binding.btnOpenMap.isEnabled = inGame || isMgUser
 
         // Обновляем кнопку управления аурой для экстрасенсов
         if (isExtrasensory) {
@@ -542,7 +550,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkIfMgUser() {
         val userName = UserPrefsHelper.getUserId(this)
-        isMgUser = userName.startsWith("MG", ignoreCase = true)
+        // Единое определение роли на весь проект. Раньше здесь было
+        // startsWith("MG", ignoreCase = true) — шире, чем UserRoles.isMg (строгий префикс
+        // "MG_"), которым пользуется, например, обработчик кнопки чата. Из-за расхождения
+        // кнопка могла быть включена как для МГ, а вести себя как для игрока.
+        isMgUser = UserRoles.isMg(userName)
         LogHelper.d("MainActivity: checkIfMgUser - userName: $userName, isMgUser: $isMgUser")
     }
 
