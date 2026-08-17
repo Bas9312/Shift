@@ -14,7 +14,6 @@ import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.models.User
 import bas.app.shift.models.NamedEntity
 import bas.app.shift.models.Ability
-import bas.app.shift.models.FamiliarData
 import bas.app.shift.models.UserUpdateRequest
 import bas.app.shift.constants.ReferenceData
 import retrofit2.Call
@@ -90,11 +89,15 @@ class ProfileEditActivity : AppCompatActivity() {
                         allAbilities = response.body()!!
                         profileEditFragment.setAbilities(allAbilities)
                     } else {
+                        // Без этого список способностей просто остаётся пустым, а фрагмент
+                        // на кнопке «добавить» бесконечно пишет «Загрузка способностей...».
+                        Toast.makeText(this@ProfileEditActivity, NetworkErrors.http(response.code()), Toast.LENGTH_LONG).show()
                         LogHelper.e("ProfileEditActivity: Ошибка загрузки способностей: ${response.code()}")
                     }
                 }
 
                 override fun onFailure(call: Call<List<Ability>>, t: Throwable) {
+                    Toast.makeText(this@ProfileEditActivity, NetworkErrors.network(t), Toast.LENGTH_LONG).show()
                     LogHelper.e("ProfileEditActivity: Ошибка сети при загрузке способностей: ${t.localizedMessage}")
                 }
             })

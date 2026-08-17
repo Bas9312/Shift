@@ -16,7 +16,7 @@
 | Version | `versionCode 18` / `versionName 3.0` (was 2.5 at audit time) |
 | SDK | `minSdk 26`, `targetSdk 35` |
 | Size | 121 Kotlin files, ~15.1k lines (audit: 101 files / ~13.8k) |
-| Tests | 16 test files, 146 unit tests, `testDebugUnitTest --offline` green |
+| Tests | 16 test files, 138 unit tests, `testDebugUnitTest --offline` green (2026-08-17: `FamiliarDataTest` removed with the hardcoded catalog, `FamiliarImagesTest` added) |
 | Build | `assembleDebug --offline` green (exit 0) |
 | Working tree | **clean** — everything through nightly session 56 is committed in `16362d1`; the 2026-08-15 doc restructure, the P1–P3 fixes and the Doze mitigations are in the two commits after it |
 | God-class sizes | `EkatMaps` 1119 (was 1237), `MainActivity` 663 (837), `TerminalActivity` 543 (1325), `LocationService` 402 (1030) |
@@ -119,9 +119,49 @@ exists. Worth a comment in the code if it stays.
 
 | # | Item | Notes |
 |---|------|-------|
-| B1 | **Cross-check Kotlin `api/*.kt` against the real server PHP**, not just the `API/*.txt` docs | Started in session 56. Done: `NoiseApi`↔`noize_api`, `ShiftApi`↔`api_geo` (full match). Left: `AuraApi`↔`aura_api`, `ArtifactApi`↔`artifacts_api`, `ChatApi`/`MessagesApi`↔`messages_api`, `EffectApi`↔`effects_api`, `UserProfileApi`↔`mage_profile_api`. This is currently the best source of real findings. |
+| B1 | **Cross-check Kotlin `api/*.kt` against the real server PHP** | **Done 2026-08-17**, all pairs checked, no live client-side bug found. Findings below. |
 | B2 | `expireAt` format mismatch | `EkatMaps.kt` writes `"yyyy-MM-dd'T'HH:mm:ss'Z'"` when creating a SHRINKING_CIRCLE, `DateTimeHelper.formatExpireAt` parses `"yyyy-MM-dd HH:mm:ss"`. Needs the server's actual GET response format confirmed first — falls under B1. |
 | B3 | Unit tests for `WikipediaHelper` / `UserPrefsHelper` | Needs Mockito or Robolectric, i.e. one non-`--offline` Gradle sync to add the dependency. **Owner's call** — nightly sessions run offline. |
+| B4 | **Offline crash on the aura screens** | **Done 2026-08-18.** `AuraActivity.kt:59` and `AuraFragment.kt:77` both called `auraApi.getAura()` inside `lifecycleScope.launch(Dispatchers.IO)` with no `try`/`catch`. The `isSuccessful` branch handled HTTP errors, but a thrown `UnknownHostException` killed the process. Reproduced on the emulator: airplane mode, open an aura → `FATAL EXCEPTION: DefaultDispatcher-worker-1`, `Force finishing activity bas.app.shift/.ui.AuraActivity`, process gone. Both now use the house pattern (`launch` on the main dispatcher, `withContext(Dispatchers.IO)` around the call, `catch` → `NetworkErrors.network(e)` + `LogHelper.e`). Re-verified offline: the screen stays up and shows «Нет связи с сервером»; online it still renders. Pre-existing, unrelated to the familiar work; found while verifying the webp silhouettes. Note the aura JSON is never cached, so offline the screen has nothing to draw either way — the fix is about not crashing, not about working offline. |
+
+**B1 findings (session 58, 2026-08-17):**
+
+- `AuraApi`↔`aura_api`, `EffectApi`↔`effects_api`: full match, every route and field name checked, no bugs. `EffectApi` deliberately has no GET — the effects list for a user comes from `User.effects` via `UserProfileApi.getUserProfile`, not from `effects_api` itself.
+- `UserProfileApi`↔`mage_profile_api`: all four routes (`GET /user/{id}`, `GET /users`, `GET /abilities`, `PUT /user/{id}`) match. Minor asymmetry: `GET /user/{id}`'s response omits `showUser`/`lastUpdate` that the `PUT` response includes — harmless today because both fields are unused dead weight on the Kotlin `User` model (no code reads `user.showUser` or `user.lastUpdate` anywhere). Not fixed — nothing to fix, since nothing consumes it; worth remembering if either field is ever wired up (Gson would silently leave `showUser` `false`, not the coded default `true`, on the `GET` path — see next point).
+- `ArtifactApi`↔`artifacts_api`: `getArtifact`/`getAllArtifacts`/`updateArtifact` match exactly. `createArtifact` does not: the server's `POST` response is `{status, id, creator, created_at}`, not a full artifact, while Kotlin declares `Call<Artifact>` with seven non-null `String` fields. Gson deserialises missing non-null fields via unsafe allocation (bypasses the Kotlin constructor and its null-checks), so `artifact.name`/`material`/`properties`/etc. would silently be `null` at runtime despite the non-null type. **Currently harmless** — `ArtifactCreatorActivity.kt:212` only checks `response.isSuccessful && response.body() != null` and never reads a field off the created artifact. Flagging as a landmine, not fixing: the shared `Artifact` model is also used by three endpoints that *do* return full data reliably, so loosening it to nullable would weaken type safety everywhere to guard a response nobody reads.
+- `ChatApi` is **not** `messages_api` — it points at `CHAT_BASE_URL = http://91.184.253.175/`, a separate external service for the familiar-chat AI feature, unrelated to `shift96.ru`. Correcting this here so a future session doesn't go looking for it in `SERVER/`.
+- `MessagesApi`↔`messages_api`: all five client-called routes (`createMessage`, `getMessages`, `markAsRead`, `getChats`, `getChatHistory`) match field-for-field, including the session-55/57 `answer_to`/`tags` multipart fix. **Real gap found**: the server also implements `POST`/`GET`/`DELETE /messages_api/subscriptions` (managing which `magic_discipline` ids an MG user "follows"), and **no Kotlin code calls any of them** — grepped the whole app, zero hits for "subscription". Both `GET /messages_api/chats` (api.php:518-535) and `GET /messages_api/chats/{peer}/history` (api.php:352-381) short-circuit to an **empty result** for any MG with zero rows in the `subscriptions` table. Moved to open questions below (E) rather than "fixed" — this needs Тари/owner to say whether `subscriptions` rows are seeded manually in the DB (plausible for ~30 known players) or whether the chat-filter-by-discipline feature is simply unreachable from the app. `API Messages.txt` describes an equivalent `master_subscriptions` table, so the feature was clearly designed; whether it was ever wired up client-side is the open question.
+
+**B4 sweep (session 59, 2026-08-18) — every network call in the app, audited for "crashes or
+fails silently":**
+
+The B4 crash prompted a project-wide sweep rather than a spot fix. Two scripted passes over
+`app/src/main/java/bas/app/shift`: brace-match every `launch`/`async` block and every
+`suspend fun`, then flag any that calls one of the 37 methods actually declared in `api/*.kt`
+without a `try`/`catch` in the block; separately, flag every `onFailure` whose body shows the
+user nothing. Results:
+
+- **Coroutine calls with no `try`/`catch`: 2, both fixed** — `AuraActivity` and `AuraFragment`
+  (B4). Everything else in the app already wraps its calls. Re-running the script now reports
+  zero, which is the useful outcome: this class of crash is closed, not just the one instance.
+- **Other throwers inside coroutines** (`imageLoader.execute`, raw `okhttp` `execute`, file
+  IO): zero unprotected. `AuraCanvasView.loadBitmap` already catches.
+- **`onFailure` that only logs: 13 sites, 2 fixed.** `MgProfileViewActivity.loadUsers` (the MG
+  got an empty player spinner with no explanation) and `ProfileEditActivity.loadAbilities`
+  (empty ability list; the fragment then says «Загрузка способностей...» forever) now show
+  `NetworkErrors` in a Toast on both the HTTP-error and the exception path. An empty ability
+  list cannot corrupt a save — `addAbility` looks the id up in `allAbilities` and no-ops when
+  it is missing — so this was a UX hole, not data loss.
+- **Left as they are (11 sites).** Five are background workers with no screen to complain to
+  (`NoiseManager` ×2, `LocationService`, `NewMessagesChecker` ×2). Five of the six
+  `ui/terminal/*` handlers already print the failure into the terminal transcript via
+  `adapter.addTyping`, which the audit script did not recognise as user-visible.
+  The last one, `TerminalActivity:537`
+  (`sendCommandToMg`) is deliberately silent: it mirrors the player's terminal commands to the
+  MG chat, and telling the player it failed would expose a mechanic they are not meant to see.
+
+Scripts are throwaway (they lived in the session scratchpad); the method is written down here
+because re-deriving it is the expensive part, not re-running it.
 
 ### C. Deliberately deferred — judged not worth the risk (do not "fix" without a reason)
 
@@ -149,6 +189,7 @@ re-opens them as "findings": keystore and signing passwords in the repo, clearte
 - **#25 game-master message feed** — Коля/Тари (broadcast from the admin panel).
 - **#7** — deferred by owner decision (whole item, including the `fetchCurrentNoise` fix).
 - Open questions to Тари: `assigned_player`/`last_message_time` on points; whether `API Messages.txt` is dead documentation (it describes a completely different API than the one implemented); `API геолокации.txt` is far behind reality.
+- **MG chat "subscriptions" (discipline filter) has no client-side management UI** (found session 58, B1). The live `messages_api/subscriptions` endpoints (`POST`/`GET`/`DELETE`, api.php:697-739) are what `GET /messages_api/chats` and `GET /messages_api/chats/{peer}/history` filter on — an MG with zero rows in the `subscriptions` table gets an empty chat list, always. No Kotlin code calls these endpoints. Question for Тари/owner: are `subscriptions` rows seeded directly in the DB for each MG, or is this feature simply unreachable from the app? If the latter, every MG needs a way to pick which disciplines they follow, or the chat list silently stays empty forever regardless of the P1 button-access fix from session 57.
 
 ### F. Server-side, for the owner (not fixed autonomously)
 

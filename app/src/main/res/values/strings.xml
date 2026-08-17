@@ -68,6 +68,7 @@
     <string name="aura_hidden">Аура скрыта</string>
     <string name="familiar_notification_title">🐉 Фамильяр рядом!</string>
     <string name="familiar_button">Фамильяр</string>
+    <string name="familiar_none">Нет фамильяра</string>
     <string name="familiar_your_familiar">Ваш фамильяр</string>
     <string name="familiar_found_title">Фамильяр готов к общению</string>
     <string name="familiar_ready_to_talk">Фамильяр готов к общению\nВнимание, фамильяр в чате не может оказывать никаких игротехнических эффектов, он только для общения, все эффекты - через МГ!</string>

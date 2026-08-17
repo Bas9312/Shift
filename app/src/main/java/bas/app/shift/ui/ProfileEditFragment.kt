@@ -8,12 +8,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.Fragment
+import bas.app.shift.R
 import bas.app.shift.databinding.FragmentProfileEditBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.models.User
 import bas.app.shift.models.NamedEntity
 import bas.app.shift.models.Ability
-import bas.app.shift.models.FamiliarData
+import bas.app.shift.helpers.FamiliarCatalog
+import bas.app.shift.helpers.FamiliarImages
 import bas.app.shift.models.UserUpdateRequest
 
 class ProfileEditFragment : Fragment() {
@@ -133,12 +135,10 @@ class ProfileEditFragment : Fragment() {
         binding.profileInstrument.text = user.instrument ?: "Инструмент не указан"
 
         // Фамильяр (редактируемый)
-        val familiarName = if (user.familiar != null) {
-            FamiliarData.getNameById(user.familiar!!)
-        } else {
-            "Фамильяр не указан"
-        }
-        binding.profileFamiliar.text = familiarName
+        binding.profileFamiliar.text = user.familiar
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { FamiliarCatalog.getName(it) }
+            ?: "Фамильяр не указан"
 
         // Особенности (редактируемые)
         updateMiscDisplay()
@@ -333,8 +333,11 @@ class ProfileEditFragment : Fragment() {
     }
 
     private fun showEditFamiliarDialog() {
-        val familiarNames = FamiliarData.familiars.values.toList()
-        val familiarIds = FamiliarData.familiars.keys.toList()
+        // Список приезжает из каталога. Скрытые (кастомные одноразовые) не предлагаем,
+        // но уже выставленные у игроков остаются валидными — сервер их принимает.
+        val listed = FamiliarCatalog.listed()
+        val familiarIds = listOf("") + listed.map { it.id }
+        val familiarNames = listOf(getString(R.string.familiar_none)) + listed.map { it.name }
         val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, familiarNames)
         
         AlertDialog.Builder(requireContext())
@@ -451,8 +454,12 @@ class ProfileEditFragment : Fragment() {
         if (currentUserDisplay == null) return
         
         currentUserDisplay = currentUserDisplay!!.copy(familiar = familiarId)
-        val familiarName = FamiliarData.getNameById(familiarId)
-        binding.profileFamiliar.text = familiarName
+        binding.profileFamiliar.text = familiarId
+            .takeIf { it.isNotEmpty() }
+            ?.let { FamiliarCatalog.getName(it) }
+            ?: "Фамильяр не указан"
+        // Свои картинки тянем сразу при выборе — чтобы в поле без сети они уже были.
+        FamiliarImages.prefetch(requireContext(), familiarId)
     }
 
     private fun addMisc(misc: String) {

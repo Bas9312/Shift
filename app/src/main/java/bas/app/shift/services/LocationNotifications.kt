@@ -15,7 +15,7 @@ import bas.app.shift.helpers.ChangeType
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.ProfileChange
 import bas.app.shift.helpers.ProfileDiffer
-import bas.app.shift.models.FamiliarData
+import bas.app.shift.helpers.FamiliarCatalog
 import bas.app.shift.models.Point
 import bas.app.shift.ui.AuraActivity
 import bas.app.shift.ui.ChatsListActivity
@@ -121,7 +121,7 @@ class LocationNotifications(private val context: Context) {
 
     fun showFamiliarNotification(point: Point) {
         val familiarId = point.description ?: "familiar_malachite_lizard"
-        val familiarName = FamiliarData.getNameById(familiarId)
+        val familiarName = FamiliarCatalog.getName(familiarId)
 
         // Делаем Intent уникальным для сравнения PendingIntent'ов:
         val intent = Intent(context, FamiliarFoundActivity::class.java).apply {

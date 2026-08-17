@@ -7,10 +7,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat.startActivity
 import bas.app.shift.R
 import bas.app.shift.databinding.ActivityFamiliarFoundBinding
-import bas.app.shift.models.FamiliarData
 import bas.app.shift.models.AuraType
+import bas.app.shift.helpers.FamiliarCatalog
+import bas.app.shift.helpers.FamiliarImages
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.ui.FamiliarChatActivity
+import coil3.load
+import coil3.request.error
+import coil3.request.placeholder
 
 class FamiliarFoundActivity : AppCompatActivity() {
     private lateinit var binding: ActivityFamiliarFoundBinding
@@ -39,16 +43,19 @@ class FamiliarFoundActivity : AppCompatActivity() {
     }
 
     private fun setupFamiliarImage() {
-        val familiarId = intent.getStringExtra("familiar_id") ?: "familiar_malachite_lizard"
-        val familiarName = FamiliarData.getNameById(familiarId)
-        binding.tvFamiliarName.text = familiarName
+        val familiarId = intent.getStringExtra("familiar_id").orEmpty()
+        binding.tvFamiliarName.text = FamiliarCatalog.getName(familiarId)
 
-        val imageName = FamiliarData.getImageNameById(familiarId, 1)
-        val imageResId = resources.getIdentifier(imageName, "drawable", packageName)
-        if (imageResId != 0) {
-            binding.familiarImage.setImageResource(imageResId)
-        } else {
-            binding.familiarImage.setImageResource(R.drawable.familiar_malachite_lizard)
+        // Чужой фамильяр заранее не предзагружался — грузим по факту показа,
+        // дальше он останется в кеше.
+        val url = FamiliarImages.urlFor(familiarId, FamiliarImages.currentVariant())
+        if (url == null) {
+            binding.familiarImage.setImageResource(R.drawable.ic_image_placeholder)
+            return
+        }
+        binding.familiarImage.load(url) {
+            placeholder(R.drawable.ic_image_placeholder)
+            error(R.drawable.ic_image_placeholder)
         }
     }
 

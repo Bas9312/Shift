@@ -95,6 +95,7 @@ object RetrofitClient {
     val artifactApi: ArtifactApi = retrofit.create(ArtifactApi::class.java)
     val effectApi: EffectApi = retrofit.create(EffectApi::class.java)
     val noiseApi: NoiseApi = retrofit.create(NoiseApi::class.java)
+    val familiarApi: FamiliarApi = retrofit.create(FamiliarApi::class.java)
     val chatApi: ChatApi = chatRetrofit.create(ChatApi::class.java)
     val messagesApi: MessagesApi = messagesRetrofit.create(MessagesApi::class.java)
     

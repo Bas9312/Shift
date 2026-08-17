@@ -614,3 +614,46 @@ question (A1).
 **FINISHED:** 2026-08-15 01:15 — docs restructured and rotating, P1/P2/P3 fixed, Doze
 mitigations added with the test protocol recorded, everything committed by the owner's
 request.
+
+---
+
+## Session 58 — 2026-08-17
+
+**НАЧАЛ:** 2026-08-17 12:52 — no race (session 57 finished and committed on 2026-08-15,
+tree was clean at start). Continuing B1: static cross-check of Kotlin `api/*.kt` against
+the real server PHP. Left to check: `AuraApi`↔`aura_api`, `ArtifactApi`↔`artifacts_api`,
+`ChatApi`/`MessagesApi`↔`messages_api`, `EffectApi`↔`effects_api`, `UserProfileApi`↔
+`mage_profile_api`.
+
+Finished the whole B1 cross-check — all five remaining pairs read end to end against the
+live PHP in `SERVER/public_html`. `AuraApi`↔`aura_api` and `EffectApi`↔`effects_api` are a
+clean match, no bugs. `UserProfileApi`↔`mage_profile_api` matches on all four routes; found
+a `showUser`/`lastUpdate` asymmetry on `GET /user/{id}` but both fields are dead weight on
+the client (nothing reads them), so nothing to fix. `ArtifactApi`↔`artifacts_api` matches on
+three of four routes; `createArtifact`'s response is missing most `Artifact` fields, which
+Gson would deserialize as silent `null`s despite the Kotlin non-null types — but the only
+caller (`ArtifactCreatorActivity`) never reads them, so it's a landmine, not a live bug, and
+not worth loosening the shared model for. Corrected a wrong assumption from the backlog
+text: `ChatApi` is not `messages_api` at all — it's a separate external "familiar chat" AI
+server (`91.184.253.175`), nothing to cross-check against `SERVER/`.
+
+The one real finding: `MessagesApi`↔`messages_api` matches on everything the client actually
+calls, but the server also has live `POST`/`GET`/`DELETE /messages_api/subscriptions`
+endpoints (managing which magic disciplines an MG "follows") that **no Kotlin code calls
+anywhere** — grepped the whole app, zero hits. Both `GET /messages_api/chats` and
+`GET /messages_api/chats/{peer}/history` return an empty list for any MG with zero
+`subscriptions` rows. This directly affects the MG chat feature the P1 fix (session 57)
+was supposed to restore: fixing the buttons is moot if the chat list is permanently empty
+underneath. Not something a nightly session can fix or verify — it needs Тари/owner to say
+whether `subscriptions` rows are seeded by hand in the DB, or whether this is a genuine gap.
+Written up in [11-status.md](11-status.md) §B1 (findings) and §E (open question to Тари).
+
+No code changes this session — purely a documentation/investigation session, consistent
+with B1's "no emulator needed" framing and the precedent from session 56. `assembleDebug
+--offline` re-confirmed green as a baseline check even though nothing was touched.
+
+**ЗАВЕРШИЛ:** 2026-08-17 13:35 — B1 (API cross-check) fully closed. Found one real,
+actionable gap (MG chat `subscriptions` never called from the client) and two harmless
+latent landmines (documented, not fixed — no live bug to reproduce, no test capability for
+either without mutating production or an emulator). Build green, nothing committed (owner's
+call per standing instructions), backlog and journal both updated.

@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.ActivityMgProfileViewBinding
@@ -93,11 +94,15 @@ class MgProfileViewActivity : AppCompatActivity() {
                         users = userServers
                         setupUserSpinner()
                     } else {
+                        // Раньше ошибка уходила только в лог: мастер видел пустой список
+                        // игроков и не понимал, сервер молчит или игроков правда нет.
+                        Toast.makeText(this@MgProfileViewActivity, NetworkErrors.http(response.code()), Toast.LENGTH_LONG).show()
                         LogHelper.e("MgProfileViewActivity: Ошибка загрузки списка пользователей: ${response.code()}")
                     }
                 }
 
                 override fun onFailure(call: Call<List<ShortUser>>, t: Throwable) {
+                    Toast.makeText(this@MgProfileViewActivity, NetworkErrors.network(t), Toast.LENGTH_LONG).show()
                     LogHelper.e("MgProfileViewActivity: Ошибка сети при загрузке пользователей: ${t.localizedMessage}")
                 }
             })

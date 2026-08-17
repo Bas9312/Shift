@@ -19,7 +19,7 @@ import bas.app.shift.models.User
 import bas.app.shift.models.Aura
 import bas.app.shift.models.AuraHiddenRequest
 import bas.app.shift.models.Effect
-import bas.app.shift.models.FamiliarData
+import bas.app.shift.helpers.FamiliarCatalog
 import bas.app.shift.models.isExtrasensory
 import bas.app.shift.services.NewMessagesChecker
 import bas.app.shift.ui.terminal.TerminalActivity
@@ -339,8 +339,10 @@ class MainActivity : AppCompatActivity() {
                 val hasNoisemancy = user.disciplines.any { it.id == 9 }
                 binding.openTerminalButton.visibility = if (hasNoisemancy) View.VISIBLE else View.GONE
                 
-                // Проверяем наличие фамильяра
-                val hasFamiliar = !user.familiar.isNullOrEmpty() && FamiliarData.getNameById(user.familiar) != user.familiar
+                // Кнопку показываем, только если фамильяр есть в каталоге и это существо.
+                // Фамильяра-игрока (kind=player) открывать нечем: ни картинки, ни ИИ-чата.
+                val familiar = FamiliarCatalog.get(user.familiar)
+                val hasFamiliar = familiar != null && !familiar.isPlayer
 
                 binding.btnFamiliar.visibility = if (hasFamiliar) View.VISIBLE else View.GONE
                 

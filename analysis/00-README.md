@@ -23,6 +23,7 @@
 | [09-nightly-progress.md](09-nightly-progress.md) | Журнал последних ночных сессий (окно на 5–8 записей) | ротируемый |
 | [archive/](archive/) | Старые сессии журнала дословно | заморожен |
 | [10-backlog-plan.md](10-backlog-plan.md) | Игровой бэклог: фичи, расхождения с доками API, вопросы к команде | владелец |
+| [12-familiars-remote-assets.md](12-familiars-remote-assets.md) | Спека: картинки фамильяров на сервер, каталог в БД, валидация `users.familiar` | спека |
 | [01-executive-summary.md](01-executive-summary.md) | Вердикт аудита, топ-проблемы, план P0/P1/P2 | снапшот 2026-07-22 |
 | [02-architecture.md](02-architecture.md) | Структура, экраны, слой сети, стек, god-классы | снапшот |
 | [03-reliability.md](03-reliability.md) | Надёжность (приоритет №1), R1–R13 | снапшот |

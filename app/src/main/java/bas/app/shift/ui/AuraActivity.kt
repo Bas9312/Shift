@@ -55,9 +55,9 @@ class AuraActivity : AppCompatActivity(), AuraMarkCallback {
     }
 
     private fun loadAura(auraId: String) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val response = auraApi.getAura(auraId)
-            withContext(Dispatchers.Main) {
+        lifecycleScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) { auraApi.getAura(auraId) }
                 if (response.isSuccessful) {
                     val aura = response.body()
                     if (aura != null) {
@@ -67,8 +67,14 @@ class AuraActivity : AppCompatActivity(), AuraMarkCallback {
                         Toast.makeText(this@AuraActivity, "Ошибка: пустая аура", Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    Toast.makeText(this@AuraActivity, "Ошибка загрузки ауры", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@AuraActivity, NetworkErrors.http(response.code()), Toast.LENGTH_SHORT).show()
+                    LogHelper.e("AuraActivity: загрузка ауры $auraId вернула ${response.code()}")
                 }
+            } catch (e: Exception) {
+                // Без сети getAura бросает UnknownHostException. Раньше это исключение летело
+                // из корутины наружу и убивало процесс — на выезде это потеря приложения целиком.
+                Toast.makeText(this@AuraActivity, NetworkErrors.network(e), Toast.LENGTH_LONG).show()
+                LogHelper.e("AuraActivity: исключение при загрузке ауры $auraId: ${e.message}")
             }
         }
     }

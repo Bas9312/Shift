@@ -11,6 +11,7 @@ import bas.app.shift.api.AuraApi
 import bas.app.shift.ui.AuraMarkCallback
 import bas.app.shift.api.RetrofitClient
 import bas.app.shift.databinding.FragmentAuraBinding
+import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.models.Aura
 import androidx.lifecycle.lifecycleScope
@@ -74,12 +75,12 @@ class AuraFragment : Fragment() {
     }
 
     private fun loadAura(userId: String) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val response = auraApi.getAura(userId)
-            withContext(Dispatchers.Main) {
+        lifecycleScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) { auraApi.getAura(userId) }
                 // lifecycleScope живёт дольше view фрагмента (переживает onDestroyView);
                 // без этой проверки ответ, пришедший после разрушения view, упадёт на `binding!!`.
-                if (_binding == null) return@withContext
+                if (_binding == null) return@launch
                 if (response.isSuccessful) {
                     val aura = response.body()
                     if (aura != null) {
@@ -93,6 +94,12 @@ class AuraFragment : Fragment() {
                 } else {
                     showError(NetworkErrors.http(response.code()))
                 }
+            } catch (e: Exception) {
+                // Без сети getAura бросает UnknownHostException — раньше оно улетало из корутины
+                // и роняло процесс. Показываем ошибку, если view ещё жив.
+                if (_binding == null) return@launch
+                showError(NetworkErrors.network(e))
+                LogHelper.e("AuraFragment: исключение при загрузке ауры $userId: ${e.message}")
             }
         }
     }

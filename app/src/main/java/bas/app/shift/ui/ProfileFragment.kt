@@ -16,7 +16,7 @@ import bas.app.shift.R
 import bas.app.shift.databinding.FragmentProfileBinding
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.UserPrefsHelper
-import bas.app.shift.models.FamiliarData
+import bas.app.shift.helpers.FamiliarCatalog
 import bas.app.shift.models.User
 import bas.app.shift.models.AuraType
 
@@ -178,7 +178,7 @@ class ProfileFragment : Fragment() {
         binding.profileInstrument.text = user.instrument ?: "Инструмент не указан"
         // Фамильяр
         val familiarName = if (!user.familiar.isNullOrEmpty()) {
-            FamiliarData.getNameById(user.familiar)
+            FamiliarCatalog.getName(user.familiar)
         } else {
             "Нет фамильяра"
         }

@@ -16,7 +16,7 @@ import bas.app.shift.models.*
 import bas.app.shift.ui.AuraMarkCallback
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
-import coil3.ImageLoader
+import coil3.SingletonImageLoader
 import coil3.request.allowHardware
 import coil3.toBitmap
 import kotlinx.coroutines.*
@@ -31,7 +31,10 @@ class AuraCanvasView @JvmOverloads constructor(
     private var auraImageBitmap: Bitmap? = null
     private val markBitmaps = ConcurrentHashMap<String, Bitmap?>() // url -> bitmap
     private val problemBitmaps = HashMap<Int, Bitmap?>() // resId -> bitmap (кеш иконок проблем)
-    private val imageLoader = ImageLoader(context)
+    // Общий загрузчик приложения: у него постоянный диск-кеш в filesDir, поэтому
+    // персональный силуэт ауры и метки переживают оффлайн. Свой ImageLoader тут заводил
+    // отдельный кеш в cacheDir, который система вычищает когда захочет.
+    private val imageLoader = SingletonImageLoader.get(context)
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     
     // Callback для long tap по меткам

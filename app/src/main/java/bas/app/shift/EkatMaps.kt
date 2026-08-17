@@ -27,7 +27,7 @@ import androidx.core.text.util.LinkifyCompat
 import androidx.lifecycle.lifecycleScope
 import bas.app.shift.databinding.ActivityEkatMapsBinding
 import bas.app.shift.databinding.DialogCreatePointBinding
-import bas.app.shift.models.FamiliarData
+import bas.app.shift.helpers.FamiliarCatalog
 import bas.app.shift.databinding.DialogPointInfoBinding
 import bas.app.shift.ui.FamiliarChatActivity
 import bas.app.shift.ui.FamiliarFoundActivity
@@ -647,8 +647,11 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         dialogBinding.spinnerPointType.adapter = adapter
         
         // Настраиваем спиннер фамильяров
-        val familiarNames = FamiliarData.familiars.values.toList()
-        val familiarIds = FamiliarData.familiars.keys.toList()
+        // Точка типа FAMILIAR всегда указывает на конкретного фамильяра, поэтому
+        // пункта "нет фамильяра" здесь нет — только каталог.
+        val listedFamiliars = FamiliarCatalog.listed()
+        val familiarNames = listedFamiliars.map { it.name }
+        val familiarIds = listedFamiliars.map { it.id }
         val familiarAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, familiarNames)
         familiarAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         dialogBinding.spinnerFamiliar.adapter = familiarAdapter
