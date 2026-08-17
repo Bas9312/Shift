@@ -20,6 +20,11 @@ local.properties
 /SERVER/
 /API/
 
+# Machine-local state that has to travel between the desktop and the laptop but must never
+# reach git: Claude Code's project memory (which holds FTP and DB credentials in plain text)
+# and copies of the global instruction files. Synced with Syncthing, see _local/README.md.
+/_local/
+
 # Emulator verification captures. Throwaway evidence for a single session (12 MB and growing);
 # the analysis documents describe what was checked, the images add nothing to the repo.
 /analysis/screenshots/
