@@ -98,7 +98,7 @@ class AuraActivity : AppCompatActivity(), AuraMarkCallback {
         }
     }
 
-    /** Дыра, паразит и «другое» экстрасенсом не снимаются — только через мастера. */
+    /** Дыра и «другое» экстрасенсом не снимаются — только через мастера. */
     private fun showMasterOnlyDialog(problem: AuraProblem) {
         AlertDialog.Builder(this)
             .setTitle(R.string.aura_cleanup_title)
@@ -165,7 +165,7 @@ class AuraActivity : AppCompatActivity(), AuraMarkCallback {
 
     /**
      * Применяет результат чистки на сервере. Перед записью сверяем, что в слоте всё ещё
-     * та же проблема: пока шли 15 минут, мастер мог поменять ауру руками, и молча затереть
+     * та же проблема: пока шёл отсчёт, мастер мог поменять ауру руками, и молча затереть
      * его правку было бы хуже, чем попросить начать заново.
      */
     private fun applyCleanup(entityId: String, slot: Int, progress: AuraCleanupManager.Progress) {
@@ -193,7 +193,7 @@ class AuraActivity : AppCompatActivity(), AuraMarkCallback {
                                     slot = slot,
                                     problemType = outcome.toType,
                                     name = outcome.toName,
-                                    description = "Затянулось после чистки ауры"
+                                    description = outcome.description
                                 )
                             )
                     }

@@ -9,6 +9,11 @@
 > на других людях». Ночные сессии этот бэклог не трогают.
 
 
+> **Status, 2026-08-20 (sixth pass).** See section 0е: a psychic can now read the aura of
+> places that are not drawn on the map at all (hidden points, `POINT_WITH_TEXT`), through a
+> "listen to the place" button instead of tapping a marker. Familiars lost the aura field
+> everywhere — in the app and in the GM panel.
+>
 > **Status, 2026-07-28 (fifth pass).** See section 0д: the two remaining "small, unblocked"
 > tail items are done — the view-id mismatch in the point-info dialog is fixed, and the aura
 > cleanup notification now fires via AlarmManager + a BroadcastReceiver, tested live.
@@ -31,6 +36,43 @@
 > **#7** отложен по решению владельца. Подробности — в разделе 0.
 
 ---
+
+## 0е. Sixth pass, 2026-08-20: reading auras off places you cannot see
+
+Tapping a marker was the only way into the aura of a place, which meant the two point kinds a
+player never sees on the map — `hidden = 1` and `POINT_WITH_TEXT`, both filtered out in
+[MapPointsRenderer.syncPoints](app/src/main/java/bas/app/shift/utils/MapPointsRenderer.kt:36) —
+had auras nobody could read. Familiars had the same gap, but there it is intended: a familiar
+is a character, not a place.
+
+**New entry point.** A FAB on the map, visible only to a psychic
+([activity_ekat_maps.xml](app/src/main/res/layout/activity_ekat_maps.xml)), reads every aura
+within reach at once. It works off `lastServerPoints` — the full server response kept in
+`EkatMaps` before the renderer filters it — so points that were never drawn are included.
+The marker-card button stays; it is now the same dialog underneath.
+
+**Reach depends on visibility.** `auraReadRangeFor()`: a point the player can see keeps the
+old 50 m (its marker is right there, walking up is easy), while a hidden point or a
+`POINT_WITH_TEXT` is readable across `max(radius, 50 m)` — with no marker and no circle,
+blindly hitting a 50 m spot inside a 500 m zone is a lottery, so there "walked in" is the
+gate.
+
+**The dialog shows texts only** — no point names, no distances, auras separated by `⁂`.
+Listing names or metres would hand the psychic both the layout of the hidden zones and the
+real centre, which the virtual centre exists to hide.
+
+**Familiars lost the aura field.** Hidden in the app's point card and the create dialog, and
+never sent on create; hidden in the GM panel's edit and create forms, forced to `NULL` on
+save, and cleared when a point is switched to `FAMILIAR`. Rows that already carry an aura on
+a familiar are harmless — nothing reads them — and get cleared on the next panel save.
+
+**MG-facing note.** The aura is now the master's switch for how discoverable a hidden zone
+is: writing one lets a psychic feel the zone out, leaving it empty keeps the zone silent.
+Said so in a hint under the field in the panel.
+
+Verified: `:app:assembleDebug` and `:app:testDebugUnitTest` pass; `php -l` clean on
+`gm/pages/points.php`. **The panel change is local only — `points.php` still needs uploading
+to the live server** (diff against the live file first, per CLAUDE.md).
 
 ## 0д. Fifth pass, 2026-07-28: the two small unblocked tail items
 
@@ -298,15 +340,19 @@ trackable-точки сделан кликабельным (обычные кр�
 
 | Тип проблемы | Время | Результат |
 |---|---|---|
-| `TEAR` Разрыв | 15 мин | превращается в `SCAR` Шрам |
-| `SCAR` Шрам | 5 мин | снимается полностью |
-| `HOLE` Дыра, `PARASITE` Паразит, `OTHER` | — | «эту проблему экстрасенс не снимает, решается через мастера» |
+| `PARASITE` Паразит | 5 мин | превращается в `SCAR` Шрам |
+| `TEAR` Разрыв | 5 мин | превращается в `SCAR` Шрам |
+| `SCAR` Шрам | 10 мин | снимается полностью |
+| `HOLE` Дыра, `OTHER` | — | «эту проблему экстрасенс не снимает, решается через мастера» |
+
+> Правила обновлены владельцем 2026-08-20: паразит добавлен в автоматизацию и тоже
+> оставляет шрам, разрыв ускорен с 15 до 5 минут, шрам замедлен с 5 до 10.
 
 Надёжность: время старта хранится **абсолютным** в `SharedPreferences`, а не обратным
 отсчётом — процесс переживает сворачивание и убийство приложения (проверено force-stop'ом).
 Автоприменения по таймеру намеренно нет: если экстрасенса отвлекли, чистка не должна пройти
 сама. Перед записью на сервер сверяется, что в слоте всё ещё та же проблема — иначе правку
-мастера, сделанную за эти 15 минут, молча затёрло бы.
+мастера, сделанную за время отсчёта, молча затёрло бы.
 
 ### Как проверялось
 
@@ -414,22 +460,53 @@ verification runs. Summary of what shipped:
 - MG authoring: an aura field on point creation, and an editable aura field on the point card
   backed by `PATCH {aura_text}` (added to the server in the fourth pass). Empty string clears.
 
-### #15 — Погоня за объектом (цепочка точек)
-`next_point_id` только в моделях. Логики цепочки нет. В доке пункт закрашен
-**одновременно зелёным и жёлтым** — то есть сервер, вероятно, готов, клиент нет.
+### #15 — Погоня за объектом (цепочка точек) — DONE (2026-08-20)
 
-**Что сделать (≈4-6 часов, самый дорогой пункт):**
-Механику надо сначала уточнить у Лёши, но клиентская часть примерно такая:
-1. `GET /points?user_id=X` уже передаёт `user_id` — значит сервер может отдавать
-   персональный набор. **Уточнить у Тари:** сервер сам режет цепочку по игроку
-   (отдаёт только текущую активную точку) или клиент должен это делать?
-2. Если режет сервер — на клиенте почти ничего не нужно, кроме показа
-   `textToShowOnEnter` при входе (уже есть в `LocationService`).
-3. Если не режет — клиенту нужен локальный `SharedPreferences`-стейт «моя текущая точка
-   цепочки» и фильтр в `MapPointsRenderer.syncPoints()`. Это хрупко (переустановка
-   приложения обнуляет прогресс), лучше давить на серверный вариант.
+Реализовано с ветвлением и тупиками. Прогресс живёт на сервере, клиент своей логики
+цепочки не имеет — переустановка приложения ничего не сбрасывает.
 
-**Рекомендация: делать серверным. На клиенте — только показ текста при входе.**
+**Модель.** `point_links (from_point_id, to_point_id)` — точка может вести сразу в
+несколько следующих, это и есть развилка. `user_quest_progress.current_point_id` — теперь
+**последняя пройденная** точка, а не цель; целями считается всё, куда она ведёт (раньше
+цель была одна, поле означало другое). Ветка кончается либо финишем (`points.is_finish = 1`,
+`status = 'done'`), либо тупиком (`status = 'dead_end'`): игроку показывают, что след
+оборвался, и стартовая точка снова появляется на карте. `next_point_id` остался как
+линейная запись одной связи и синхронизируется с `point_links` в `POST`/`PATCH`/`DELETE`.
+
+**Видимость (`GET /points`, не-МГ).** Обычные точки (вне цепочек) + стартовая точка каждого
+квеста, кроме случая «игрок прямо сейчас идёт по этому квесту» + всё, куда ведёт его
+текущая точка. То есть старт виден всегда, пока квест не активен: пройденный и упёршийся
+в тупик можно начать заново, просто снова зайдя на старт.
+
+**События.** `POST /users/location` и новый `POST /points/{id}/enter` возвращают
+`chase: [{event, questId, pointId, text, next_point_ids, start_point_id}]`,
+`event` ∈ `started | advanced | finished | dead_end`. `/enter` — страховка: вход
+засчитывается и из отправки геолокации, но она может не долететь (Doze, потеря сети),
+поэтому клиент при локальном детекте входа дублирует его явно, а сервер перепроверяет
+координаты (409 «Too far from point») и повтор обрабатывает вхолостую.
+
+**Клиент.** `ChaseNotifier` показывает уведомление на каждое событие (тексты —
+`chase_*` в `strings.xml`), с дедупом на минуту, чтобы два пути доставки не дали
+дубль. В карточке точки у МГ — спиннер «следующая точка цепочки» (`PATCH next_point_id`,
+пустая строка убирает переход). Развилки на несколько веток собираются в панели.
+
+**Панель МГ.** Новая страница «Цепочки» (`gm/pages/quests.php`): создание и удаление
+квеста, дерево цепочки с пометками «финиш» / «тупик» / «уже была выше» (защита от цикла
+при отрисовке), правка переходов, метка финиша, и руль по игрокам — переставить на точку,
+засчитать, сбросить. Без этого руля застрявшего игрока пришлось бы двигать из phpMyAdmin.
+
+**Что осталось нерешённым по игре** (вопросы к Лёше, на код не влияют): прогресс сейчас
+персональный, а не командный; на финише ничего не выдаётся, кроме текста точки; проходить
+можно только по порядку, «перепрыгнуть» через точку нельзя. Защиту от цикла
+`A → B → A` при записи сознательно не делали — владелец решил, что не нужна.
+
+**Как проверялось.** Живой сервер, `CHASETEST` из четырёх точек (старт → развилка на
+верную и тупиковую ветку → финиш): видно только старт → вход в старт открывает обе
+ветки → тупик даёт `dead_end` и снова показывает старт → повторный вход в старт
+перезапускает цепочку → верная ветка открывает финиш → финиш даёт `finished`.
+Повторный `/enter` на пройденной точке возвращает пустой `chase`, `/enter` с чужих
+координат — 409. Тестовые точки и квест удалены; тестовый игрок `ChaseTest` остался
+в `users` (удаляется кнопкой на странице игрока в панели).
 
 ---
 
@@ -450,8 +527,8 @@ verification runs. Summary of what shipped:
 ### #5 — Автоматизация чистки проблем в ауре — ✅ СДЕЛАНО 2026-07-28
 
 > Итоговые правила и реализация — в разделе 0. Ниже сохранён исходный разбор; таблица
-> в нём УСТАРЕЛА, актуальная: разрыв 15 мин → шрам, шрам 5 мин → снимается,
-> дыра/паразит/другое — через мастера.
+> в нём УСТАРЕЛА, актуальная: паразит 5 мин → шрам, разрыв 5 мин → шрам,
+> шрам 10 мин → снимается, дыра/другое — через мастера.
 Сейчас проблемы ауры может править только МГ вручную через
 [AuraEditorActivity.kt:482-660](app/src/main/java/bas/app/shift/ui/AuraEditorActivity.kt:482)
 (`addAuraProblem` / `updateAuraProblem` / `deleteAuraProblem`). У игрока —

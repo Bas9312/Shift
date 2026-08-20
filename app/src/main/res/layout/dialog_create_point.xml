@@ -94,6 +94,7 @@
         android:layout_marginBottom="16dp" />
 
     <TextView
+        android:id="@+id/tvAuraLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/aura_of_place_title"

@@ -28,6 +28,9 @@ class MapPointsRenderer(
     val hasLocationMarker: Boolean
         get() = currentLocationMarker != null
 
+    /** Точки, которые сейчас на карте. МГ выбирает из них следующую точку цепочки. */
+    fun allPoints(): List<Point> = pointsOfInterest.values.map { it.first }
+
     /** Диффит серверный список с уже отрисованным: убирает лишнее, добавляет/двигает остальное. */
     fun syncPoints(serverPoints: List<Point>) {
         val desired = serverPoints.filter { point ->

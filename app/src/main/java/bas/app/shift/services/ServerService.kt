@@ -2,8 +2,10 @@ package bas.app.shift.services
 
 import android.location.Location
 import bas.app.shift.ShiftApplication
+import bas.app.shift.helpers.ChaseNotifier
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.UserPrefsHelper
+import bas.app.shift.models.EnterPointRequest
 import bas.app.shift.models.Point
 import bas.app.shift.models.PointRequest
 import bas.app.shift.models.UserLocation
@@ -38,9 +40,40 @@ object ServerService {
                 val response = api.updateUserLocation(userLocation)
                 if (!response.isSuccessful) {
                     LogHelper.e("Ошибка при отправке геолокации: ${response.code()}")
+                } else {
+                    // Сервер засчитывает вход в точки по этому же запросу и отвечает тем,
+                    // что случилось с цепочкой погони.
+                    ChaseNotifier.notify(response.body()?.chase)
                 }
             } catch (e: Exception) {
                 LogHelper.e("Ошибка при отправке геолокации: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Сообщает серверу о входе в точку. Страховка для цепочек: вход обычно засчитывается
+     * из отправки геолокации, но она может не долететь — Doze, потерянная сеть, игрок
+     * постоял в точке и ушёл. Сервер перепроверяет координаты и повтор обрабатывает
+     * вхолостую, так что лишний вызов безвреден.
+     */
+    fun reportPointEntry(pointId: String, location: Location) {
+        scope.launch {
+            try {
+                val userId = UserPrefsHelper.getUserId(ShiftApplication.instance)
+                val response = api.enterPoint(
+                    pointId,
+                    EnterPointRequest(playerId = userId, lat = location.latitude, lng = location.longitude)
+                )
+                if (response.isSuccessful) {
+                    ChaseNotifier.notify(response.body()?.chase)
+                } else if (response.code() != 409) {
+                    // 409 — «слишком далеко»: клиент и сервер разошлись в оценке расстояния,
+                    // это не ошибка. Остальное стоит увидеть в логе.
+                    LogHelper.e("Не удалось сообщить о входе в точку $pointId: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                LogHelper.e("Не удалось сообщить о входе в точку $pointId: ${e.message}")
             }
         }
     }
@@ -94,10 +127,11 @@ object ServerService {
         hidden: Boolean? = null,
         trackable: Boolean? = null,
         auraText: String? = null,
+        nextPointId: String? = null,
     ): Response<Point> {
-        LogHelper.d("Обновление точки $pointId: hidden=$hidden, trackable=$trackable, aura=${auraText ?: "не трогаем"}")
+        LogHelper.d("Обновление точки $pointId: hidden=$hidden, trackable=$trackable, aura=${auraText ?: "не трогаем"}, next=${nextPointId ?: "не трогаем"}")
         return try {
-            api.updatePoint(pointId, bas.app.shift.models.UpdatePointRequest(hidden, trackable, auraText))
+            api.updatePoint(pointId, bas.app.shift.models.UpdatePointRequest(hidden, trackable, auraText, nextPointId))
         } catch (e: Exception) {
             LogHelper.e("Ошибка при обновлении точки: ${e.message}")
             throw e

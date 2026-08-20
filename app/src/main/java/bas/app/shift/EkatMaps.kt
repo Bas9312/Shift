@@ -15,6 +15,7 @@ import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.NetworkErrors
 import bas.app.shift.helpers.PointRadiusMath
 import android.view.View
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -81,6 +82,13 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     /** Дисциплина «Экстрасенсорика»: такому игроку доступно чтение ауры места. */
     private var isExtrasensory = false
 
+    /**
+     * Последний полный ответ сервера — до фильтрации, которую делает рендерер. Экстрасенс
+     * читает ауры и у тех точек, что на карту не попали (скрытые, точки с текстом), а
+     * `pointsRenderer.allPoints()` знает только нарисованное.
+     */
+    private var lastServerPoints: List<Point> = emptyList()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LogHelper.d("EkatMaps: onCreate: запуск активности карты")
@@ -118,6 +126,15 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             binding.fabSearchPlayer.visibility = View.VISIBLE
             binding.fabSearchPlayer.setOnClickListener {
                 showPlayersPickerDialog()
+            }
+        }
+
+        // Экстрасенс читает ауры вокруг себя, не тыкая в маркеры: скрытые точки и точки
+        // с текстом ему на карте не рисуются, а ауру у них считать он должен уметь.
+        if (isExtrasensory) {
+            binding.fabSenseAura.visibility = View.VISIBLE
+            binding.fabSenseAura.setOnClickListener {
+                senseAurasAround()
             }
         }
         
@@ -428,27 +445,84 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     }
 
     /**
-     * Кнопка чтения ауры места. Маркер игрок и так видит только внутри радиуса, но радиус
-     * бывает и в километр, поэтому отдельно требуем подойти вплотную — аура читается с места,
-     * а не с другого конца парка. У USER-точек (человек на карте) ауры места нет.
+     * Кнопка чтения ауры места в карточке видимой точки. У USER-точек (человек на карте)
+     * и у фамильяров ауры места нет — фамильяр сам по себе персонаж, а не место.
      */
     private fun canReadAuraOf(point: Point): Boolean {
-        if (!isExtrasensory || point.type == "USER") return false
+        if (!isExtrasensory || !hasAuraOfPlace(point)) return false
 
         val location = currentLocation ?: return false
         val distance = pointsRenderer.calculateDistance(
             LatLng(location.latitude, location.longitude),
             LatLng(point.lat, point.lng)
         )
-        return distance <= AURA_READ_MAX_DISTANCE_M
+        return distance <= auraReadRangeFor(point)
     }
+
+    /** У человека на карте и у фамильяра ауры места нет — ни читать, ни задавать её нечего. */
+    private fun hasAuraOfPlace(point: Point): Boolean =
+        point.type != "USER" && point.type != "FAMILIAR"
+
+    /**
+     * С какого расстояния читается аура. У видимой точки маркер игрок и так видит только
+     * внутри радиуса, но радиус бывает и в километр, поэтому требуем подойти вплотную —
+     * аура читается с места, а не с другого конца парка. У скрытых точек и точек с текстом
+     * маркера нет вовсе: попасть вслепую в 50 м от центра — лотерея, поэтому там аура ловится
+     * по всему радиусу зоны, то есть «зашёл внутрь и почувствовал».
+     */
+    private fun auraReadRangeFor(point: Point): Double =
+        if (point.hidden == 1 || point.type == "POINT_WITH_TEXT") {
+            maxOf(point.radius, AURA_READ_MAX_DISTANCE_M)
+        } else {
+            AURA_READ_MAX_DISTANCE_M
+        }
 
     private fun showAuraOfPlaceDialog(point: Point) {
         val auraText = point.aura_text?.takeIf { it.isNotBlank() }
         LogHelper.d("Чтение ауры места ${point.pointId}: ${if (auraText == null) "текста нет" else "текст есть"}")
 
+        showAuraTextsDialog(
+            title = getString(R.string.aura_of_place_title),
+            texts = listOfNotNull(auraText),
+            emptyText = getString(R.string.aura_of_place_empty)
+        )
+    }
+
+    /**
+     * «Прислушаться к месту»: экстрасенс читает ауры всех мест, до которых дотягивается,
+     * включая те, что на карте не нарисованы. Имена точек и расстояния не показываем —
+     * иначе по списку вычисляется и структура скрытых зон, и реальный центр, который от
+     * игроков специально прячется виртуальным.
+     */
+    private fun senseAurasAround() {
+        val location = currentLocation
+        if (location == null) {
+            LogHelper.w("Чтение аур вокруг: локация недоступна")
+            Toast.makeText(this, getString(R.string.location_unavailable), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val here = LatLng(location.latitude, location.longitude)
+        val texts = lastServerPoints
+            .filter { hasAuraOfPlace(it) && !it.aura_text.isNullOrBlank() }
+            .map { it to pointsRenderer.calculateDistance(here, LatLng(it.lat, it.lng)) }
+            .filter { (point, distance) -> distance <= auraReadRangeFor(point) }
+            .sortedBy { (_, distance) -> distance }
+            .mapNotNull { (point, _) -> point.aura_text }
+
+        LogHelper.d("Чтение аур вокруг: считано ${texts.size} из ${lastServerPoints.size} точек")
+
+        showAuraTextsDialog(
+            title = getString(R.string.aura_sense_title),
+            texts = texts,
+            emptyText = getString(R.string.aura_sense_empty)
+        )
+    }
+
+    private fun showAuraTextsDialog(title: String, texts: List<String>, emptyText: String) {
         val tv = TextView(this).apply {
-            text = auraText ?: getString(R.string.aura_of_place_empty)
+            text = if (texts.isEmpty()) emptyText
+            else texts.joinToString(getString(R.string.aura_sense_separator))
             setTextIsSelectable(true)
             setPadding(48, 32, 48, 16)
             LinkifyCompat.addLinks(this, LINKIFY_MASK)
@@ -456,8 +530,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         }
 
         AlertDialog.Builder(this)
-            .setTitle(getString(R.string.aura_of_place_title))
-            .setView(tv)
+            .setTitle(title)
+            .setView(ScrollView(this).apply { addView(tv) })
             .setPositiveButton("OK", null)
             .show()
     }
@@ -509,8 +583,12 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         dialogBinding.tvPointTextOnEnter.text = getString(R.string.point_text_on_enter_label) + " " + (point.textToShowOnEnter ?: getString(R.string.point_no_text_on_enter))
         // Aura of the place: what a psychic reads here. Editable, because the MG cannot see
         // the current text anywhere else, and a typo used to mean recreating the point.
+        // A familiar is a character, not a place — it has no aura to read, so hide the field.
         val initialAura = point.aura_text?.takeIf { it.isNotBlank() } ?: ""
         dialogBinding.etAuraText.setText(initialAura)
+        val auraFieldVisibility = if (hasAuraOfPlace(point)) View.VISIBLE else View.GONE
+        dialogBinding.tvAuraLabel.visibility = auraFieldVisibility
+        dialogBinding.etAuraText.visibility = auraFieldVisibility
 
         listOf(dialogBinding.tvPointDescription, dialogBinding.tvPointTextOnEnter).forEach { tv ->
             tv.setTextIsSelectable(true)
@@ -524,6 +602,21 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
         dialogBinding.cbHidden.isChecked = initialHidden
         dialogBinding.cbTrackable.isChecked = initialTrackable
 
+        // Цепочка погони: куда игрок пойдёт после этой точки. Здесь только одна следующая
+        // точка — развилки с несколькими ветками собираются в веб-панели МГ.
+        val chainCandidates = pointsRenderer.allPoints()
+            .filter { it.pointId != point.pointId && it.type != "USER" }
+            .sortedBy { it.description ?: it.pointId }
+        val chainLabels = listOf(getString(R.string.point_next_none)) +
+            chainCandidates.map { "${it.description ?: it.type} · ${it.pointId}" }
+        dialogBinding.spNextPoint.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_dropdown_item, chainLabels
+        )
+        val initialNextPointId = point.next_point_id?.takeIf { it.isNotBlank() }
+        val initialNextIndex = chainCandidates.indexOfFirst { it.pointId == initialNextPointId }
+            .let { if (it >= 0) it + 1 else 0 }
+        dialogBinding.spNextPoint.setSelection(initialNextIndex)
+
         // Создаем bottom sheet
         val dialog = BottomSheetDialog(this)
         dialog.setContentView(dialogBinding.root)
@@ -533,7 +626,12 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             val newHidden = dialogBinding.cbHidden.isChecked
             val newTrackable = dialogBinding.cbTrackable.isChecked
             val newAura = dialogBinding.etAuraText.text.toString().trim()
-            if (newHidden == initialHidden && newTrackable == initialTrackable && newAura == initialAura) {
+            val selectedNextIndex = dialogBinding.spNextPoint.selectedItemPosition
+            val newNextPointId = if (selectedNextIndex <= 0) "" else chainCandidates[selectedNextIndex - 1].pointId
+            val nextPointChanged = newNextPointId != (initialNextPointId ?: "")
+            if (newHidden == initialHidden && newTrackable == initialTrackable &&
+                newAura == initialAura && !nextPointChanged
+            ) {
                 dialog.dismiss()
                 return@setOnClickListener
             }
@@ -541,12 +639,14 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             lifecycleScope.launch {
                 try {
                     // Шлём только реально изменившееся: null в теле означает «не трогать».
-                    // Для ауры пустая строка — это «стереть», её отличаем от null осознанно.
+                    // Для ауры и следующей точки пустая строка — это «стереть», её отличаем
+                    // от null осознанно.
                     val response = ServerService.updatePoint(
                         pointId = point.pointId,
                         hidden = newHidden.takeIf { it != initialHidden },
                         trackable = newTrackable.takeIf { it != initialTrackable },
                         auraText = newAura.takeIf { it != initialAura },
+                        nextPointId = newNextPointId.takeIf { nextPointChanged },
                     )
                     if (response.isSuccessful) {
                         Toast.makeText(this@EkatMaps, getString(R.string.save), Toast.LENGTH_SHORT).show()
@@ -662,6 +762,11 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 val selectedType = pointTypeValues[position]
                 LogHelper.d("Выбран тип точки: $selectedType")
                 
+                // У фамильяра ауры места нет: он персонаж, а не место, читать у него нечего.
+                val auraFieldVisibility = if (selectedType == "FAMILIAR") View.GONE else View.VISIBLE
+                dialogBinding.tvAuraLabel.visibility = auraFieldVisibility
+                dialogBinding.etAuraText.visibility = auraFieldVisibility
+
                 when (selectedType) {
                     "FAMILIAR" -> {
                         // Для фамильяра показываем спиннер фамильяров, скрываем описание и текст при входе
@@ -740,7 +845,9 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             val selectedPosition = dialogBinding.spinnerPointType.selectedItemPosition
             val selectedType = pointTypeValues[selectedPosition]
             val textToShowOnEnter = dialogBinding.etTextToShowOnEnter.text.toString()
-            val auraText = dialogBinding.etAuraText.text.toString()
+            // Поле ауры у фамильяра скрыто, но в нём может остаться набранное до смены типа —
+            // на сервер такое отправлять нечего.
+            val auraText = if (selectedType == "FAMILIAR") "" else dialogBinding.etAuraText.text.toString()
             val isHidden = dialogBinding.cbHidden.isChecked
             val isTrackable = dialogBinding.cbTrackable.isChecked
             val radius: Double? = if (dialogBinding.cbCustomRadius.isChecked) {
@@ -881,10 +988,12 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                     // не мигаем и не стираем их из-за разового обрыва.
                     LogHelper.w("EkatMaps: не удалось получить точки (сеть), оставляем текущие")
                 } else if (serverPoints.isEmpty()) {
+                    lastServerPoints = serverPoints
                     LogHelper.d("Сервер не вернул точки")
                 } else {
                     LogHelper.d("Получено ${serverPoints.size} точек с сервера")
 
+                    lastServerPoints = serverPoints
                     pointsRenderer.syncPoints(serverPoints)
 
                     // Обновляем карту только если есть текущая локация

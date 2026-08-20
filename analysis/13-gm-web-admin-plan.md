@@ -52,7 +52,7 @@ Non-game tables (`inst_*`, InstantCMS) are out of scope. Row counts are live as 
 | `noisemancy_local` | 8 (3 are phantom ids) | terminal (indirect) | `GET`, `POST .../adjust` (delta only) | can nudge, cannot set |
 | `messages` / `message_tags` / `attachments` | 1369 / 1369 / 136 | ✓ chat | full | OK; no broadcast (§7 P2) |
 | `ritual_data`, `ritual_symbols_completion` | 1 / 30 | ✓ ritual screen | `ritual.php` | OK |
-| `quests`, `user_quest_progress` | 0 / 0 | ✗ | `POST /quests` | dead feature — do not build UI |
+| `quests`, `user_quest_progress`, `point_links` | 0 / 0 / 0 | ✗ | `POST /quests` | was a dead feature; revived 2026-08-20, panel page «Цепочки» (§15) |
 | `arcane_*` (Arcane Overflow) | 3/5/5/4 | web page | web page | OK |
 | `user_point_visits` | 25 | ✗ | written by server | read-only in panel |
 
@@ -230,9 +230,19 @@ quietly writing.
 
 Four cron scripts move noise on their own: `noize_api/auto_increase_noise.php` (global +0.1,
 local +0.5), `auto_decrease_noise.php` (global −0.04), `decrease_global_noise_cron.php`
-(global −0.5), `decrease_local_noise_cron.php` (local −2). They look dormant right now
-(`noisemancy_global` = 0.0, untouched since 2026-07-25) — but they are exactly what gets
-switched on for a game, so any value the panel sets will drift afterwards. Say so in the UI.
+(global −0.5), `decrease_local_noise_cron.php` (local −2).
+
+**Their steps now live in `noize_api/tuning.php`** (added 2026-08-18), which the panel's noise
+page edits; each script falls back to its built-in defaults if that file is missing or broken,
+so a bad edit degrades to the shipped behaviour rather than to a crashed cron. Two bugs were
+fixed while wiring this: `auto_decrease_noise.php` clamped with `min()` and no floor, so the
+global value could go negative, and its `--dry-run` printed the *increase* script's numbers.
+
+**Which crons actually run** (measured 2026-08-18 from the server-side logs): `api_geo/cleanup.php`
+every 5 minutes and `effects_api/cron_delete.php` every minute — both clearly scheduled. The four
+noise scripts write no log, and the global value sat at 0.0 untouched from 2026-07-25 until the
+panel changed it, which means **they are not scheduled at all right now**. Whoever runs the game
+has to switch them on in the beget panel, or noisemancy will not move on its own.
 
 Scale trap: `noisemancy_*.value` is raw **0..10**, and every consumer halves it to 0..5 before
 display (`noize_api/api.php:133`, `users_monitor.php`). A GM typing "5" meaning "level 5" would
@@ -307,12 +317,13 @@ wheel.
 
 | # | Feature | Note |
 |---|---|---|
-| P2.1 | Broadcast message from a GM to all players | `messages` has no fan-out; would be a loop over players. Nice, not needed. |
-| P2.2 | Upload new mark artwork through the panel | FTP works today; upload adds a file-permission failure mode. |
+| P2.1 | ~~Broadcast message from a GM to all players~~ | **Built 2026-08-18** on the chat page: text + discipline tag + optional attachments, sent to everyone / holders of one discipline / a hand-picked set. `messages_api` has no fan-out, so it is one call per player. |
+| P2.2 | Upload new mark artwork through the panel | FTP works today; upload adds a file-permission failure mode. (Chat attachments *are* uploadable — they go through `messages_api`, which already stores them.) |
 | P2.3 | Action log (who changed what) | 4-day game, GMs sit in one chat. Skip unless asked. |
 
-**Explicitly not built:** anything for `quests` / `user_quest_progress` (0 rows, dead feature),
-role separation inside the panel, pagination (largest table is 1369 messages), i18n.
+**Explicitly not built:** role separation inside the panel, pagination (largest table is 1369
+messages), i18n. (`quests` / `user_quest_progress` were skipped here as a dead feature; the
+owner revived the mechanic on 2026-08-20 and the page was added then — see §15.)
 
 ## 7. Screens
 
@@ -536,8 +547,8 @@ Testing rules that matter more than any of the above:
 - **`ABILITY` aura marks through the API** (§4.10) — the panel routes around the bug with SQL
   instead of fixing `aura_api`. Fixing it properly means deciding whether those marks store an
   id or a text, which is a server-side change with client-side consequences.
-- **The `quests` chain feature** — dead in the data; if the owner wants it alive, that is a
-  separate decision about the client, not about the panel.
+- ~~**The `quests` chain feature**~~ — revived on 2026-08-20 with branching and dead ends; the
+  panel page and the client work landed together (see §15 and `10-backlog-plan.md` #15).
 
 ## 14. QA pass and fixes (2026-08-18)
 
@@ -576,3 +587,28 @@ redirect is deliberately temporary (302, `no-store`) so the page can be restored
 browser caches.
 
 Nothing from the QA pass is left open.
+
+## 15. Chains page (2026-08-20)
+
+Added when the owner revived the chase mechanic (`10-backlog-plan.md` #15). `index.php?p=quests`,
+nav item «Цепочки». All writes are direct SQL: `api_geo` covers only what the phone needs, and
+nothing a master does mid-game to a chain has an endpoint.
+
+What the page gives:
+
+- **Create / delete a quest.** Start point is picked from a list, not typed. One quest per start
+  point — a second one on the same point is refused, because the entry handler would start both.
+  Deleting a quest drops the players' progress but keeps the points and their links.
+- **The chain, drawn as a tree** from the start point, with `финиш` / `тупик` / `уже была выше`
+  / `точка удалена` badges. The walk stops on a repeat, so a loop (`A → B → A`) renders instead
+  of hanging the page — the API deliberately does not forbid loops.
+- **Edit the branches**: add or remove a transition from any reachable point, and mark a point
+  with no outgoing links as a finish. A point that leads somewhere cannot be a finish, and
+  adding a link clears the flag — otherwise a chain would end and continue at the same time.
+- **Steering the players**: who stands where, with `идёт` / `прошёл` / `тупик`, and buttons to
+  move a player to any point of the chain, count it as done, or reset. This is the part that
+  matters in the field: a player who lost the point (dead battery, Doze, twenty metres short)
+  otherwise has to be moved from phpMyAdmin.
+
+`points.php` is unchanged: the linear `next_point_id` it already edits is kept in sync with
+`point_links` by the API, so a chain built there shows up here and vice versa.

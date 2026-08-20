@@ -8,8 +8,9 @@ interface ShiftApi {
     @GET("/api_geo/")
     suspend fun getApiInfo(): Response<ApiInfoResponse>
 
+    /** Ответ несёт `chase` — что случилось с цепочкой погони на этом обновлении. */
     @POST("/api_geo/api/v1/users/location")
-    suspend fun updateUserLocation(@Body userLocation: UserLocation): Response<StatusResponse>
+    suspend fun updateUserLocation(@Body userLocation: UserLocation): Response<LocationUpdateResponse>
 
     @GET("/api_geo/api/v1/points")
     suspend fun getPoints(@Query("user_id") userId: String): Response<PointsResponse>
@@ -22,6 +23,17 @@ interface ShiftApi {
         @Path("id") pointId: String,
         @Body body: UpdatePointRequest,
     ): Response<Point>
+
+    /**
+     * Сообщить серверу о входе в точку. Страховка для цепочек: обычно вход засчитывается
+     * из отправки геолокации, но апдейт может не долететь (Doze, потеря сети). Сервер
+     * перепроверяет координаты сам и обрабатывает повтор без последствий.
+     */
+    @POST("/api_geo/api/v1/points/{id}/enter")
+    suspend fun enterPoint(
+        @Path("id") pointId: String,
+        @Body body: EnterPointRequest,
+    ): Response<ChaseResponse>
 
     /** Занять фамильяра под себя. 409, если с ним уже общается другой игрок. */
     @POST("/api_geo/api/v1/points/{id}/bind")

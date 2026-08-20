@@ -186,7 +186,7 @@ re-opens them as "findings": keystore and signing passwords in the repo, clearte
 
 ### E. Blocked on other people (game backlog — see [10-backlog-plan.md](10-backlog-plan.md))
 
-- **#15 chase mechanic** — Лёша (mechanic design) + Тари (does the server cut the point chain per player?).
+- ~~**#15 chase mechanic**~~ — built on 2026-08-20 with branching, dead ends and a panel page; the server cuts the chain per player, so the client keeps no chain state ([10-backlog-plan.md](10-backlog-plan.md) #15). Still open for Лёша, but as game design, not as code: personal vs team progress, whether finishing a chain should hand out anything, whether skipping a point is allowed.
 - **#3 "noise magic breaks the site"** — Женя (endpoints).
 - **#25 game-master message feed** — Коля/Тари (broadcast from the admin panel).
 - **#7** — deferred by owner decision (whole item, including the `fetchCurrentNoise` fix).

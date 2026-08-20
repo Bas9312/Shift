@@ -9,6 +9,8 @@ data class UpdatePointRequest(
     val trackable: Boolean? = null,
     /** Пустая строка — «стереть ауру», null — «не трогать». */
     val aura_text: String? = null,
+    /** Следующая точка цепочки погони. Пустая строка — «убрать переход», null — «не трогать». */
+    val next_point_id: String? = null,
 )
 
 /** Тело `POST /api/v1/points/{id}/bind` — занять фамильяра под себя. */

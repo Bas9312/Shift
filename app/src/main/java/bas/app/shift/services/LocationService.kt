@@ -247,7 +247,7 @@ class LocationService : Service() {
                         
                         // Если мы только что вошли в точку
                         if (!pointsInRange.contains(point.pointId)) {
-                            onEnterPoint(point)
+                            onEnterPoint(point, location)
                         }
                     }
                 }
@@ -266,9 +266,15 @@ class LocationService : Service() {
         }
     }
     
-    private fun onEnterPoint(point: Point) {
+    private fun onEnterPoint(point: Point, location: Location) {
         LogHelper.d("Вход в точку: ${point.pointId}, тип: ${point.type}")
-        
+
+        // Дублируем вход явным сообщением: отправка геолокации, по которой сервер двигает
+        // цепочку погони, могла не долететь, и игрок бы простоял в точке впустую.
+        if (point.type != "USER") {
+            ServerService.reportPointEntry(point.pointId, location)
+        }
+
         when (point.type) {
             "HIDDEN_EFFECT_AREA" -> {
                 notifications.showPointNotification(

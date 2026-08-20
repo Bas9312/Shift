@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Точка и расходящиеся от неё волны: «прислушаться к месту». -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,10m-2.5,0a2.5,2.5 0,1 1,5 0a2.5,2.5 0,1 1,-5 0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M7.05,5.05L5.64,3.64C3.99,5.29 3,7.53 3,10s0.99,4.71 2.64,6.36l1.41,-1.41C5.76,13.66 5,11.93 5,10S5.76,6.34 7.05,5.05z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M18.36,3.64l-1.41,1.41C18.24,6.34 19,8.07 19,10s-0.76,3.66 -2.05,4.95l1.41,1.41C20.01,14.71 21,12.47 21,10S20.01,5.29 18.36,3.64z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11,15h2v6h-2z" />
+</vector>

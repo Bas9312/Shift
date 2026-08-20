@@ -26,11 +26,12 @@ object AuraCleanupManager {
 
     /**
      * Сколько длится чистка каждого типа проблемы.
-     * Типов, которых здесь нет (HOLE, PARASITE, OTHER), экстрасенс не чистит — только мастер.
+     * Типов, которых здесь нет (HOLE, OTHER), экстрасенс не чистит — только мастер.
      */
     private val DURATION_MINUTES = mapOf(
-        AuraProblemType.TEAR to 15,
-        AuraProblemType.SCAR to 5,
+        AuraProblemType.PARASITE to 5,
+        AuraProblemType.TEAR to 5,
+        AuraProblemType.SCAR to 10,
     )
 
     /** Что происходит с проблемой после успешной чистки. */
@@ -39,7 +40,11 @@ object AuraCleanupManager {
         object Removed : Outcome()
 
         /** Проблема не исчезает, а превращается в другую (разрыв затягивается в шрам). */
-        data class Converted(val toType: AuraProblemType, val toName: String) : Outcome()
+        data class Converted(
+            val toType: AuraProblemType,
+            val toName: String,
+            val description: String,
+        ) : Outcome()
     }
 
     data class Progress(
@@ -56,10 +61,12 @@ object AuraCleanupManager {
     fun durationMinutes(type: AuraProblemType): Int? = DURATION_MINUTES[type]
 
     fun outcomeFor(type: AuraProblemType): Outcome? = when (type) {
-        AuraProblemType.TEAR -> Outcome.Converted(AuraProblemType.SCAR, "Шрам")
+        AuraProblemType.PARASITE ->
+            Outcome.Converted(AuraProblemType.SCAR, "Шрам", "Остался после изгнания паразита")
+        AuraProblemType.TEAR ->
+            Outcome.Converted(AuraProblemType.SCAR, "Шрам", "Затянулось после чистки ауры")
         AuraProblemType.SCAR -> Outcome.Removed
         AuraProblemType.HOLE,
-        AuraProblemType.PARASITE,
         AuraProblemType.OTHER -> null
     }
 

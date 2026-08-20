@@ -10,24 +10,33 @@ import org.junit.Test
 class AuraCleanupManagerTest {
 
     @Test
-    fun canClean_onlyTearAndScarAreCleanable() {
+    fun canClean_onlyParasiteTearAndScarAreCleanable() {
+        assertTrue(AuraCleanupManager.canClean(AuraProblemType.PARASITE))
         assertTrue(AuraCleanupManager.canClean(AuraProblemType.TEAR))
         assertTrue(AuraCleanupManager.canClean(AuraProblemType.SCAR))
         assertFalse(AuraCleanupManager.canClean(AuraProblemType.HOLE))
-        assertFalse(AuraCleanupManager.canClean(AuraProblemType.PARASITE))
         assertFalse(AuraCleanupManager.canClean(AuraProblemType.OTHER))
     }
 
     @Test
     fun durationMinutes_matchesDesignedTimings() {
-        assertEquals(15, AuraCleanupManager.durationMinutes(AuraProblemType.TEAR))
-        assertEquals(5, AuraCleanupManager.durationMinutes(AuraProblemType.SCAR))
+        assertEquals(5, AuraCleanupManager.durationMinutes(AuraProblemType.PARASITE))
+        assertEquals(5, AuraCleanupManager.durationMinutes(AuraProblemType.TEAR))
+        assertEquals(10, AuraCleanupManager.durationMinutes(AuraProblemType.SCAR))
         assertNull(AuraCleanupManager.durationMinutes(AuraProblemType.HOLE))
+        assertNull(AuraCleanupManager.durationMinutes(AuraProblemType.OTHER))
     }
 
     @Test
     fun outcomeFor_tearConvertsToScar() {
         val outcome = AuraCleanupManager.outcomeFor(AuraProblemType.TEAR)
+        assertTrue(outcome is AuraCleanupManager.Outcome.Converted)
+        assertEquals(AuraProblemType.SCAR, (outcome as AuraCleanupManager.Outcome.Converted).toType)
+    }
+
+    @Test
+    fun outcomeFor_parasiteConvertsToScar() {
+        val outcome = AuraCleanupManager.outcomeFor(AuraProblemType.PARASITE)
         assertTrue(outcome is AuraCleanupManager.Outcome.Converted)
         assertEquals(AuraProblemType.SCAR, (outcome as AuraCleanupManager.Outcome.Converted).toType)
     }
@@ -40,15 +49,14 @@ class AuraCleanupManagerTest {
     @Test
     fun outcomeFor_nonCleanableTypes_returnNull() {
         assertNull(AuraCleanupManager.outcomeFor(AuraProblemType.HOLE))
-        assertNull(AuraCleanupManager.outcomeFor(AuraProblemType.PARASITE))
         assertNull(AuraCleanupManager.outcomeFor(AuraProblemType.OTHER))
     }
 
     @Test
     fun progress_remainingMs_countsDownToZeroAndClampsAtZero() {
         val startedAt = 1_000_000L
-        val progress = AuraCleanupManager.Progress(startedAt, AuraProblemType.SCAR) // 5 минут
-        val durationMs = 5 * 60_000L
+        val progress = AuraCleanupManager.Progress(startedAt, AuraProblemType.SCAR) // 10 минут
+        val durationMs = 10 * 60_000L
 
         assertEquals(durationMs, progress.remainingMs(startedAt))
         assertEquals(durationMs / 2, progress.remainingMs(startedAt + durationMs / 2))
@@ -61,8 +69,8 @@ class AuraCleanupManagerTest {
     @Test
     fun progress_isReady_falseBeforeDeadlineTrueAtAndAfter() {
         val startedAt = 0L
-        val progress = AuraCleanupManager.Progress(startedAt, AuraProblemType.TEAR) // 15 минут
-        val durationMs = 15 * 60_000L
+        val progress = AuraCleanupManager.Progress(startedAt, AuraProblemType.TEAR) // 5 минут
+        val durationMs = 5 * 60_000L
 
         assertFalse(progress.isReady(durationMs - 1))
         assertTrue(progress.isReady(durationMs))

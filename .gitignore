@@ -25,6 +25,10 @@ local.properties
 # and copies of the global instruction files. Synced with Syncthing, see _local/README.md.
 /_local/
 
+# Claude Code's per-machine permission list. Local to whoever runs the agent, nothing the
+# project depends on.
+/.claude/settings.local.json
+
 # Emulator verification captures. Throwaway evidence for a single session (12 MB and growing);
 # the analysis documents describe what was checked, the images add nothing to the repo.
 /analysis/screenshots/

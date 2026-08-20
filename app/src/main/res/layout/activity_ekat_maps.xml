@@ -46,6 +46,22 @@
         app:backgroundTint="?attr/colorPrimary"
         app:tint="@android:color/white" />
 
+    <!-- «Прислушаться к месту» — только для экстрасенсов. Над кнопкой геолокации, чтобы
+         не столкнуться с кнопками МГ внизу справа и по центру. -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_sense_aura"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/fab_my_location"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="16dp"
+        android:contentDescription="@string/aura_sense_button"
+        android:src="@drawable/ic_sense_aura_24"
+        android:visibility="gone"
+        app:backgroundTint="?attr/colorPrimary"
+        app:tint="@android:color/white" />
+
     <!-- Кнопка управления видимостью на карте (только для MG пользователей) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_toggle_visibility"
