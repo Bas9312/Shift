@@ -71,8 +71,9 @@ is: writing one lets a psychic feel the zone out, leaving it empty keeps the zon
 Said so in a hint under the field in the panel.
 
 Verified: `:app:assembleDebug` and `:app:testDebugUnitTest` pass; `php -l` clean on
-`gm/pages/points.php`. **The panel change is local only — `points.php` still needs uploading
-to the live server** (diff against the live file first, per CLAUDE.md).
+`gm/pages/points.php`. The panel change is live: the file was downloaded first and diffed
+against the local mirror (only this pass's edits differed, Тари had not touched it), uploaded
+over FTP, then downloaded again and compared byte for byte.
 
 ## 0д. Fifth pass, 2026-07-28: the two small unblocked tail items
 
@@ -487,7 +488,8 @@ verification runs. Summary of what shipped:
 
 **Клиент.** `ChaseNotifier` показывает уведомление на каждое событие (тексты —
 `chase_*` в `strings.xml`), с дедупом на минуту, чтобы два пути доставки не дали
-дубль. В карточке точки у МГ — спиннер «следующая точка цепочки» (`PATCH next_point_id`,
+дубль. Текст финиша просит игрока отписаться мастеру, что он дошёл, — сам по себе
+финиш в игре ничего не выдаёт, дальше всё через МГ. В карточке точки у МГ — спиннер «следующая точка цепочки» (`PATCH next_point_id`,
 пустая строка убирает переход). Развилки на несколько веток собираются в панели.
 
 **Панель МГ.** Новая страница «Цепочки» (`gm/pages/quests.php`): создание и удаление

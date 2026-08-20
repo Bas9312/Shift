@@ -155,7 +155,7 @@
     <string name="chase_advanced_title">📍 Есть след</string>
     <string name="chase_advanced_text">Точка пройдена. На карте появилось, куда идти дальше.</string>
     <string name="chase_finished_title">🏁 Путь пройден</string>
-    <string name="chase_finished_text">Дальше следа нет — это конец пути.</string>
+    <string name="chase_finished_text">Дальше следа нет — это конец пути. Сообщи мастеру, что дошёл до финиша: дальше без него ничего не произойдёт.</string>
     <string name="chase_dead_end_title">🚫 Тупик</string>
     <string name="chase_dead_end_text">След обрывается: отсюда дальше пути нет. Вернись к началу — на карте оно снова видно — и попробуй другую дорогу.</string>
 
