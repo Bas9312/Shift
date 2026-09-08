@@ -57,6 +57,22 @@ object TerminalCommandManager {
         TerminalCommand("SYSTEM", "HELP", "", "Показать все доступные команды", 0)
     )
     
+    /**
+     * Цены, присланные сервером: он источник правды, потому что их правит мастер из панели.
+     * Пока ответ не пришёл (первый запуск, нет сети), показываем зашитые значения — они
+     * совпадают с тем, чем справочник был заполнен изначально.
+     * На само начисление не влияет: серверу отправляется имя команды, цену он берёт у себя.
+     */
+    private var serverCosts: Map<String, Double> = emptyMap()
+
+    fun setServerCosts(costs: Map<String, Double>) {
+        serverCosts = costs
+    }
+
+    /** Цена команды для показа игроку: серверная, если известна, иначе зашитая. */
+    fun costOf(command: TerminalCommand): Double =
+        serverCosts[command.name] ?: command.noiseIncrease.toDouble()
+
     fun getAvailableCommands(availableModules: List<Int> = emptyList()): List<TerminalCommand> {
         return allCommands.filter { command ->
             command.requiredModuleId == null || availableModules.contains(command.requiredModuleId)
@@ -87,7 +103,7 @@ object TerminalCommandManager {
         groupedCommands.forEach { (group, groupCommands) ->
             helpText.append("[$group]\n")
             groupCommands.forEach { command ->
-                helpText.append("  ${command.fullCommand} - ${command.description} (шум: ${formatNoiseChange(command.noiseIncrease)})\n")
+                helpText.append("  ${command.fullCommand} - ${command.description} (шум: ${formatNoiseChange(costOf(command))})\n")
             }
             helpText.append("\n")
         }
@@ -95,12 +111,14 @@ object TerminalCommandManager {
         return helpText.toString()
     }
     
-    private fun formatNoiseChange(noiseChange: Int): String {
-        return when {
-            noiseChange > 0 -> "+$noiseChange"
-            noiseChange < 0 -> "$noiseChange"
-            else -> "0"
+    private fun formatNoiseChange(noiseChange: Double): String {
+        // Цены приходят дробными (в панели можно задать 0.5), но целые показываем без хвоста.
+        val text = if (noiseChange == noiseChange.toLong().toDouble()) {
+            noiseChange.toLong().toString()
+        } else {
+            noiseChange.toString()
         }
+        return if (noiseChange > 0) "+$text" else text
     }
 
     /**

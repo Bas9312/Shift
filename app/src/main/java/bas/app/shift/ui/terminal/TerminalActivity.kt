@@ -300,7 +300,7 @@ class TerminalActivity : AppCompatActivity() {
 
         // Отправляем команду на сервер для изменения шума
         if (command.noiseIncrease != 0) {
-            adjustNoiseAndUpdateGlobal(command.noiseIncrease.toDouble())
+            adjustNoiseAndUpdateGlobal(command.noiseIncrease.toDouble(), command.name)
         }
 
         // Отправляем команду в MG чат
@@ -455,6 +455,8 @@ class TerminalActivity : AppCompatActivity() {
             smoothScrollToBottom()
         }
 
+        loadCommandCosts()
+
         if (userId.isNotEmpty()) {
             noiseManager.setUserId(userId)
             // Запускаем периодическое обновление шума и получаем текущий шум сразу
@@ -465,6 +467,52 @@ class TerminalActivity : AppCompatActivity() {
         }
     }
     
+    /**
+     * Тянет цены команд с сервера и запоминает их до следующего запуска. Нужны они только
+     * для показа (HELP и подтверждение опасной команды) — начисляет всё равно сервер по
+     * имени команды. Поэтому сбой запроса не мешает играть: покажем прошлые или зашитые.
+     */
+    private fun loadCommandCosts() {
+        val prefs = getSharedPreferences(COMMAND_COSTS_PREFS, MODE_PRIVATE)
+        prefs.getString(COMMAND_COSTS_KEY, null)?.let { cached ->
+            TerminalCommandManager.setServerCosts(parseCachedCosts(cached))
+        }
+
+        RetrofitClient.noiseApi.getCommandCosts()
+            .enqueue(object : retrofit2.Callback<bas.app.shift.models.CommandCostsResponse> {
+                override fun onResponse(
+                    call: retrofit2.Call<bas.app.shift.models.CommandCostsResponse>,
+                    response: retrofit2.Response<bas.app.shift.models.CommandCostsResponse>
+                ) {
+                    val commands = response.body()?.commands ?: return
+                    // Команды, где цену называет мастер, из прайса исключаем: показывать
+                    // им фиксированное число значило бы врать игроку.
+                    val costs = commands
+                        .filterNot { it.allowClientValue }
+                        .associate { it.command to it.cost }
+                    TerminalCommandManager.setServerCosts(costs)
+                    prefs.edit()
+                        .putString(COMMAND_COSTS_KEY, costs.entries.joinToString(";") { "${it.key}=${it.value}" })
+                        .apply()
+                    LogHelper.d("TerminalActivity: цены команд получены с сервера (${costs.size})")
+                }
+
+                override fun onFailure(
+                    call: retrofit2.Call<bas.app.shift.models.CommandCostsResponse>,
+                    t: Throwable
+                ) {
+                    LogHelper.e("TerminalActivity: цены команд не получены (${t.message}), показываем прошлые")
+                }
+            })
+    }
+
+    private fun parseCachedCosts(raw: String): Map<String, Double> =
+        raw.split(";").mapNotNull { entry ->
+            val name = entry.substringBefore('=', "")
+            val value = entry.substringAfter('=', "").toDoubleOrNull()
+            if (name.isEmpty() || value == null) null else name to value
+        }.toMap()
+
     private fun updateGlobalNoiseDisplay() {
         val roundedNoise = String.format("%.2f", globalNoise)
         binding.globalNoiseValue.text = "Global $roundedNoise"
@@ -480,8 +528,10 @@ class TerminalActivity : AppCompatActivity() {
         binding.globalNoiseValue.setTextColor(color)
     }
     
-    internal fun adjustNoiseAndUpdateGlobal(delta: Double) {
-        noiseManager.adjustNoise(delta)
+    internal fun adjustNoiseAndUpdateGlobal(delta: Double, command: String? = null) {
+        // Имя команды важнее числа: цену сервер берёт из своего справочника, а delta нужна
+        // только там, где значение задаёт мастер (глубина у DEEP_DIVE.END).
+        noiseManager.adjustNoise(delta, command)
         // Глобальный шум обновится автоматически через callback в NoiseManager
     }
     
@@ -540,4 +590,10 @@ class TerminalActivity : AppCompatActivity() {
         })
     }
     
+
+    private companion object {
+        /** Кэш цен команд: показывать что-то осмысленное, пока сервер не ответил. */
+        const val COMMAND_COSTS_PREFS = "terminal_prefs"
+        const val COMMAND_COSTS_KEY = "command_costs"
+    }
 }

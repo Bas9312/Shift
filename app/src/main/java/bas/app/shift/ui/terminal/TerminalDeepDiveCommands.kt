@@ -136,7 +136,7 @@ class TerminalDeepDiveCommands(
         activity.saveResponseToHistory(returnText)
 
         // Увеличиваем шум на указанную глубину
-        activity.adjustNoiseAndUpdateGlobal(depth.toDouble())
+        activity.adjustNoiseAndUpdateGlobal(depth.toDouble(), "DEEP_DIVE.END")
 
         // Завершаем сессию DEEP_DIVE
         setDeepDiveSessionActive(false)

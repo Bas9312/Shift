@@ -95,13 +95,13 @@ class NoiseManager(private val context: Context) {
      * Эффекты Proxy и Cross-Link сервер читает сам из тех же записей, которые ставит
      * приложение через effects_api.
      */
-    fun adjustNoise(delta: Double) {
+    fun adjustNoise(delta: Double, command: String? = null) {
         val currentUserId = userId ?: return
-        adjustNoiseForUser(currentUserId, delta)
+        adjustNoiseForUser(currentUserId, delta, command)
     }
     
-    private fun adjustNoiseForUser(targetUserId: String, delta: Double) {
-        val request = NoiseAdjustRequest(delta = delta)
+    private fun adjustNoiseForUser(targetUserId: String, delta: Double, command: String? = null) {
+        val request = NoiseAdjustRequest(delta = delta, command = command)
         
         RetrofitClient.noiseApi.adjustUserNoise(targetUserId, request)
             .enqueue(object : Callback<bas.app.shift.models.NoiseAdjustResponse> {
