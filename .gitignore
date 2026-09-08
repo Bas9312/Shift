@@ -32,3 +32,8 @@ local.properties
 # Emulator verification captures. Throwaway evidence for a single session (12 MB and growing);
 # the analysis documents describe what was checked, the images add nothing to the repo.
 /analysis/screenshots/
+SHIFT - работа над игрой/
+
+# Tarot artwork drafts (~75 MB of 1024x1536 PNGs). Source images live outside the repo;
+# whatever ships in the game goes into res/ or onto the server instead.
+/Карты/

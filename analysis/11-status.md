@@ -1,6 +1,7 @@
 # 11. Current status — single source of truth
 
-> Last actualised: **2026-08-15**, against commit `16362d1 Claude improvements4`.
+> Last actualised: **2026-09-08**, against commit `94aa9d3 Tell the player to report a
+> finished chase, note the panel upload` (rebased onto `ac77584 Claude improvements5`).
 > This file answers two questions: **where the app stands now** and **what is still open**.
 > Everything else in `analysis/` is either a frozen 2026-07-22 audit snapshot (01–07),
 > a ledger of what was changed (08), or a session journal (09).
@@ -15,17 +16,25 @@
 |---|---|
 | Version | `versionCode 18` / `versionName 3.0` (was 2.5 at audit time) |
 | SDK | `minSdk 26`, `targetSdk 35` |
-| Size | 121 Kotlin files, ~15.1k lines (audit: 101 files / ~13.8k) |
-| Tests | 16 test files, 138 unit tests, `testDebugUnitTest --offline` green (2026-08-17: `FamiliarDataTest` removed with the hardcoded catalog, `FamiliarImagesTest` added) |
-| Build | `assembleDebug --offline` green (exit 0) |
-| Working tree | **clean** — everything through nightly session 56 is committed in `16362d1`; the 2026-08-15 doc restructure, the P1–P3 fixes and the Doze mitigations are in the two commits after it |
-| God-class sizes | `EkatMaps` 1119 (was 1237), `MainActivity` 663 (837), `TerminalActivity` 543 (1325), `LocationService` 402 (1030) |
+| Size | 126 Kotlin files, ~15.7k lines (audit: 101 files / ~13.8k) |
+| Tests | 16 test files, 139 unit tests, `testDebugUnitTest --offline` green (2026-08-17: `FamiliarDataTest` removed with the hardcoded catalog, `FamiliarImagesTest` added) |
+| Build | `assembleDebug --offline` green (exit 0), re-confirmed 2026-09-08 after the rebase |
+| Working tree | three commits **not pushed** to `origin/master` (`d187241`, `9c18bed`, `94aa9d3`, rebased onto `ac77584` on 2026-09-08); `.gitignore` carries uncommitted additions (`SHIFT - работа над игрой/`, `/Карты/`); `gradlew.bat` shows as modified but the diff is line endings only |
+| God-class sizes | `EkatMaps` **1234** (was 1119 on 2026-08-15 — the chase and aura-sensing work put ~115 lines back), `MainActivity` 713 (663), `TerminalActivity` 543 (543), `LocationService` 468 (402) |
 | Remaining compiler warnings | one: `ShiftApplication.isLocationServiceRunning()` uses deprecated `getRunningServices` (deliberate, see below) |
 
+**Note the god-class row moved the wrong way.** Three of the four numbers grew between
+2026-08-15 and 2026-08-20 (`EkatMaps` +115, `LocationService` +66, `MainActivity` +50), because
+the chase chain and the aura-sensing FAB were added to the existing classes rather than to new
+ones. That was the right call under time pressure — a feature in one diff beats a refactor plus
+a feature — but `EkatMaps` is now back to 1234 lines against the 1237 it had at the audit: the
+entire extraction gain on that file has been spent. §C's "the only remaining real god-class
+extraction" is priced accordingly.
+
 **The long-running "owner should commit the working diff" nag is closed.** It appeared in
-almost every nightly entry from session 15 to 56; the diff is committed and the tree is clean.
-The only untracked path is `analysis/screenshots/` (12 MB of emulator verification captures),
-now gitignored.
+almost every nightly entry from session 15 to 56; the diff is committed. Untracked paths are
+`analysis/screenshots/` (12 MB of emulator verification captures), `_local/` (machine-local
+state, synced outside git) and `.claude/` (agent definitions) — all gitignored except the last.
 
 ## Where the app stands
 
@@ -39,7 +48,8 @@ Beyond the audit, 56 nightly sessions plus several manual owner sessions did: fu
 the RxJava rudiment, unified network error handling (`helpers/NetworkErrors.kt`) across ~25
 screens, extraction of four terminal command classes and of the map/notification/profile-diff
 helpers out of the god-classes, migration off every deprecated Android API except one, a pure
-unit-test suite from zero to 146 tests, and a series of small real bug fixes found by
+unit-test suite from zero to 146 tests (139 today — `FamiliarDataTest` went out with the
+hardcoded catalogue in Wave 27), and a series of small real bug fixes found by
 line-by-line reading (`PointVisualizer` duplicate map key, `NewMessagesChecker` hardcoded
 unread count, the Aura Editor stuck permanently on a loading spinner).
 
@@ -48,10 +58,49 @@ low-risk reliability backlog from the original audit has been exhausted for seve
 what is left is either blocked on a human with a real device, or is architectural work that
 was deliberately judged too risky for an unattended session.
 
+### What changed since 2026-08-15 (the previous actualisation)
+
+Three weeks in which the centre of gravity moved off the client and onto everything around it.
+Details are in [08-changes-applied.md](08-changes-applied.md) Waves 27–29; the short version:
+
+- **Familiar and aura artwork left the APK** (2026-08-17/18, spec in
+  [12-familiars-remote-assets.md](12-familiars-remote-assets.md), commit `4ca3304`) — 36 `webp`
+  files (~6.3 MB) now come from `shift96.ru` with a disk cache, the hardcoded familiar `Map` is
+  gone in favour of a server catalogue, and `users.familiar` is validated against it. A new
+  familiar no longer means a new APK on 30 phones.
+- **The offline crash on the aura screens** (B4) and **the `isInGame()` default bug** (B5) were
+  found and fixed by nightly sessions 59 and 61, the second one still awaiting a live check (A8).
+- **A GM web admin panel exists** (`shift96.ru/gm/`, ~2000 lines of PHP), all six planned stages
+  shipped plus an independent QA pass whose every finding was fixed the same day, plus a
+  chains page added later. Full record in [13-gm-web-admin-plan.md](13-gm-web-admin-plan.md).
+  This is what closed the "the app has no UI for X" class of problem without shipping an APK:
+  subscriptions, point editing, aura marks, noise, catalogues and chain steering are now all
+  editable by a master through a password-protected page instead of through phpMyAdmin.
+- **The chase mechanic (#15) was built for real** (2026-08-20) with branching, dead ends and
+  server-side progress, and **a psychic can now read the aura of places that are not on the
+  map at all** through a "listen to the place" FAB. Both are described in
+  [10-backlog-plan.md](10-backlog-plan.md) §0е and §#15.
+- **"Аркан Оверфлоу" happened entirely outside this document set** — an in-world Stack Overflow
+  on `shift96.ru/arcaneoverflow/` filled by a pipeline of character agents. It is game content,
+  not client code, which is why it never appeared here; it now has its own summary in
+  [14-arcaneoverflow.md](14-arcaneoverflow.md) so that the analysis folder stops implying the
+  client is the whole project.
+
+Two consequences worth stating plainly. First, **the client itself has barely moved on
+reliability since 2026-08-15** — B4 and B5 are the only two reliability fixes in three weeks,
+and A1 is still untouched. Second, **the panel changed what "blocked" means**: several §E items
+were blocked on "the app cannot do this", and the answer turned out to be "so do it from the
+panel". Anything still in §E should be re-read with that in mind before it is called blocked.
+
 ## The 2026-07-22 top-20, re-verified against current code (2026-08-15)
 
 Verdicts below come from reading the current sources, not from the fix documents. Line numbers
 are current — every line reference in documents 01–07 is stale after the refactors.
+
+> **Not re-verified on 2026-09-08.** The 2026-09-08 actualisation updated the snapshot, the
+> backlog and the change ledger, but did **not** re-read all twenty rows against the code. Rows
+> touching `EkatMaps`, `LocationService` and `MainActivity` are the ones most likely to have
+> drifted, since those three files grew during the 2026-08-20 feature work.
 
 | # | Problem | Status | Where it stands now |
 |---|---------|--------|---------------------|
@@ -114,7 +163,9 @@ exists. Worth a comment in the code if it stays.
 | A5 | Live check of the session-55 `NewMessagesChecker` fix | Scenario: two unread personal messages from different senders → notification must read "У вас 2 новых сообщений". Emulator was down when the fix landed. |
 | A6 | MG-side branch of `UserRoles.isMg` in `MessagesChatActivity` / `MessagesAdapter` | Needs relogin as `MG_Bas`. Unit tests cover both branches; only the on-screen result is unconfirmed. |
 | A7 | **Live check of the P3 attachment streaming fix** | Verifying it end to end means actually sending a message with a photo, i.e. a real `POST` to production `shift96.ru` that lands in someone's chat. Not done autonomously. Scenario when the owner runs it: attach a large photo (≥ 10 MB), send, confirm it arrives intact and that `cacheDir` has no leftover `attach_upload_*` files afterwards. |
-| A8 | **Live check of the session-61 `isInGame()` default fix (B5)** | No emulator was up when the fix landed. Scenario: fresh install or `adb shell pm clear bas.app.shift`, log in, land on `MainActivity` — confirm the "В игре" switch shows **off** and no `LocationService` foreground notification appears until the player explicitly toggles it on. |
+| ~~A8~~ | ~~Live check of the session-61 `isInGame()` default fix (B5)~~ | **Done 2026-09-08 on `emulator-5554`, passed.** `pm clear` → log in as `bas` → grant notifications and location ("While using the app", i.e. the permissive case) → land on `MainActivity`: `game_state.xml` reads `is_in_game=false`, the segmented control shows **«Не в игре»**, the log says `updateUI - isMgUser: false, isInGame: false`, and `LocationService` received only `ACTION_STOP_LOCATION` with `startForegroundCount=0` — no foreground notification, no tracking. Control case, to prove the test could fail: restoring `is_in_game=true` and relaunching produced `ACTION_START_LOCATION` and `startForegroundCount=1`. Emulator state (user `bas`, in-game) was backed up before and restored after. |
+| A9 | **The chase mechanic from a phone, not from the API** | The 2026-08-20 verification ran against the live server (`CHASETEST`: start → fork → dead end → restart → finish, plus the 409 and the idempotent-repeat cases) and it passed end to end. What that run did **not** cover is the client half in the field: whether `ChaseNotifier` actually raises each notification on a device, whether its one-minute dedup really suppresses the double delivery (`/users/location` **and** `/points/{id}/enter` both report the same entry), and whether an entry detected while the screen is off survives to a notification at all. That last one is A1 wearing a different hat. |
+| A10 | **The aura-sensing FAB, live** | Added 2026-08-20 ([10-backlog-plan.md](10-backlog-plan.md) §0е) and verified only by `assembleDebug` + unit tests. The behaviour worth watching on a real screen: the FAB appears for a psychic and for nobody else, `auraReadRangeFor()` really does give the wider radius on hidden and `POINT_WITH_TEXT` points and the plain 50 m on visible ones, and the dialog leaks neither names nor distances — that last property is the whole point of the design and a UI regression would silently undo it. |
 
 ### B. Available right now, no emulator needed
 
@@ -167,14 +218,14 @@ because re-deriving it is the expensive part, not re-running it.
 
 ### C. Deliberately deferred — judged not worth the risk (do not "fix" without a reason)
 
-- **`EkatMaps.showCreatePointDialog` / `handleMarkerClick` cluster** (~590 lines, `EkatMaps.kt:262-850`) — the only remaining real god-class extraction. Miswired callbacks still compile, so this must be done in one diff with live verification, not in an unattended session.
+- **`EkatMaps.showCreatePointDialog` / `handleMarkerClick` cluster** (~700 lines; `handleMarkerClick` now starts at `EkatMaps.kt:281`, `showCreatePointDialog` at `:694`, with the aura-sensing helpers between them from `:473`) — the only remaining real god-class extraction, and bigger than when it was first deferred. Miswired callbacks still compile, so this must be done in one diff with live verification, not in an unattended session.
 - **`ShiftApplication.isLocationServiceRunning()` on deprecated `getRunningServices`** — no drop-in replacement; needs its own state flag instead of polling `ActivityManager`. Reliability-critical path, so a spot fix is worse than the warning.
 - **`AuraEditorActivity` four CRUD blocks** (add/update/delete × marks/problems) — similar but not identical (different strings, different endpoint semantics); merging judged less readable than the status quo. Decided session 35, upheld since.
 - **`ProfileEditFragment.add*/remove*`** — same reasoning, bound to different `User.copy(...)` fields.
 - **Further `TerminalActivity` simplification** (generic command path, history, autocomplete) — what is left is architectural, not spot extraction.
 - **`ui/terminal/ChatAdapter.kt` 64 px margin instead of dp** — cosmetic; the correct dp value depends on the density the designer eyeballed.
 - **`creatorName` rendering as the literal string `"null"`** in artifact spinner labels ("Название / null") — cosmetic.
-- **A discipline name renders as mojibake on the profile screen** — encoding issue, pre-existing, never chased down. Cosmetic unless it turns out to be a server encoding bug (would then fold into B1).
+- ~~**A discipline name renders as mojibake on the profile screen**~~ — **not a defect. Closed for good 2026-09-08, do not re-open.** The discipline is id 9, Шумомантия, and its mangled name (`ШЖ╫■┐ьЮ≈╒╬м╤нт&╜╓я`) is stored that way **on purpose**: noisemancy is the neomagic discipline that works through the internet, so a corrupted name is the point of it. The owner likes it and has now rejected this "finding" three separate times. It is correct data everywhere it appears — profile screen, forum filter, GM panel. Do not rename the row, do not propose a migration, do not list it as a finding. The only real rule that follows from it: a check for a noisemancer must pass on **both** the garbled name and the plain string `Шумомантия`, which matching on `id == 9` (as `MainActivity.kt:339` already does for the terminal button) satisfies by construction. This was **already** recorded in [13-gm-web-admin-plan.md](13-gm-web-admin-plan.md) §9.1 on 2026-08-18 — it got raised again anyway because §9 of that document is not where anyone looks for "is this a bug". Hence this entry, in the file that is meant to be the single source of truth.
 - **`lintDebug` cannot run offline** — `com.android.tools.lint:*:31.3.0` is not in the offline Gradle cache. One online build would cache it. Owner's call.
 
 ### D. Out of scope by owner decision (security)
@@ -191,7 +242,7 @@ re-opens them as "findings": keystore and signing passwords in the repo, clearte
 - **#25 game-master message feed** — Коля/Тари (broadcast from the admin panel).
 - **#7** — deferred by owner decision (whole item, including the `fetchCurrentNoise` fix).
 - Open questions to Тари: `assigned_player`/`last_message_time` on points; whether `API Messages.txt` is dead documentation (it describes a completely different API than the one implemented); `API геолокации.txt` is far behind reality.
-- **MG chat "subscriptions" (discipline filter) has no client-side management UI** (found session 58, B1). The live `messages_api/subscriptions` endpoints (`POST`/`GET`/`DELETE`, api.php:697-739) are what `GET /messages_api/chats` and `GET /messages_api/chats/{peer}/history` filter on — an MG with zero rows in the `subscriptions` table gets an empty chat list, always. No Kotlin code calls these endpoints. Question for Тари/owner: are `subscriptions` rows seeded directly in the DB for each MG, or is this feature simply unreachable from the app? If the latter, every MG needs a way to pick which disciplines they follow, or the chat list silently stays empty forever regardless of the P1 button-access fix from session 57.
+- ~~**MG chat "subscriptions" (discipline filter) has no client-side management UI**~~ — **closed 2026-08-18 by the GM panel, not by the app.** The open question was "who seeds `subscriptions` rows, since no Kotlin code calls those endpoints, and an MG with zero rows gets a permanently empty chat list". The answer chosen was to stop needing the app for it: `gm/pages/chats.php` renders a GM × discipline matrix, rewrites only the masters carried in the POST, and adds a coverage table that flags disciplines nobody reads and disciplines with a single master. The client is unchanged and does not need to be — shipping an APK to 30 phones to add a settings screen was the worse option. Still worth an actual look before the game: open the coverage table and confirm no discipline is uncovered.
 
 ### F. Server-side, for the owner (not fixed autonomously)
 
@@ -227,6 +278,25 @@ re-opens them as "findings": keystore and signing passwords in the repo, clearte
   `DateTimeHelper.formatExpireAt` and the server) was checked and is **not** a real bug —
   the server returns `Y-m-d H:i:s` on GET (MySQL `DATETIME` via `SELECT *`), which is exactly
   what the parser expects.
+
+  **Decided and done, 2026-09-08: the dead input is gone from the app.** The owner chose to
+  delete it rather than wire all three layers. `tvExpireLabel`/`etExpireMinutes` are out of
+  `dialog_create_point.xml`, the six `View.GONE` lines and the `expireAt` string that was
+  computed and thrown away are out of `EkatMaps`, and `point_expire_label`/`point_expire_hint`
+  are out of `strings.xml`. The server keeps its hardcoded 30 minutes and the panel remains the
+  way to set anything else — which is now stated in a comment at both former call sites, so the
+  next reader does not "restore" the field. Nothing else changed: `PointRequest` never carried
+  the value, so no request shape moved. The rest of this entry is kept as the record of why.
+
+  **Update 2026-09-08 — the decision got cheaper.** The GM panel's point editor
+  ([13-gm-web-admin-plan.md](13-gm-web-admin-plan.md) stage 4) already edits a point's expiry
+  directly, so a master who needs a circle to last other than 30 minutes has a working way to
+  do it *today*, just not from the phone. That makes "delete the dead input from the app and
+  let the panel own expiry" the low-risk option: it costs three lines in `EkatMaps`, removes a
+  UI element that has never once worked, and loses no capability anyone actually has. Wiring
+  all three layers is still the better answer if MGs are expected to create timed circles
+  while walking around the city — which is a question about how the game is run, not about the
+  code.
 
 ## The Doze test protocol (A1) — how to actually run it
 
@@ -377,4 +447,12 @@ main screen instead (MG has extra buttons).
 | [09-nightly-progress.md](09-nightly-progress.md) | rolling journal, newest 5–8 sessions | rotate into `archive/` per the rules in its header |
 | [10-backlog-plan.md](10-backlog-plan.md) | game-feature backlog (owner + teammates) | owner-maintained; tech debt does **not** go here |
 | **11-status.md** (this file) | **living** current state + backlog | every session that opens or closes an item edits this file |
+| [12-familiars-remote-assets.md](12-familiars-remote-assets.md) | spec, **delivered** 2026-08-18 | closed; kept for the schema and cache reasoning |
+| [13-gm-web-admin-plan.md](13-gm-web-admin-plan.md) | plan **and** build log of the GM panel | all six stages shipped, QA pass closed, chains page added — append when the panel changes |
+| [14-arcaneoverflow.md](14-arcaneoverflow.md) | overview of the in-world forum and its agent pipeline | game content, not client code; no credentials in it |
 | `archive/` | verbatim old journal | never edited, only appended to as whole files |
+
+**Scope note.** 01–11 are about the Android client. 13 and 14 are about the server side, which
+stopped being out of scope on 2026-08-18 when the owner authorised direct edits. A reader who
+only opens 11 will conclude the project is an Android app that has been quiet for three weeks;
+that conclusion is wrong, and this table is where it gets corrected.

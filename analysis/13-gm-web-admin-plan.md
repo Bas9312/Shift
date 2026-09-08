@@ -421,7 +421,10 @@ cron set in §4.12, and an endpoint would not change that. Add one only if the a
 1. ~~**Discipline 9 has a mojibake name**~~ — **owner's call, 2026-08-18: leave it.**
    `magic_discipline.id = 9` reads `ШЖ╫■┐ьЮ≈╒╬м╤нт&╜╓я` (image `noize_magick.png`, the client
    gates the terminal on `it.id == 9`), and three players — `pavlik`, `anton`, `lina` — carry an
-   aura mark with that name. Bas says the garbled text is fine as it is, so **do not "fix" it**.
+   aura mark with that name. **The garbled text is the design**: шумомантия is the neomagic
+   discipline that works through the internet, so its name arrives corrupted — that is why the
+   owner likes it. **Do not "fix" it**, and see [11-status.md](11-status.md) §C, where it is
+   also written down, because this section is not where anyone checks before calling it a bug.
    If it ever is to be renamed: renaming the catalogue row alone is not enough, because
    `sync_magic_discipline_marks()` returns early unless the *id list* changed (`api.php:486`) —
    the marks need `UPDATE aura_marks SET name = … WHERE mark_type = 'MAGIC_DISCIPLINE'

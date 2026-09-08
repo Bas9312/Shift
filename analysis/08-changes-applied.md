@@ -551,6 +551,105 @@ setting, and it is the owner's to make.
 
 ---
 
+### Wave 27 — artwork off the APK, and the crash class it exposed (2026-08-17/18, commit `4ca3304`)
+
+Two things that landed together because the second was found while verifying the first.
+
+**Familiar and aura artwork moved to the server.** 36 `webp` files (~6.3 MB) left
+`res/drawable/`; the client resolves them through a server catalogue instead of
+`resources.getIdentifier()`, caches them on disk, and validates `users.familiar` against the
+catalogue rather than trusting an unconstrained `varchar(255)` (live data already held a
+mis-pasted person's name). The hardcoded `Map` in `models/Familiar.kt` is gone, which also
+removed `FamiliarDataTest` and added `FamiliarImagesTest`. Full spec, including the aura
+silhouette follow-up and the `sync_familiar_link()` naming defect fixed the same day, is in
+[12-familiars-remote-assets.md](12-familiars-remote-assets.md) — marked complete and verified
+end to end on the emulator, offline case included.
+
+The point of the change is operational, not architectural: adding a familiar used to mean
+building an APK and getting it onto every phone. Now it is a row and a file on the server.
+
+**B4 — the offline crash on the aura screens.** `AuraActivity` and `AuraFragment` both called
+`auraApi.getAura()` inside `lifecycleScope.launch(Dispatchers.IO)` with no `try`/`catch`. The
+`isSuccessful` branch handled HTTP errors, but a thrown `UnknownHostException` — airplane mode,
+dead wifi, a walk out of coverage — killed the process. Reproduced on the emulator, both moved
+to the house pattern, re-verified offline and online.
+
+The fix prompted a sweep rather than stopping at the two call sites: every `launch`/`async`
+block and every `suspend fun` in the app was brace-matched and checked for a call into
+`api/*.kt` without a `try`/`catch`, and every `onFailure` was checked for showing the user
+nothing. Result: those two were the only unprotected calls in the app (re-running the script
+now reports zero), and 2 of 13 silent `onFailure` bodies were upgraded to a `NetworkErrors`
+toast. The reasoning for leaving the other 11 alone is in [11-status.md](11-status.md) §B4 —
+five are background workers with no screen to complain to, five already print into the
+terminal transcript, and one is deliberately silent because telling the player would expose a
+mechanic they are not meant to see.
+
+### Wave 28 — the `isInGame()` default (2026-08-19, session 61, commit `ac77584`)
+
+`ShiftApplication.isInGame()` defaulted its `game_state`/`is_in_game` preference to `true`
+when the key had never been written, while all four other readers of the same key
+(`EkatMaps` ×2, `LocationHeartbeatReceiver`, `BootCompletedReceiver`) defaulted to `false`.
+
+On a brand-new install — or straight after registration, before the player has ever touched
+the "В игре" switch — this showed the toggle already checked and made both
+`ShiftApplication.onStart` and `MainActivity.checkAndStartLocationService()` try to start the
+foreground `LocationService`. Background location tracking beginning before the player opted
+in is not one of the hardening items the owner declined; it is a wrong default. Every
+`setIsInGame` call site was grepped to confirm nothing writes the key before first display:
+only the two toggle handlers and `performLogout`, none of which run first.
+
+One-line fix, no other logic touched. **Not verified live** — see [11-status.md](11-status.md)
+§A8, which is a five-minute check on the emulator whenever one is next running.
+
+### Wave 29 — the chase chain and aura sensing (2026-08-20, commits `9c18bed`, `94aa9d3`)
+
+Game features rather than reliability work, recorded here because they changed client code and
+moved the god-class numbers. The design and the field verification live in
+[10-backlog-plan.md](10-backlog-plan.md) (§#15 and §0е); what matters for this ledger:
+
+- **Chase events** — new `models/ChaseEvent.kt` and `helpers/ChaseNotifier.kt`, wired into
+  `ServerService` and `LocationService`. The server reports `started | advanced | finished |
+  dead_end` on both `POST /users/location` and the new `POST /points/{id}/enter`; the client
+  deliberately sends the second one as well, because geolocation posts get lost to Doze and
+  lost network, and the server dedupes the repeat. `ChaseNotifier` dedupes on its side for a
+  minute so two delivery paths cannot produce two notifications. **No chain state is kept on
+  the client** — reinstalling the app resets nothing.
+- **Aura sensing for places off the map** — a FAB in `EkatMaps`, visible only to a psychic,
+  reads every aura in reach from `lastServerPoints` (the full server response, before
+  `MapPointsRenderer` filters it), so hidden points and `POINT_WITH_TEXT` are included. Range
+  depends on visibility: 50 m for a point whose marker is right there, `max(radius, 50 m)` for
+  one with no marker at all. The dialog shows texts only — no names, no distances — because
+  either would hand the psychic the layout of the hidden zones.
+- **Familiars lost the aura field** everywhere: hidden in the point card and the create dialog,
+  never sent on create, hidden in the panel's forms and forced to `NULL` on save.
+
+Cost, stated because §C has to price it: `EkatMaps` went 1119 → 1234 lines and
+`LocationService` 402 → 468. Both features were added to the existing classes instead of new
+ones, which was the right trade under time pressure and is why the remaining extraction is now
+bigger than it was.
+
+### Wave 30 — the decorative expiry input, deleted (2026-09-08)
+
+The "истечет через (минут)" field on the MG's create-point dialog never worked at any of its
+three layers (the full diagnosis is [11-status.md](11-status.md) §F): it was `View.GONE` in
+every branch of the type switch including its own, the value it would have produced was
+computed into a local `expireAt` and never attached to `PointRequest`, and the server hardcodes
+30 minutes for every `SHRINKING_CIRCLE` regardless.
+
+Owner's decision: delete it rather than wire it, because the GM panel already edits a point's
+expiry and no MG has ever been able to use the field anyway. Removed the `TextView` and
+`EditText` from `dialog_create_point.xml`, the six `View.GONE` assignments and the dead
+`expireAt` computation from `EkatMaps`, and both strings from `strings.xml`. Comments at the
+former sites now say where expiry actually comes from, so it does not get "restored" later.
+
+No request shape changed — `PointRequest` never had the field. `assembleDebug` and
+`testDebugUnitTest --offline` green.
+
+Verified in the same session: **A8**, the live check of the Wave 28 `isInGame()` fix. Recorded
+in [11-status.md](11-status.md) §A rather than repeated here.
+
+---
+
 ## Backlog
 
 The live backlog is **not** in this file. See **[11-status.md](11-status.md)** — current state,
