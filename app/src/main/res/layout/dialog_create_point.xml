@@ -111,24 +111,6 @@
         android:maxLines="4"
         android:layout_marginBottom="16dp" />
 
-    <TextView
-        android:id="@+id/tvExpireLabel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/point_expire_label"
-        android:textSize="16sp"
-        android:layout_marginBottom="8dp"
-        android:visibility="gone" />
-
-    <EditText
-        android:id="@+id/etExpireMinutes"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="@string/point_expire_hint"
-        android:inputType="number"
-        android:layout_marginBottom="16dp"
-        android:visibility="gone" />
-
     <CheckBox
         android:id="@+id/cbCustomRadius"
         android:layout_width="match_parent"

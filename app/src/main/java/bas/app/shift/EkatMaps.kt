@@ -776,19 +776,16 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         dialogBinding.spinnerFamiliar.visibility = View.VISIBLE
                         dialogBinding.tvTextToShowLabel.visibility = View.GONE
                         dialogBinding.etTextToShowOnEnter.visibility = View.GONE
-                        dialogBinding.tvExpireLabel.visibility = View.GONE
-                        dialogBinding.etExpireMinutes.visibility = View.GONE
                     }
                     "SHRINKING_CIRCLE" -> {
-                        // Для сужающегося круга показываем поле времени истечения
+                        // Время жизни круга задаёт сервер (30 минут), в диалоге его нет —
+                        // при необходимости другой срок ставится из панели мастера.
                         dialogBinding.tvDescriptionLabel.visibility = View.VISIBLE
                         dialogBinding.etDescription.visibility = View.VISIBLE
                         dialogBinding.tvFamiliarLabel.visibility = View.GONE
                         dialogBinding.spinnerFamiliar.visibility = View.GONE
                         dialogBinding.tvTextToShowLabel.visibility = View.VISIBLE
                         dialogBinding.etTextToShowOnEnter.visibility = View.VISIBLE
-                        dialogBinding.tvExpireLabel.visibility = View.GONE
-                        dialogBinding.etExpireMinutes.visibility = View.GONE
                     }
                     else -> {
                         // Для остальных типов показываем стандартные поля
@@ -798,8 +795,6 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                         dialogBinding.spinnerFamiliar.visibility = View.GONE
                         dialogBinding.tvTextToShowLabel.visibility = View.VISIBLE
                         dialogBinding.etTextToShowOnEnter.visibility = View.VISIBLE
-                        dialogBinding.tvExpireLabel.visibility = View.GONE
-                        dialogBinding.etExpireMinutes.visibility = View.GONE
                     }
                 }
             }
@@ -890,19 +885,9 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
                 return@setOnClickListener
             }
             
-            // Формируем expireAt если нужно
-            var expireAt: String? = null
-            if (selectedType == "SHRINKING_CIRCLE") {
-                val expireMinutes = dialogBinding.etExpireMinutes.text.toString().toIntOrNull()
-                if (expireMinutes != null && expireMinutes > 0) {
-                    val calendar = Calendar.getInstance()
-                    calendar.add(Calendar.MINUTE, expireMinutes)
-                    val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-                    expireAt = dateFormat.format(calendar.time)
-                    LogHelper.d("Точка истечет через: $expireMinutes минут, expireAt: $expireAt")
-                }
-            }
-            
+            // Срок жизни SHRINKING_CIRCLE клиент не задаёт: сервер ставит 30 минут сам,
+            // а другой срок мастер выставляет из веб-панели.
+
             // Создаем точку
             lifecycleScope.launch {
                 try {
