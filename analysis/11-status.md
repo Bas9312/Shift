@@ -19,7 +19,7 @@
 | Size | 126 Kotlin files, ~15.7k lines (audit: 101 files / ~13.8k) |
 | Tests | 16 test files, 139 unit tests, `testDebugUnitTest --offline` green (2026-08-17: `FamiliarDataTest` removed with the hardcoded catalog, `FamiliarImagesTest` added) |
 | Build | `assembleDebug --offline` green (exit 0), re-confirmed 2026-09-08 after the rebase |
-| Working tree | three commits **not pushed** to `origin/master` (`d187241`, `9c18bed`, `94aa9d3`, rebased onto `ac77584` on 2026-09-08); `.gitignore` carries uncommitted additions (`SHIFT - работа над игрой/`, `/Карты/`); `gradlew.bat` shows as modified but the diff is line endings only |
+| Working tree | clean; several commits sit **ahead of `origin/master`** and unpushed. **Pushing is the owner's step** — this machine has no credential helper, no `~/.git-credentials` and no `gh`, so an automated session can commit but cannot push. Do not spend time debugging that. (`gradlew.bat` reappears as modified whenever a Windows tool touches it; the diff is line endings only, `git checkout -- gradlew.bat` clears it.) |
 | God-class sizes | `EkatMaps` **1234** (was 1119 on 2026-08-15 — the chase and aura-sensing work put ~115 lines back), `MainActivity` 713 (663), `TerminalActivity` 543 (543), `LocationService` 468 (402) |
 | Remaining compiler warnings | one: `ShiftApplication.isLocationServiceRunning()` uses deprecated `getRunningServices` (deliberate, see below) |
 
