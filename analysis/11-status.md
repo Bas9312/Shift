@@ -235,13 +235,44 @@ re-opens them as "findings": keystore and signing passwords in the repo, clearte
 `debuggable true` + `minifyEnabled false` in release, no sha256 verification on self-update,
 `HttpLoggingInterceptor.BODY` always on, MG role decided client-side by the `MG_` prefix.
 
-### E. Blocked on other people (game backlog — see [10-backlog-plan.md](10-backlog-plan.md))
+### E. ~~Blocked on other people~~ — **nothing is, as of 2026-09-08** (game backlog — see [10-backlog-plan.md](10-backlog-plan.md))
+
+This section existed because four items were waiting on teammates. All four are now resolved,
+none of them by the teammate doing the work:
+
+| Was blocked on | Outcome |
+|---|---|
+| Лёша — chase game design | Questions dropped: they do not change the client (below) |
+| Женя — site endpoints for #3 | **Item deleted.** Женя is doing it entirely on the site; the app needs no support for it at all |
+| Коля/Тари — GM broadcast feed (#25) | **Deferred by the owner**, not waiting on anyone. Not in this game |
+| Тари — three API questions | **Answered by reading the server and querying the live DB** (below). Nothing to ask |
+
+The lesson worth keeping: three of the four were not really blocked, they were unasked. Reading
+`SERVER/` and the live schema answered in twenty minutes what had been sitting in the backlog
+as "ask Тари" for six weeks.
+
+**What the server actually said (2026-09-08):**
+
+- **A point with `createdAt` in the future is hidden, not served.** `GET /points` filters on
+  `(createdAt <= NOW())` inside the `$baseWhere` shared by both the MG and the player branch
+  (`api_geo/api.php:283`), so a future date behaves as scheduled publication. The old "#13 risk"
+  does not exist. Note the MG does not see such a point on the map either — only in the panel,
+  which reads the table directly. Live count of future-dated points: zero.
+- **`assigned_player` / `last_message_time` are the familiar-chat lock.** When a player starts
+  talking to a `FAMILIAR` point, the row is stamped with their id and the time
+  (`api_geo/api.php:585`); `POST /points/{id}/touch` refreshes it. `releaseExpiredFamiliars()`
+  clears any familiar whose last message is older than `FAMILIAR_HOLD_MINUTES = 15`, so a
+  familiar frees itself a quarter of an hour after the conversation stops. The panel shows
+  «занята: X» and can release one by hand. Types: `varchar(255)` (indexed) and `timestamp`.
+- **`API Messages.txt` is a design draft that was never built.** Its whole schema rests on
+  `chats` and `master_subscriptions`; neither table exists in the live database. Not stale
+  documentation — documentation of a cancelled design. Do not diff code against it.
 
 - ~~**#15 chase mechanic**~~ — **closed completely, 2026-09-08.** Built on 2026-08-20 with branching, dead ends and a panel page; the server cuts the chain per player, so the client keeps no chain state ([10-backlog-plan.md](10-backlog-plan.md) #15). The game-design questions that were still hanging on Лёша (personal vs team progress, whether a finish hands anything out, whether a point may be skipped) were dropped by the owner: none of them change the client, which only has to show that the chase finished, and it does. Not blocked on anyone any more.
-- **#3 "noise magic breaks the site"** — Женя (endpoints).
-- **#25 game-master message feed** — Коля/Тари (broadcast from the admin panel).
+- ~~**#3 "noise magic breaks the site"**~~ — **deleted 2026-09-08.** Женя is implementing it on the site; the client needs no terminal commands, no endpoints, nothing. Do not re-add it.
+- **#25 game-master message feed** — **deferred by the owner 2026-09-08**, not blocked. Not happening this game. If it ever returns: the client needs a "no replies allowed" mode, `Message` has no flag for it, and it would have to ride on `tags` — agree the tag first.
 - **#7** — deferred by owner decision (whole item, including the `fetchCurrentNoise` fix).
-- Open questions to Тари: `assigned_player`/`last_message_time` on points; whether `API Messages.txt` is dead documentation (it describes a completely different API than the one implemented); `API геолокации.txt` is far behind reality.
+- `API геолокации.txt` is far behind reality (radius, hiding, place auras, the chase — all missing from it). Not worth chasing: the code is the source of truth and the discrepancies are catalogued in [10-backlog-plan.md](10-backlog-plan.md) §5.
 - ~~**MG chat "subscriptions" (discipline filter) has no client-side management UI**~~ — **closed 2026-08-18 by the GM panel, not by the app.** The open question was "who seeds `subscriptions` rows, since no Kotlin code calls those endpoints, and an MG with zero rows gets a permanently empty chat list". The answer chosen was to stop needing the app for it: `gm/pages/chats.php` renders a GM × discipline matrix, rewrites only the masters carried in the POST, and adds a coverage table that flags disciplines nobody reads and disciplines with a single master. The client is unchanged and does not need to be — shipping an APK to 30 phones to add a settings screen was the worse option. Still worth an actual look before the game: open the coverage table and confirm no discipline is uncovered.
 
 ### F. Server-side, for the owner (not fixed autonomously)
