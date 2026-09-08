@@ -52,8 +52,13 @@ class ShiftApplication : Application(), DefaultLifecycleObserver, SingletonImage
             }
             .build()
 
+    // false — та же безопасная дефолтная семантика "ещё не решил", что и у остальных
+    // читателей этого ключа (EkatMaps, LocationHeartbeatReceiver, BootCompletedReceiver).
+    // Раньше был true: на самом первом запуске (пока is_in_game ни разу не записан)
+    // MainActivity показывал переключатель уже включённым и пытался поднять
+    // LocationService, хотя игрок ещё ни разу не нажимал "В игре".
     fun isInGame(): Boolean = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        .getBoolean(KEY_IN_GAME, true)
+        .getBoolean(KEY_IN_GAME, false)
 
     fun setIsInGame(isInGame: Boolean) {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)

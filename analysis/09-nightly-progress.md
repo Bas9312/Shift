@@ -657,3 +657,104 @@ actionable gap (MG chat `subscriptions` never called from the client) and two ha
 latent landmines (documented, not fixed — no live bug to reproduce, no test capability for
 either without mutating production or an emulator). Build green, nothing committed (owner's
 call per standing instructions), backlog and journal both updated.
+
+---
+
+## Session 59 — 2026-08-18 (backfilled by session 60 — no journal entry was written at the time)
+
+Fixed B4: `AuraActivity.kt` and `AuraFragment.kt` both called `auraApi.getAura()` on IO with
+no `try`/`catch`, so an `UnknownHostException` (e.g. airplane mode) killed the process instead
+of showing an error. Both moved to the house pattern (`launch` on Main,
+`withContext(Dispatchers.IO)` around the call, `catch` → `NetworkErrors.network(e)`). Reproduced
+and re-verified live on `emulator-5554`: airplane mode, open an aura → no crash, shows «Нет
+связи с сервером»; online still renders correctly. Followed up with a project-wide sweep for
+the same crash class (unguarded coroutine calls into `api/*.kt`, and `onFailure` bodies that
+show the user nothing) — 2 unprotected call sites found and fixed (both were B4 itself), plus
+2 of 13 silent-`onFailure` sites upgraded to show a `NetworkErrors` Toast
+(`MgProfileViewActivity.loadUsers`, `ProfileEditActivity.loadAbilities`). Full detail and the
+"why the other 11 are fine as they are" reasoning is in [11-status.md](11-status.md) §B4 —
+not re-narrated here per this file's own rules. Also moved familiar/aura artwork off the APK
+and onto the server this session (separate from B4; see commit `4ca3304`). Build and tests
+green; committed by the owner (`4ca3304`).
+
+**Note for whoever reads this:** the timestamps above are reconstructed from the commit and
+from [11-status.md](11-status.md)'s own "session 59, 2026-08-18" citations, not from a live
+`НАЧАЛ`/`ЗАВЕРШИЛ` pair — that pair was simply never written. If you're a nightly session,
+this is a reminder to actually write your journal entry before running out of budget, not
+just update `11-status.md` and leave the journal stale.
+
+---
+
+## Session 60 — 2026-08-18
+
+**НАЧАЛ:** 2026-08-18 (nightly) — tree was clean at start (last commit `9671fce`, unrelated
+to any in-progress marker), no race. Started from [11-status.md](11-status.md) §B2, a stale
+one-line claim ("`expireAt` format mismatch... falls under B1") that B1's completion had left
+unresolved. Investigated it end to end instead of taking the claim at face value.
+
+**Finding:** the original B2 claim was wrong — `DateTimeHelper.formatExpireAt`'s parser
+(`"yyyy-MM-dd HH:mm:ss"`) matches exactly what the server returns on GET (MySQL `DATETIME`
+via `SELECT *`). No format mismatch exists. The real bug is bigger: SHRINKING_CIRCLE's
+"expires in N minutes" input is dead at all three layers —
+1. `EkatMaps.kt`'s create-point dialog hides `etExpireMinutes` (`View.GONE`) in *every* type
+   branch, including `SHRINKING_CIRCLE` itself (lines 674-675, 685-686, 696-697) — the field
+   is never actually shown to an MG;
+2. even if it were filled in, the computed `expireAt` string (`EkatMaps.kt:787-795`) is never
+   attached to the request — `PointRequest` has no `expireAt` field;
+3. even if the client did send it, `SERVER/public_html/api_geo/api.php`'s `POST` handler
+   (≈ line 304) never reads `$input['expireAt']` and hardcodes exactly 30 minutes for every
+   SHRINKING_CIRCLE.
+
+No code changed. Fixing only the client would be a no-op (server still ignores it); fixing
+only the UI visibility would be actively worse (shows a working-looking input that silently
+does nothing). This needs a product decision from the owner/Тари — wire all three layers, or
+delete the dead input and stop implying the duration is configurable. Full writeup moved to
+§F (server-side, needs owner) in [11-status.md](11-status.md); the wrong B2 row there now
+points to it. `assembleDebug --offline` re-confirmed green as a baseline (no source touched).
+
+**ЗАВЕРШИЛ:** 2026-08-18 (nightly) — one real finding fully investigated and documented
+end to end (client UI, client model, server), one stale backlog claim corrected, no code
+changes (none of the three layers has a safe unilateral fix — see above), nothing committed
+(owner's call), build green, journal backfilled for the missing session 59 entry.
+
+---
+
+## Session 61 — 2026-08-19
+
+**НАЧАЛ:** 2026-08-19 (nightly) — tree had session 60's doc edits uncommitted (expected,
+owner commits separately), no "в работе" marker, no race. §B1/B2/B4 already closed and the
+backlog itself notes the low-risk queue is thin, so spent the session line-by-line reading
+areas not yet covered by prior sessions: `EkatMaps` marker-click/familiar dialogs (264-592),
+`ServerService.kt`, `FamiliarChatActivity`/`FamiliarFoundActivity`/`FamiliarImages` (the
+session-59 artwork-to-server work), and the 2026-08-15 Doze mitigation trio
+(`BatteryOptimization`, `LocationHeartbeatReceiver`, `BootCompletedReceiver`).
+
+**Fixed:** `ShiftApplication.isInGame()` (`ShiftApplication.kt:55-56`) defaulted the
+`game_state`/`is_in_game` SharedPreferences read to `true` when the key has never been
+written — i.e. on a brand-new install or right after `AuthActivity` registration, before the
+player has ever touched the "В игре" switch. Every other reader of the same key
+(`EkatMaps.kt:94,140`, `LocationHeartbeatReceiver.kt:60`, `BootCompletedReceiver.kt:54`)
+defaults to `false`. Concretely, on first-ever launch this made `MainActivity.setupButtons()`
+(`MainActivity.kt:177`) show the in-game toggle already checked, and both
+`ShiftApplication.onStart` and `MainActivity.checkAndStartLocationService()` would attempt to
+start the foreground `LocationService` — background location tracking kicking in before the
+player ever opted in, not a hardening question the owner declined, a plain default-value bug.
+Confirmed no code path sets the pref explicitly before first display (grepped all
+`setIsInGame` call sites: only the two in-game toggle handlers and `performLogout`, none of
+which run before a first-time player reaches `MainActivity`). One-line fix: default changed to
+`false`, comment added explaining why (matches the other 4 readers). No other logic touched.
+
+Everything else read this session (`ServerService`, the familiar-chat/found flow, the Doze
+receivers' prefs keys, `FamiliarImages` variant math) checked out clean — no new findings,
+consistent with 11-status.md's own note that the easy backlog is thin.
+
+`assembleDebug --offline` and `testDebugUnitTest --offline` both green after the change. No
+emulator was running this session, so the first-launch behaviour itself (toggle now unchecked,
+no auto-start) is **not verified live** — flagged in 11-status.md for whoever has the emulator
+up next: fresh install (or `adb shell pm clear bas.app.shift` to simulate one), open the app,
+confirm "В игре" starts OFF and no `LocationService` foreground notification appears until the
+player explicitly toggles it on.
+
+**ЗАВЕРШИЛ:** 2026-08-19 (nightly) — one real default-value bug found and fixed (affects every
+fresh install/reinstall, not just an edge case), several other areas read with no findings,
+build and unit tests green, nothing committed (owner's call), backlog updated in 11-status.md.

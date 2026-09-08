@@ -114,15 +114,17 @@ exists. Worth a comment in the code if it stays.
 | A5 | Live check of the session-55 `NewMessagesChecker` fix | Scenario: two unread personal messages from different senders → notification must read "У вас 2 новых сообщений". Emulator was down when the fix landed. |
 | A6 | MG-side branch of `UserRoles.isMg` in `MessagesChatActivity` / `MessagesAdapter` | Needs relogin as `MG_Bas`. Unit tests cover both branches; only the on-screen result is unconfirmed. |
 | A7 | **Live check of the P3 attachment streaming fix** | Verifying it end to end means actually sending a message with a photo, i.e. a real `POST` to production `shift96.ru` that lands in someone's chat. Not done autonomously. Scenario when the owner runs it: attach a large photo (≥ 10 MB), send, confirm it arrives intact and that `cacheDir` has no leftover `attach_upload_*` files afterwards. |
+| A8 | **Live check of the session-61 `isInGame()` default fix (B5)** | No emulator was up when the fix landed. Scenario: fresh install or `adb shell pm clear bas.app.shift`, log in, land on `MainActivity` — confirm the "В игре" switch shows **off** and no `LocationService` foreground notification appears until the player explicitly toggles it on. |
 
 ### B. Available right now, no emulator needed
 
 | # | Item | Notes |
 |---|------|-------|
 | B1 | **Cross-check Kotlin `api/*.kt` against the real server PHP** | **Done 2026-08-17**, all pairs checked, no live client-side bug found. Findings below. |
-| B2 | `expireAt` format mismatch | `EkatMaps.kt` writes `"yyyy-MM-dd'T'HH:mm:ss'Z'"` when creating a SHRINKING_CIRCLE, `DateTimeHelper.formatExpireAt` parses `"yyyy-MM-dd HH:mm:ss"`. Needs the server's actual GET response format confirmed first — falls under B1. |
+| B2 | ~~`expireAt` format mismatch~~ | **Re-investigated 2026-08-18, original claim was wrong — see F.** `DateTimeHelper.formatExpireAt`'s parser matches the server's GET format fine; the real bug is that the MG's custom expiry input is dead at three layers and never reaches the server at all. |
 | B3 | Unit tests for `WikipediaHelper` / `UserPrefsHelper` | Needs Mockito or Robolectric, i.e. one non-`--offline` Gradle sync to add the dependency. **Owner's call** — nightly sessions run offline. |
 | B4 | **Offline crash on the aura screens** | **Done 2026-08-18.** `AuraActivity.kt:59` and `AuraFragment.kt:77` both called `auraApi.getAura()` inside `lifecycleScope.launch(Dispatchers.IO)` with no `try`/`catch`. The `isSuccessful` branch handled HTTP errors, but a thrown `UnknownHostException` killed the process. Reproduced on the emulator: airplane mode, open an aura → `FATAL EXCEPTION: DefaultDispatcher-worker-1`, `Force finishing activity bas.app.shift/.ui.AuraActivity`, process gone. Both now use the house pattern (`launch` on the main dispatcher, `withContext(Dispatchers.IO)` around the call, `catch` → `NetworkErrors.network(e)` + `LogHelper.e`). Re-verified offline: the screen stays up and shows «Нет связи с сервером»; online it still renders. Pre-existing, unrelated to the familiar work; found while verifying the webp silhouettes. Note the aura JSON is never cached, so offline the screen has nothing to draw either way — the fix is about not crashing, not about working offline. |
+| B5 | **`isInGame()` default value bug** | **Done 2026-08-19.** `ShiftApplication.isInGame()` defaulted the `game_state`/`is_in_game` pref to `true` when unset, while every other reader of the same key (`EkatMaps` ×2, `LocationHeartbeatReceiver`, `BootCompletedReceiver`) defaults to `false`. On a brand-new install or right after registration, before the player ever touches the "В игре" switch, this made `MainActivity` show the toggle already checked and both `ShiftApplication.onStart` and `checkAndStartLocationService()` try to auto-start background location tracking — not a declined hardening item, a plain wrong default. Fixed to `false`, matching the other four readers. **Not verified live** — no emulator this session, see A8. |
 
 **B1 findings (session 58, 2026-08-17):**
 
@@ -198,6 +200,33 @@ re-opens them as "findings": keystore and signing passwords in the repo, clearte
   normalises to the 0..5 UI scale (`$globalRaw / 2.0`). Harmless today — the client no longer
   has that endpoint (dead `NoiseApi.getGlobalNoise()` removed in session 56) — but it would
   return a doubled value if anything is hung on it later.
+- **SHRINKING_CIRCLE custom expiry is dead at all three layers — the whole "expires in N
+  minutes" input is decorative** (found 2026-08-18, replaces the old wrong B2 claim above):
+  1. **UI**: `EkatMaps.kt`'s `showCreatePointDialog` type-switch sets
+     `etExpireMinutes.visibility = View.GONE` in *all three* branches (`FAMILIAR:674-675`,
+     `SHRINKING_CIRCLE:685-686`, `else:696-697`) — the minutes field is never shown for any
+     point type, including the one it's meant for. Every other field in that switch is
+     correctly toggled per type; this looks like a genuine "forgot the `VISIBLE` case" bug,
+     not intentional.
+  2. **Client model**: even if the field were visible and filled in, `EkatMaps.kt:787-795`
+     computes an `expireAt` string from it but never puts it on the request — `PointRequest`
+     (`models/PointRequest.kt`) has no `expireAt` field at all, so the value is computed,
+     logged, and discarded.
+  3. **Server**: even if the client did send `expireAt`, `api_geo/api.php`'s `POST` handler
+     (≈ line 304) never reads `$input['expireAt']` — it hardcodes
+     `$expireAt = ($type == 'SHRINKING_CIRCLE') ? date('Y-m-d H:i:s', strtotime($createdAt) + 1800) : null`,
+     i.e. every SHRINKING_CIRCLE always expires in exactly 30 minutes, full stop.
+  Net effect: no MG can ever have made a SHRINKING_CIRCLE last longer or shorter than 30
+  minutes through the app, regardless of what they typed — because they were never able to
+  type anything in the first place. Not fixed autonomously: fixing only the client would be
+  a no-op (server still ignores it) and fixing only the UI visibility would be actively worse
+  (shows the MG a working-looking input that silently does nothing). Needs a product decision
+  from the owner/Тари — either wire all three layers so the input actually controls expiry,
+  or delete the dead input and hardcode the 30-minute assumption client-side too so the UI
+  stops lying about it. The original B2 entry ("format mismatch" between
+  `DateTimeHelper.formatExpireAt` and the server) was checked and is **not** a real bug —
+  the server returns `Y-m-d H:i:s` on GET (MySQL `DATETIME` via `SELECT *`), which is exactly
+  what the parser expects.
 
 ## The Doze test protocol (A1) — how to actually run it
 
