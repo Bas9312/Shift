@@ -18,7 +18,7 @@ class TerminalDeepDiveCommands(
     private val adapter: ConsoleAdapter,
 ) {
 
-    private fun isDeepDiveSessionActive(): Boolean {
+    fun isDeepDiveSessionActive(): Boolean {
         val prefs = activity.getSharedPreferences("terminal_prefs", Context.MODE_PRIVATE)
         return prefs.getBoolean("isDeepDiveSessionActive", false)
     }
@@ -52,10 +52,12 @@ class TerminalDeepDiveCommands(
             Сознание начинает растворяться в потоках данных...
             Ты становишься частью сети, частью самой системы.
 
-            Для завершения погружения используйте команду:
+            !!! ТЫ В ГЛУБИНЕ. Пока не вынырнешь, терминал больше ничего не выполнит.
+
+            Чтобы выйти: спроси у мастера ГЛУБИНУ (число от 1 до 5) и введи
             DEEP_DIVE.END <глубина>
 
-            Где <глубина> - число от 1 до 5, полученное от мастера.
+            Без числа от мастера выхода нет. Спроси его прямо сейчас.
         """.trimIndent()
 
         adapter.addTyping(deepDiveText)
@@ -64,8 +66,9 @@ class TerminalDeepDiveCommands(
         // Активируем сессию DEEP_DIVE
         setDeepDiveSessionActive(true)
 
-        // Отправляем команду в MG чат
-        activity.sendToMg()
+        // Мастеру уходит не просто «команда выполнена», а то, что от него ждут действия:
+        // без названной им глубины игрок не выйдет и остальные команды ему недоступны.
+        activity.sendTextToMg("Ушёл в глубокое погружение и ждёт от вас глубину (1-5), чтобы вынырнуть")
 
         activity.smoothScrollToBottom()
     }
@@ -141,8 +144,9 @@ class TerminalDeepDiveCommands(
         // Завершаем сессию DEEP_DIVE
         setDeepDiveSessionActive(false)
 
-        // Отправляем команду в MG чат
-        //sendToMg()
+        // Раньше выход мастеру не показывался вовсе: он видел, что игрок нырнул, и не знал,
+        // вернулся ли тот. По прошлой игре это заметно — 19 погружений и 2 возвращения.
+        activity.sendTextToMg("Вернулся из погружения с глубины $depth")
 
         activity.smoothScrollToBottom()
     }

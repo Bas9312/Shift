@@ -240,6 +240,19 @@ class TerminalActivity : AppCompatActivity() {
             return
         }
 
+        // Пока игрок в глубоком погружении, снаружи он ничего сделать не может — это и есть
+        // смысл механики. Пропускаем только выход, справку и служебную статистику, иначе
+        // погружение можно было просто бросить и играть дальше (по прошлой игре так и вышло:
+        // 19 входов на 2 выхода).
+        if (deepDiveCommands.isDeepDiveSessionActive() && !isAllowedWhileDiving(command.name)) {
+            val blockedMsg = "Ты в глубине — отсюда эта команда не проходит.\n" +
+                "Спроси у мастера глубину (1-5) и выйди: DEEP_DIVE.END <глубина>"
+            addLine(blockedMsg, Line.Type.RSP)
+            saveResponseToHistory(blockedMsg, commandTimestamp)
+            smoothScrollToBottom()
+            return
+        }
+
         // Сохраняем команду для отправки в MG
         lastExecutedCommand = fullCommand
 
@@ -462,6 +475,16 @@ class TerminalActivity : AppCompatActivity() {
 
         loadCommandCosts()
 
+        // Погружение переживает закрытие терминала: если игрок ушёл в глубину и вернулся в
+        // приложение позже, он должен сразу увидеть, что до сих пор там и чего ждёт.
+        if (deepDiveCommands.isDeepDiveSessionActive()) {
+            val reminder = "!!! Ты всё ещё в глубоком погружении.\n" +
+                "Спроси у мастера глубину (1-5) и введи: DEEP_DIVE.END <глубина>"
+            adapter.addTyping(reminder)
+            saveResponseToHistory(reminder)
+            smoothScrollToBottom()
+        }
+
         if (userId.isNotEmpty()) {
             noiseManager.setUserId(userId)
             // Запускаем периодическое обновление шума и получаем текущий шум сразу
@@ -559,14 +582,27 @@ class TerminalActivity : AppCompatActivity() {
         sendCommandToMg(command)
     }
     
-    private fun sendCommandToMg(command: String) {
+    /** Что разрешено делать, не вынырнув: выйти, посмотреть справку и служебные счётчики. */
+    private fun isAllowedWhileDiving(commandName: String): Boolean =
+        commandName == "DEEP_DIVE.END" || commandName == "HELP" || commandName.startsWith("UTILS.")
+
+    /**
+     * Отправить мастеру произвольную строку тем же каналом, что и зеркалирование команд.
+     * Нужно там, где мастеру важно не «какая команда выполнена», а что от него ждут
+     * действия — например, что игрок висит в погружении и ждёт глубину.
+     */
+    internal fun sendTextToMg(text: String) {
+        sendCommandToMg(text, raw = true)
+    }
+
+    private fun sendCommandToMg(command: String, raw: Boolean = false) {
         val userId = UserPrefsHelper.getUserId(this)
         if (userId.isEmpty()) {
             LogHelper.e("TerminalActivity: UserId is empty, cannot send to MG")
             return
         }
         
-        val messageText = "Команда в терминале: $command"
+        val messageText = if (raw) command else "Команда в терминале: $command"
         
         // Создаем сообщение для отправки
         val textBody = messageText.toRequestBody("text/plain".toMediaTypeOrNull())
