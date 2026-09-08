@@ -312,6 +312,20 @@ as "ask Тари" for six weeks.
 
 ### F. Server-side, for the owner (not fixed autonomously)
 
+- **Начисление шума размножено на сервере в трёх копиях, и они разошлись** (найдено
+  2026-09-08 при переносе деления, [08-changes-applied.md](08-changes-applied.md) Wave 32).
+  `noize_api/api.php: adjust_user_noise()` (мобилка), `noize_api/service.php:
+  nm_adjust_user_noise()` (форум) и `system/libs/site_noisemancy.php:
+  siteNoisemancy::raiseNoise()` (постинг в CMS) считают шум по одной и той же формуле, но
+  первая **не ограничивает глобальный шум потолком `NOISE_GMAX`**, а две другие ограничивают.
+  То есть один и тот же прирост через приложение и через сайт даёт разный глобальный
+  результат, и на высоких значениях мобильный путь может утащить глобалку выше 10.
+  Деление шума в эту волну уже свели в одно место; **саму формулу — нет**, это отдельное
+  решение: либо `api.php` приводится к потолку, либо потолок снимается у двух других.
+  Пока не тронуто, потому что меняет поведение мобилки на высоком шуме — вопрос к владельцу.
+  Третья копия к тому же живёт на слое БД движка, так что «просто вызвать общую функцию» там
+  не выйдет: нужен либо перенос на PDO, либо аккуратная параметризация, как сделано с делением.
+
 - `SERVER/public_html/noize_api/api.php`, route `GET /global` (≈ lines 100–103): returns
   `get_global_noise($pdo)` on the raw 0..10 scale, while `get_user_noise()` used by `/user/{id}`
   normalises to the 0..5 UI scale (`$globalRaw / 2.0`). Harmless today — the client no longer

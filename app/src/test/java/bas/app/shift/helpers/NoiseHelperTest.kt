@@ -56,54 +56,9 @@ class NoiseHelperTest {
         assertEquals(emptyList<Int>(), NoiseHelper.thresholdsCrossed(5, 2))
     }
 
-    @Test
-    fun calculateNoiseSplit_noEffects_allToSelf() {
-        val split = NoiseHelper.calculateNoiseSplit(4.0, hasProxyEffect = false, hasCrossLinkEffect = false)
-        assertEquals(0.0, split.proxyDelta, 0.0001)
-        assertEquals(0.0, split.partnerDelta, 0.0001)
-        assertEquals(4.0, split.selfDelta, 0.0001)
-    }
 
-    @Test
-    fun calculateNoiseSplit_proxyOnly_halfToProxy() {
-        val split = NoiseHelper.calculateNoiseSplit(4.0, hasProxyEffect = true, hasCrossLinkEffect = false)
-        assertEquals(2.0, split.proxyDelta, 0.0001)
-        assertEquals(0.0, split.partnerDelta, 0.0001)
-        assertEquals(2.0, split.selfDelta, 0.0001)
-    }
 
-    @Test
-    fun calculateNoiseSplit_crossLinkOnly_halfToPartner() {
-        val split = NoiseHelper.calculateNoiseSplit(4.0, hasProxyEffect = false, hasCrossLinkEffect = true)
-        assertEquals(0.0, split.proxyDelta, 0.0001)
-        assertEquals(2.0, split.partnerDelta, 0.0001)
-        assertEquals(2.0, split.selfDelta, 0.0001)
-    }
 
-    @Test
-    fun calculateNoiseSplit_bothEffects_quarterEach() {
-        // Proxy забирает половину (2.0), из оставшихся 2.0 партнёр забирает половину (1.0),
-        // пользователю остаётся четверть исходной дельты.
-        val split = NoiseHelper.calculateNoiseSplit(4.0, hasProxyEffect = true, hasCrossLinkEffect = true)
-        assertEquals(2.0, split.proxyDelta, 0.0001)
-        assertEquals(1.0, split.partnerDelta, 0.0001)
-        assertEquals(1.0, split.selfDelta, 0.0001)
-    }
 
-    @Test
-    fun calculateNoiseSplit_negativeDelta_noSplitting() {
-        // Отрицательная дельта (снижение шума) целиком идёт пользователю — делить нечего.
-        val split = NoiseHelper.calculateNoiseSplit(-4.0, hasProxyEffect = true, hasCrossLinkEffect = true)
-        assertEquals(0.0, split.proxyDelta, 0.0001)
-        assertEquals(0.0, split.partnerDelta, 0.0001)
-        assertEquals(-4.0, split.selfDelta, 0.0001)
-    }
 
-    @Test
-    fun calculateNoiseSplit_zeroDelta_noSplitting() {
-        val split = NoiseHelper.calculateNoiseSplit(0.0, hasProxyEffect = true, hasCrossLinkEffect = true)
-        assertEquals(0.0, split.proxyDelta, 0.0001)
-        assertEquals(0.0, split.partnerDelta, 0.0001)
-        assertEquals(0.0, split.selfDelta, 0.0001)
-    }
 }

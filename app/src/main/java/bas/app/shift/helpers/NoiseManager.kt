@@ -89,43 +89,15 @@ class NoiseManager(private val context: Context) {
             })
     }
     
+    /**
+     * Шлём серверу полный прирост одним запросом. Делит его сервер: он же начисляет шум
+     * с сайта, где приложения нет вовсе, а два независимых деления разъехались бы.
+     * Эффекты Proxy и Cross-Link сервер читает сам из тех же записей, которые ставит
+     * приложение через effects_api.
+     */
     fun adjustNoise(delta: Double) {
         val currentUserId = userId ?: return
-
-        val hasProxyEffect = noiseEffectManager.hasProxyEffect()
-        val hasCrossLinkEffect = noiseEffectManager.hasCrossLinkEffect()
-        val partnerName = if (hasCrossLinkEffect) noiseEffectManager.getCrossLinkPartnerName() else null
-
-        // Чистый расчёт деления (см. NoiseHelperTest) — сколько уходит на Proxy-узел, сколько
-        // партнёру по Cross-Link, сколько остаётся самому пользователю. Партнёру делим долю,
-        // только если его имя реально распознано (иначе делить нечего — секция ниже это учитывает).
-        val split = NoiseHelper.calculateNoiseSplit(delta, hasProxyEffect, hasCrossLinkEffect && partnerName != null)
-
-        if (split.proxyDelta > 0) {
-            LogHelper.d("NoiseManager: Proxy effect active, splitting $delta: ${split.proxyDelta} -> proxy, остаток ${delta - split.proxyDelta}")
-            adjustNoiseForUser("${currentUserId}_Proxy", split.proxyDelta)
-        }
-
-        if (hasCrossLinkEffect) {
-            if (partnerName != null) {
-                if (split.partnerDelta > 0) {
-                    LogHelper.d("NoiseManager: Cross-Link active, ${split.partnerDelta} -> партнёр '$partnerName', остаток ${split.selfDelta}")
-                    findUserByName(partnerName) { partnerId ->
-                        if (partnerId != null) {
-                            adjustNoiseForUser(partnerId, split.partnerDelta)
-                        } else {
-                            // Партнёр не найден — возвращаем его долю себе, чтобы не потерять шум
-                            LogHelper.e("NoiseManager: partner ID для '$partnerName' не найден, доля возвращается пользователю")
-                            adjustNoiseForUser(currentUserId, split.partnerDelta)
-                        }
-                    }
-                }
-            } else {
-                LogHelper.e("NoiseManager: Cross-Link активен, но имя партнёра не найдено")
-            }
-        }
-
-        adjustNoiseForUser(currentUserId, split.selfDelta)
+        adjustNoiseForUser(currentUserId, delta)
     }
     
     private fun adjustNoiseForUser(targetUserId: String, delta: Double) {
@@ -194,7 +166,9 @@ class NoiseManager(private val context: Context) {
     }
     
     /**
-     * Находит пользователя по имени персонажа
+     * Находит пользователя по имени персонажа.
+     * Для деления шума больше не нужен — партнёра по Cross-Link ищет сервер; оставлен как
+     * общий помощник, если понадобится другому экрану.
      */
     fun findUserByName(characterName: String, callback: (String?) -> Unit) {
         RetrofitClient.userProfileApi.getAllUserShortProfiles()
@@ -208,7 +182,7 @@ class NoiseManager(private val context: Context) {
                         callback(null)
                     }
                 }
-                
+
                 override fun onFailure(call: Call<List<bas.app.shift.models.ShortUser>>, t: Throwable) {
                     callback(null)
                 }

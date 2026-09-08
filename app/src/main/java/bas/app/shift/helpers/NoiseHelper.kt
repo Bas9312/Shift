@@ -37,30 +37,4 @@ object NoiseHelper {
         return (3..5).filter { oldLevel < it && newLevel >= it }
     }
 
-    /** Итог деления дельты шума между пользователем, Proxy-узлом и Cross-Link партнёром. */
-    data class NoiseSplit(val proxyDelta: Double, val partnerDelta: Double, val selfDelta: Double)
-
-    /**
-     * Считает, как дельта шума `delta` делится между самим пользователем, Proxy-узлом
-     * (если активен) и Cross-Link партнёром (если активен и Proxy уже забрал свою долю).
-     * Каждый активный эффект отщипывает половину от того, что осталось; себе начисляется
-     * остаток ровно один раз. Деление применяется только к положительной дельте.
-     */
-    fun calculateNoiseSplit(delta: Double, hasProxyEffect: Boolean, hasCrossLinkEffect: Boolean): NoiseSplit {
-        var selfDelta = delta
-        var proxyDelta = 0.0
-        var partnerDelta = 0.0
-
-        if (hasProxyEffect && selfDelta > 0) {
-            proxyDelta = selfDelta / 2.0
-            selfDelta -= proxyDelta
-        }
-
-        if (hasCrossLinkEffect && selfDelta > 0) {
-            partnerDelta = selfDelta / 2.0
-            selfDelta -= partnerDelta
-        }
-
-        return NoiseSplit(proxyDelta, partnerDelta, selfDelta)
-    }
 }
