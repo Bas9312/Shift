@@ -19,13 +19,14 @@
 | Файл | О чём | Тип |
 |------|-------|-----|
 | [11-status.md](11-status.md) | **Текущее состояние + открытый бэклог** | живой |
-| [08-changes-applied.md](08-changes-applied.md) | Всё, что было изменено, по волнам (Wave 1–29) | append-only |
+| [08-changes-applied.md](08-changes-applied.md) | Всё, что было изменено, по волнам (Wave 1–35) | append-only |
 | [09-nightly-progress.md](09-nightly-progress.md) | Журнал последних ночных сессий (окно на 5–8 записей) | ротируемый |
 | [archive/](archive/) | Старые сессии журнала дословно | заморожен |
 | [10-backlog-plan.md](10-backlog-plan.md) | Игровой бэклог: фичи, расхождения с доками API, вопросы к команде | владелец |
 | [12-familiars-remote-assets.md](12-familiars-remote-assets.md) | Спека: картинки фамильяров на сервер, каталог в БД, валидация `users.familiar` | спека |
 | [13-gm-web-admin-plan.md](13-gm-web-admin-plan.md) | Что где редактируется (мобилка / API / только SQL), панель мастера на `/gm/` — все шесть стадий залиты, QA пройден | план + журнал стройки |
 | [14-arcaneoverflow.md](14-arcaneoverflow.md) | Внутриигровой форум «Аркан Оверфлоу» и пайплайн агентов-персонажей, который его наполняет | обзор |
+| [15-noise-balance.md](15-noise-balance.md) | Как на самом деле работает баланс шумомантии: расчёт по формуле и по данным прошлой игры | анализ |
 | [01-executive-summary.md](01-executive-summary.md) | Вердикт аудита, топ-проблемы, план P0/P1/P2 | снапшот 2026-07-22 |
 | [02-architecture.md](02-architecture.md) | Структура, экраны, слой сети, стек, god-классы | снапшот |
 | [03-reliability.md](03-reliability.md) | Надёжность (приоритет №1), R1–R13 | снапшот |
