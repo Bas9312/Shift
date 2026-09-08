@@ -246,7 +246,8 @@ class TerminalActivity : AppCompatActivity() {
         // 19 входов на 2 выхода).
         if (deepDiveCommands.isDeepDiveSessionActive() && !isAllowedWhileDiving(command.name)) {
             val blockedMsg = "Ты в глубине — отсюда эта команда не проходит.\n" +
-                "Спроси у мастера глубину (1-5) и выйди: DEEP_DIVE.END <глубина>"
+                "Закончишь погружение — мастер назовёт глубину (1-5), с ней и выходи: " +
+                "DEEP_DIVE.END <глубина>"
             addLine(blockedMsg, Line.Type.RSP)
             saveResponseToHistory(blockedMsg, commandTimestamp)
             smoothScrollToBottom()
@@ -479,7 +480,7 @@ class TerminalActivity : AppCompatActivity() {
         // приложение позже, он должен сразу увидеть, что до сих пор там и чего ждёт.
         if (deepDiveCommands.isDeepDiveSessionActive()) {
             val reminder = "!!! Ты всё ещё в глубоком погружении.\n" +
-                "Спроси у мастера глубину (1-5) и введи: DEEP_DIVE.END <глубина>"
+                "Закончишь — мастер назовёт глубину (1-5), с ней выходи: DEEP_DIVE.END <глубина>"
             adapter.addTyping(reminder)
             saveResponseToHistory(reminder)
             smoothScrollToBottom()
