@@ -164,8 +164,8 @@ exists. Worth a comment in the code if it stays.
 | A6 | MG-side branch of `UserRoles.isMg` in `MessagesChatActivity` / `MessagesAdapter` | Needs relogin as `MG_Bas`. Unit tests cover both branches; only the on-screen result is unconfirmed. |
 | A7 | **Live check of the P3 attachment streaming fix** | Verifying it end to end means actually sending a message with a photo, i.e. a real `POST` to production `shift96.ru` that lands in someone's chat. Not done autonomously. Scenario when the owner runs it: attach a large photo (≥ 10 MB), send, confirm it arrives intact and that `cacheDir` has no leftover `attach_upload_*` files afterwards. |
 | ~~A8~~ | ~~Live check of the session-61 `isInGame()` default fix (B5)~~ | **Done 2026-09-08 on `emulator-5554`, passed.** `pm clear` → log in as `bas` → grant notifications and location ("While using the app", i.e. the permissive case) → land on `MainActivity`: `game_state.xml` reads `is_in_game=false`, the segmented control shows **«Не в игре»**, the log says `updateUI - isMgUser: false, isInGame: false`, and `LocationService` received only `ACTION_STOP_LOCATION` with `startForegroundCount=0` — no foreground notification, no tracking. Control case, to prove the test could fail: restoring `is_in_game=true` and relaunching produced `ACTION_START_LOCATION` and `startForegroundCount=1`. Emulator state (user `bas`, in-game) was backed up before and restored after. |
-| A9 | **The chase mechanic from a phone, not from the API** | The 2026-08-20 verification ran against the live server (`CHASETEST`: start → fork → dead end → restart → finish, plus the 409 and the idempotent-repeat cases) and it passed end to end. What that run did **not** cover is the client half in the field: whether `ChaseNotifier` actually raises each notification on a device, whether its one-minute dedup really suppresses the double delivery (`/users/location` **and** `/points/{id}/enter` both report the same entry), and whether an entry detected while the screen is off survives to a notification at all. That last one is A1 wearing a different hat. |
-| A10 | **The aura-sensing FAB, live** | Added 2026-08-20 ([10-backlog-plan.md](10-backlog-plan.md) §0е) and verified only by `assembleDebug` + unit tests. The behaviour worth watching on a real screen: the FAB appears for a psychic and for nobody else, `auraReadRangeFor()` really does give the wider radius on hidden and `POINT_WITH_TEXT` points and the plain 50 m on visible ones, and the dialog leaks neither names nor distances — that last property is the whole point of the design and a UI regression would silently undo it. |
+| A9 | **The chase mechanic from a phone, not from the API** | The 2026-08-20 verification ran against the live server (`CHASETEST`: start → fork → dead end → restart → finish, plus the 409 and the idempotent-repeat cases) and it passed end to end. What that run did **not** cover is the client half in the field: whether `ChaseNotifier` actually raises each notification on a device, whether its one-minute dedup really suppresses the double delivery (`/users/location` **and** `/points/{id}/enter` both report the same entry), and whether an entry detected while the screen is off survives to a notification at all. That last one is A1 wearing a different hat. **Attempted 2026-09-08 and blocked on test data, not on the app:** there is no chase chain in the live database to walk, and creating one means writing `quests` and `point_links` — tables `api_geo` deliberately exposes no endpoint for (see [13-gm-web-admin-plan.md](13-gm-web-admin-plan.md) §15), so it is a direct write to the production database or a session in the GM panel. Cheapest unblock: the owner builds a throwaway chain on the «Цепочки» page (start → fork → dead end → finish), which takes a couple of minutes there, and the walk-through can then be driven from the emulator with `adb emu geo fix`. |
+| ~~A10~~ | ~~The aura-sensing FAB, live~~ | **Done 2026-09-08 on `emulator-5554`, passed.** Standing at the centre of the "Аура ЕСТЬ" test point (56.83917, 60.6056983): the FAB is there for `bas` (a psychic), the dialog shows exactly one text, and the control point 120 m away — whose aura text literally reads «Этот текст игрок увидеть не должен» — is **not** in it, so the 50 m rule for visible points holds. Moved to the three `POINT_WITH_TEXT` rows at 55.755826, 37.617299, which `MapPointsRenderer` never draws: the FAB read all three (`считано 3 из 43 точек`) and showed their texts separated by `⁂`, with no names and no distances anywhere in the dialog. That is the feature's whole reason to exist — auras of places the player cannot see — confirmed working. **One branch is still unproven:** `auraReadRangeFor()`'s `hidden == 1` half. No hidden point in the live data has an aura text, and the only way to make one was a write to the production database, which was refused. The `POINT_WITH_TEXT` half of the same condition is proven, and the two share one line of code. |
 
 ### B. Available right now, no emulator needed
 
@@ -250,6 +250,23 @@ none of them by the teammate doing the work:
 The lesson worth keeping: three of the four were not really blocked, they were unasked. Reading
 `SERVER/` and the live schema answered in twenty minutes what had been sitting in the backlog
 as "ask Тари" for six weeks.
+
+**One new item took their place, and this one really is someone else's (found 2026-09-08):**
+
+- **The familiar chat answers nothing — the GPT proxy 500s on every send.** The service behind
+  `CHAT_BASE_URL` (`91.184.253.175`, calls itself `SHIFT GPT Proxy 1.1.0`) accepts a message,
+  **writes it into the history**, and then fails: `POST /chat/send` returns **HTTP 500 in ~0.5 s**
+  for every familiar tried (`familiar_weird_compass`, `familiar_fox`, `familiar_mirror`,
+  `familiar_earth_cat`) and for more than one `user_id`. Half a second is far too fast to be a
+  model timeout — it fails before reaching the upstream, or on the very first call to it
+  (expired key, exhausted quota, upstream down are all consistent).
+  Everything around it looks healthy and that is the trap: `GET /health` returns `{"ok":true}`
+  without touching the upstream at all, `GET /familiars` lists all nine as `configured: true`,
+  and `GET /chat/history` works. **Not our bug** — the client sends a correct request and the
+  server takes it. The player-visible symptom is the worst possible one: the message appears in
+  the chat and the familiar simply never replies, which reads as a broken app.
+  `bas`'s own history shows this happening at 14:48 on 2026-09-08, before any of this
+  investigation. Needs whoever runs that host; nothing on our side to fix.
 
 **What the server actually said (2026-09-08):**
 
