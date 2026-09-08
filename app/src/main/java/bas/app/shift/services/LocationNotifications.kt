@@ -208,11 +208,10 @@ class LocationNotifications(private val context: Context) {
     }
 
     fun showMessagesNotification(unreadCount: Int, isMG: Boolean) {
-        val message = if (unreadCount == 1) {
-            "У вас 1 новое сообщение"
-        } else {
-            "У вас $unreadCount новых сообщений"
-        }
+        // Через plurals, а не через if: при 2-4 по-русски «сообщения», а не «сообщений».
+        val message = context.resources.getQuantityString(
+            R.plurals.new_messages_notification, unreadCount, unreadCount
+        )
 
         createMessagesChannel()
 

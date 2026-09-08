@@ -9,9 +9,11 @@ import bas.app.shift.services.LocationNotifications
  * Показывает игроку, что произошло с цепочкой погони: открылась новая цель, цепочка
  * пройдена или ветка кончилась тупиком.
  *
- * Сам текст точки (`textToShowOnEnter`) здесь не показывается — его уже показывает
- * обычная обработка входа в точку в LocationService, и второе такое же уведомление
- * игроку ничего не добавит.
+ * Текст точки (`textToShowOnEnter`) сервер кладёт в само событие, и показываем его здесь же,
+ * над служебной строкой. Раньше его показывала обычная обработка входа в точку в
+ * LocationService, и на каждый шаг цепочки игрок получал два уведомления подряд: одно с
+ * текстом места, второе — со статусом погони. Теперь уведомление одно, и LocationService
+ * своё не показывает, если сервер засчитал вход как шаг цепочки.
  */
 object ChaseNotifier {
 
@@ -45,9 +47,14 @@ object ChaseNotifier {
                 }
             }
 
+            // Текст места идёт первым — он про то, что игрок видит вокруг; служебная строка
+            // под ним объясняет, что стало с цепочкой. Уведомление разворачивается
+            // (BigTextStyle), так что склейка ничего не обрезает.
+            val status = context.getString(textRes)
+            val placeText = event.text?.trim()?.takeIf { it.isNotEmpty() }
             notifications.showPointNotification(
                 context.getString(titleRes),
-                context.getString(textRes),
+                if (placeText == null) status else "$placeText\n\n$status",
                 ("chase-${event.pointId}-${event.event}").hashCode(),
             )
             LogHelper.d("ChaseNotifier: событие ${event.event} по цепочке ${event.questId}, точка ${event.pointId}")

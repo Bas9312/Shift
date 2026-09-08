@@ -216,4 +216,11 @@
     <string name="battery_optimization_open">Открыть настройки</string>
     <string name="battery_optimization_later">Не сейчас</string>
     <string name="battery_optimization_unavailable">Не удалось открыть настройки батареи. Найдите Shift в настройках батареи и выберите «Без ограничений».</string>
+
+    <plurals name="new_messages_notification">
+        <item quantity="one">У вас %d новое сообщение</item>
+        <item quantity="few">У вас %d новых сообщения</item>
+        <item quantity="many">У вас %d новых сообщений</item>
+        <item quantity="other">У вас %d новых сообщения</item>
+    </plurals>
 </resources>

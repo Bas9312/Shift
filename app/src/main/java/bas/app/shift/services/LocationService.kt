@@ -266,13 +266,15 @@ class LocationService : Service() {
         }
     }
     
-    private fun onEnterPoint(point: Point, location: Location) {
+    private suspend fun onEnterPoint(point: Point, location: Location) {
         LogHelper.d("Вход в точку: ${point.pointId}, тип: ${point.type}")
 
         // Дублируем вход явным сообщением: отправка геолокации, по которой сервер двигает
         // цепочку погони, могла не долететь, и игрок бы простоял в точке впустую.
-        if (point.type != "USER") {
-            ServerService.reportPointEntry(point.pointId, location)
+        // Если сервер засчитал вход шагом цепочки, уведомление уже показал ChaseNotifier —
+        // вместе с текстом точки, поэтому своё не показываем и выходим.
+        if (point.type != "USER" && ServerService.reportPointEntry(point.pointId, location)) {
+            return
         }
 
         when (point.type) {

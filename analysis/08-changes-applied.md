@@ -648,6 +648,33 @@ No request shape changed — `PointRequest` never had the field. `assembleDebug`
 Verified in the same session: **A8**, the live check of the Wave 28 `isInGame()` fix. Recorded
 in [11-status.md](11-status.md) §A rather than repeated here.
 
+### Wave 31 — one notification per chain step, and Russian plurals (2026-09-08)
+
+Both found by the A9/A5 live checks rather than by reading code.
+
+**Two notifications per chain point → one.** Entering a point that belongs to a chase chain
+raised the ordinary point notification (title from `description`, body from
+`textToShowOnEnter`) and then the chase one («📍 След взят») a moment later. The old comment in
+`ChaseNotifier` explained the split as deliberate — the point text "is already shown by
+LocationService" — but from the player's side it is two buzzes about one step.
+
+The server already sends the point's text inside the chase event (`ChaseEvent.text`), so the
+merge costs nothing: `ChaseNotifier` now shows that text above the status line
+(`BigTextStyle`, so nothing is truncated), and `ServerService.reportPointEntry` became a
+`suspend` function returning whether the entry counted as a chain step, which lets
+`LocationService.onEnterPoint` skip its own notification in exactly that case. Deterministic —
+it keys off the response to the very request that reports the entry, not off a race between
+two delivery paths. Verified live on a throwaway chain: one notification on the start point and
+one on the finish, both carrying the place text. **No text is lost:** `textToShowOnEnter` is
+shown to players nowhere else in the app (the two other references are the MG's point card).
+
+**«У вас 2 новых сообщений» → «сообщения».** The unread notification built its string with
+`if (count == 1)`, which is wrong for Russian at 2–4. Replaced with a `plurals` resource
+(`new_messages_notification`) and `getQuantityString`. Verified live: two messages → «У вас 2
+новых сообщения», three → «У вас 3 новых сообщения».
+
+`assembleDebug` and `testDebugUnitTest --offline` green.
+
 ---
 
 ## Backlog

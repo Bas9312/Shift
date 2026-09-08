@@ -56,25 +56,35 @@ object ServerService {
      * из отправки геолокации, но она может не долететь — Doze, потерянная сеть, игрок
      * постоял в точке и ушёл. Сервер перепроверяет координаты и повтор обрабатывает
      * вхолостую, так что лишний вызов безвреден.
+     *
+     * @return true, если сервер засчитал вход шагом цепочки и уведомление о нём уже
+     * показано. Вызывающий код по true своё уведомление о точке не показывает — иначе
+     * игрок получит два подряд об одном и том же шаге.
      */
-    fun reportPointEntry(pointId: String, location: Location) {
-        scope.launch {
-            try {
-                val userId = UserPrefsHelper.getUserId(ShiftApplication.instance)
-                val response = api.enterPoint(
-                    pointId,
-                    EnterPointRequest(playerId = userId, lat = location.latitude, lng = location.longitude)
-                )
-                if (response.isSuccessful) {
-                    ChaseNotifier.notify(response.body()?.chase)
-                } else if (response.code() != 409) {
+    suspend fun reportPointEntry(pointId: String, location: Location): Boolean {
+        return try {
+            val userId = UserPrefsHelper.getUserId(ShiftApplication.instance)
+            val response = api.enterPoint(
+                pointId,
+                EnterPointRequest(playerId = userId, lat = location.latitude, lng = location.longitude)
+            )
+            if (response.isSuccessful) {
+                val events = response.body()?.chase
+                ChaseNotifier.notify(events)
+                !events.isNullOrEmpty()
+            } else {
+                if (response.code() != 409) {
                     // 409 — «слишком далеко»: клиент и сервер разошлись в оценке расстояния,
                     // это не ошибка. Остальное стоит увидеть в логе.
                     LogHelper.e("Не удалось сообщить о входе в точку $pointId: ${response.code()}")
                 }
-            } catch (e: Exception) {
-                LogHelper.e("Не удалось сообщить о входе в точку $pointId: ${e.message}")
+                false
             }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            LogHelper.e("Не удалось сообщить о входе в точку $pointId: ${e.message}")
+            false
         }
     }
 
