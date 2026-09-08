@@ -220,7 +220,11 @@ class TerminalActivity : AppCompatActivity() {
         if (command.name == "USER.FORMAT") {
             androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("USER.FORMAT")
-                .setMessage("Опасная команда: сброс шума на ${command.noiseIncrease}. Выполнить?")
+                .setMessage(
+                    TerminalCommandManager.costOf(command)
+                        ?.let { "Опасная команда: сброс шума на ${it.toInt()}. Выполнить?" }
+                        ?: "Опасная команда: сброс шума. Выполнить?"
+                )
                 .setPositiveButton("Выполнить") { _, _ ->
                     lastExecutedCommand = fullCommand
                     executeGenericNoiseCommand(command, fullCommand, commandTimestamp)
@@ -298,9 +302,10 @@ class TerminalActivity : AppCompatActivity() {
         saveResponseToHistory(executingMsg, commandTimestamp)
         saveResponseToHistory(processMsg, commandTimestamp)
 
-        // Отправляем команду на сервер для изменения шума
-        if (command.noiseIncrease != 0) {
-            adjustNoiseAndUpdateGlobal(command.noiseIncrease.toDouble(), command.name)
+        // Шум начисляет сервер по имени команды: цену он знает сам. Не шлём только то,
+        // что заведомо ничего не стоит — цена известна и равна нулю (HELP, UTILS.*).
+        if (TerminalCommandManager.costOf(command) != 0.0) {
+            adjustNoiseAndUpdateGlobal(0.0, command.name)
         }
 
         // Отправляем команду в MG чат

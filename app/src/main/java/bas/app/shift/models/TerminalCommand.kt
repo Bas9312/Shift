@@ -5,7 +5,12 @@ data class TerminalCommand(
     val name: String,
     val parameters: String,
     val description: String,
-    val noiseIncrease: Int,
+    /**
+     * Модуль, без которого команда не показывается. Цены здесь нет намеренно: сколько шума
+     * стоит команда, знает только сервер (таблица noise_command_costs), и правится это из
+     * панели мастера. Держать вторую копию в приложении незачем — без сети команду всё
+     * равно не выполнить.
+     */
     val requiredModuleId: Int? = null
 ) {
     val fullCommand: String

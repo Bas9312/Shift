@@ -140,7 +140,7 @@ class TerminalUpgradeRebootCommands(
         activity.saveResponseToHistory(successMsg)
 
         // Снижаем шум
-        activity.adjustNoiseAndUpdateGlobal(-2.0, "USER.UPGRADE.END")
+        activity.adjustNoiseAndUpdateGlobal(0.0, "USER.UPGRADE.END")
 
         // Завершаем сессию UPGRADE
         isUpgradeSessionActive = false
@@ -235,7 +235,7 @@ class TerminalUpgradeRebootCommands(
         activity.saveResponseToHistory(successMsg)
 
         // Снижаем шум
-        activity.adjustNoiseAndUpdateGlobal(-1.0, "USER.REBOOT.END")
+        activity.adjustNoiseAndUpdateGlobal(0.0, "USER.REBOOT.END")
 
         // Завершаем сессию REBOOT
         isRebootSessionActive = false

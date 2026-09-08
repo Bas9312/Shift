@@ -57,7 +57,7 @@ class TerminalProxyCommands(
 
         // Добавляем шум за развертывание узла (+2)
         val currentUserId = UserPrefsHelper.getUserId(activity) ?: return
-        activity.adjustNoiseAndUpdateGlobal(2.0, "SHIFT.PROXY.DEPLOY")
+        activity.adjustNoiseAndUpdateGlobal(0.0, "SHIFT.PROXY.DEPLOY")
 
         // Применяем Proxy эффект
         noiseManager.applyProxyEffect(currentUserId)
