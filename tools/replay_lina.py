@@ -14,7 +14,7 @@ import math
 # --- настройки сервера (noize_api/tuning_constants.php + tuning.php) ---
 CALM_RATE, SPAM_RATE = 0.0167, 0.0667      # команд в минуту
 CALM_MULT, SPAM_MULT = 0.7, 1.5
-EMA_ALPHA = 0.2
+RATE_MEMORY_MIN = 20.0                     # за сколько минут забывается «серия»
 LSOFT, STEEP, BOOST = 6.0, 2.0, 1.4
 DECAY_PCT, DECAY_FLAT = 0.20, 0.2          # раз в час
 LMAX = 10.0
@@ -58,13 +58,14 @@ def run(with_resets=True):
 
     for minute, cmd in DAY:
         decay_until(minute)
-        # темп, как считает сервер
+        # темп, как считает сервер: вес прошлого падает экспоненциально с паузой
         if last_min is not None:
-            dt = max(1, (minute-last_min)*60)
-            rate_inst = 60.0/dt
+            dt_min = max(1/60, minute-last_min)
+            rate_inst = 1.0/dt_min
+            decay = math.exp(-dt_min/RATE_MEMORY_MIN)
+            rate_ema = decay*rate_ema + (1-decay)*rate_inst
         else:
-            rate_inst = 0.0
-        rate_ema = EMA_ALPHA*rate_inst + (1-EMA_ALPHA)*rate_ema
+            rate_ema = 0.0
         price = PRICES.get(cmd, 0)
         before = L
         if price:
