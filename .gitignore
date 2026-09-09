@@ -37,3 +37,4 @@ SHIFT - работа над игрой/
 # Tarot artwork drafts (~75 MB of 1024x1536 PNGs). Source images live outside the repo;
 # whatever ships in the game goes into res/ or onto the server instead.
 /Карты/
+__pycache__/

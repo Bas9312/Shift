@@ -220,6 +220,22 @@ class TerminalUpgradeRebootCommands(
             return
         }
 
+        // По правилам «Перезагрузка» — это пять минут белого шума в наушниках с отложенным
+        // телефоном. Раньше END принимался сразу после START, и отдых стоил двух нажатий;
+        // теперь таймер настоящий.
+        val prefs = activity.getSharedPreferences("terminal_prefs", Context.MODE_PRIVATE)
+        val startedAt = prefs.getLong("last_reboot_time", 0L)
+        val elapsed = System.currentTimeMillis() - startedAt
+        if (startedAt > 0L && elapsed < REBOOT_DURATION_MS) {
+            val leftSec = ((REBOOT_DURATION_MS - elapsed) / 1000).toInt()
+            val errorMsg = "Перезагрузка ещё идёт: осталось ${leftSec / 60} мин ${leftSec % 60} сек.\n" +
+                "Не отвлекайся — белый шум в наушниках, телефон отложен, глаза закрыты."
+            adapter.addTyping(errorMsg)
+            activity.saveResponseToHistory(errorMsg)
+            activity.smoothScrollToBottom()
+            return
+        }
+
         val successMsg = """
             === ПЕРЕЗАГРУЗКА ЗАВЕРШЕНА ===
 
@@ -239,9 +255,13 @@ class TerminalUpgradeRebootCommands(
 
         // Завершаем сессию REBOOT
         isRebootSessionActive = false
-        val prefs = activity.getSharedPreferences("terminal_prefs", Context.MODE_PRIVATE)
         prefs.edit().putBoolean("reboot_session_active", false).apply()
 
         activity.smoothScrollToBottom()
+    }
+
+    private companion object {
+        /** «Перезагрузка» по правилам занимает 5 минут реального отдыха (белый шум, наушники). */
+        const val REBOOT_DURATION_MS = 5 * 60 * 1000L
     }
 }
