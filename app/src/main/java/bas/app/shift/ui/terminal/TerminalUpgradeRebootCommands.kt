@@ -1,7 +1,9 @@
 package bas.app.shift.ui.terminal
 
 import android.content.Context
+import androidx.lifecycle.lifecycleScope
 import bas.app.shift.helpers.WikipediaHelper
+import kotlinx.coroutines.launch
 
 /**
  * Обработчики команд `USER.UPGRADE.*` и `USER.REBOOT.*`, вынесены из [TerminalActivity]
@@ -46,52 +48,55 @@ class TerminalUpgradeRebootCommands(
         val processMsg = "Команда в процессе выполнения..."
         adapter.addTyping(processMsg)
         activity.saveResponseToHistory(processMsg)
+        activity.smoothScrollToBottom()
 
-        // Получаем случайные страницы из Wikipedia
-        WikipediaHelper.getRandomPages(
-            onSuccess = { startPage, finishPage ->
-                val upgradeText = """
-                    «Шесть кликов» — вики-серфинг для мозгов
-
-                    Вы открываете одну страницу Википедии (стартовую), и знаете статью которая должна получиться в итоге (конечная). У вас есть максимум шесть переходов по ссылкам, чтобы добраться от стартовой статьи до итоговой.
-
-                    СТАРТОВАЯ СТРАНИЦА:
-                    Название: ${startPage.title}
-                    Ссылка: ${startPage.fullUrl}
-
-                    ЦЕЛЕВАЯ СТРАНИЦА:
-                    Название: ${finishPage.title}
-                    Ссылка: ${finishPage.fullUrl}
-
-                    Время на попытку не ограничено.
-
-                    Для завершения задачи используйте команду:
-                    USER.UPGRADE.END <название_статьи_1> <название_статьи_2> ... <название_статьи_N>
-
-                    При успехе - уровень шума снижается на 2 уровня.
-                """.trimIndent()
-
-                adapter.addTyping(upgradeText)
-                activity.saveResponseToHistory(upgradeText)
-
-                // Отмечаем использование команды
-                WikipediaHelper.markUpgradeUsed(activity)
-
-                // Активируем сессию UPGRADE
-                isUpgradeSessionActive = true
-                // Сохраняем флаг активной сессии в преференсы
-                val prefs = activity.getSharedPreferences("terminal_prefs", Context.MODE_PRIVATE)
-                prefs.edit().putBoolean("upgrade_session_active", true).apply()
-            },
-            onError = { error ->
-                val errorMsg = "Ошибка получения страниц Wikipedia: $error"
+        // Загадка собирается прогулкой по настоящим ссылкам, а это несколько запросов подряд.
+        activity.lifecycleScope.launch {
+            val puzzle = WikipediaHelper.buildPuzzle()
+            if (puzzle == null) {
+                val errorMsg = "Не удалось собрать маршрут: Википедия не отвечает. Попробуй ещё раз."
                 adapter.addTyping(errorMsg)
                 activity.saveResponseToHistory(errorMsg)
+                activity.smoothScrollToBottom()
+                return@launch
             }
-        )
 
+            val upgradeText = """
+                «Шесть кликов» — вики-серфинг для мозгов
 
-        activity.smoothScrollToBottom()
+                Открой стартовую статью и добирайся до целевой, переходя только по ссылкам внутри статей. Переходов — не больше ${WikipediaHelper.MAX_HOPS}. Путь существует: маршрут собран по настоящим ссылкам.
+
+                СТАРТОВАЯ СТРАНИЦА:
+                Название: ${puzzle.start}
+                Ссылка: ${puzzle.startUrl}
+
+                ЦЕЛЕВАЯ СТРАНИЦА:
+                Название: ${puzzle.finish}
+                Ссылка: ${puzzle.finishUrl}
+
+                Время на попытку не ограничено.
+
+                Когда дойдёшь — перечисли статьи, через которые прошёл, ЧЕРЕЗ ЗАПЯТУЮ:
+                USER.UPGRADE.END вторая статья, третья статья, ${puzzle.finish}
+
+                Стартовую можно не писать. Вместо названий можно вставлять ссылки из браузера.
+                Путь проверяется по настоящим ссылкам Википедии, так что придумать его не выйдет.
+
+                При успехе - уровень шума снижается на 2 уровня.
+            """.trimIndent()
+
+            adapter.addTyping(upgradeText)
+            activity.saveResponseToHistory(upgradeText)
+
+            WikipediaHelper.savePuzzle(activity, puzzle)
+            WikipediaHelper.markUpgradeUsed(activity)
+
+            isUpgradeSessionActive = true
+            val prefs = activity.getSharedPreferences("terminal_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("upgrade_session_active", true).apply()
+
+            activity.smoothScrollToBottom()
+        }
     }
 
     fun handleUpgradeEndCommand(fullCommand: String) {
@@ -108,50 +113,109 @@ class TerminalUpgradeRebootCommands(
             return
         }
 
-        // Парсим аргументы команды
-        val parts = fullCommand.split(" ")
-        if (parts.size < 2) {
-            val errorMsg = "Ошибка: Необходимо указать названия статей. Формат: USER.UPGRADE.END <статья1> <статья2> ..."
+        val puzzle = WikipediaHelper.loadPuzzle(activity)
+        if (puzzle == null) {
+            val errorMsg = "Ошибка: маршрут потерян. Начни заново: USER.UPGRADE.START"
             adapter.addTyping(errorMsg)
             activity.saveResponseToHistory(errorMsg)
             activity.smoothScrollToBottom()
             return
         }
 
-        val articles = parts.drop(1) // Убираем "USER.UPGRADE.END"
-
-        // Проверяем количество статей (максимум 6)
-        if (articles.size > 6) {
-            val errorMsg = "Ошибка: Максимум 6 статей в пути. Указано: ${articles.size}"
+        val arguments = fullCommand.drop("USER.UPGRADE.END".length)
+        val typed = WikipediaHelper.parsePath(arguments)
+        if (typed.isEmpty()) {
+            val errorMsg = "Ошибка: перечисли статьи через запятую.\n" +
+                "Формат: USER.UPGRADE.END вторая статья, третья статья, ${puzzle.finish}"
+            adapter.addTyping(errorMsg)
+            activity.saveResponseToHistory(errorMsg)
+            activity.smoothScrollToBottom()
+            return
+        }
+        // Отсекаем заведомо длинные списки до похода в сеть: проверка стоит запроса на переход.
+        if (typed.size > WikipediaHelper.MAX_HOPS + 2) {
+            val errorMsg = "Ошибка: переходов не больше ${WikipediaHelper.MAX_HOPS}, " +
+                "а статей перечислено ${typed.size}."
             adapter.addTyping(errorMsg)
             activity.saveResponseToHistory(errorMsg)
             activity.smoothScrollToBottom()
             return
         }
 
-        val successMsg = """
-            Поздравляем! Вы успешно прошли путь из ${articles.size} статей:
-            ${articles.joinToString(" → ")}
+        // Стартовую статью подставляем всегда: игрок мог её не написать или написать
+        // редиректом. Одинаковые соседи схлопнутся при приведении к каноническим именам.
+        val claimedPath = listOf(puzzle.start) + typed
 
-            Уровень шума снижен на 2 уровня.
-        """.trimIndent()
-
-        adapter.addTyping(successMsg)
-        activity.saveResponseToHistory(successMsg)
-
-        // Снижаем шум
-        activity.adjustNoiseAndUpdateGlobal(0.0, "USER.UPGRADE.END")
-
-        // Завершаем сессию UPGRADE
-        isUpgradeSessionActive = false
-        // Сбрасываем флаг активной сессии в преференсах
-        val prefs = activity.getSharedPreferences("terminal_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putBoolean("upgrade_session_active", false).apply()
-
-        // Отправляем команду в MG чат
-        //sendToMg()
-
+        val checkingMsg = "Проверяю путь по ссылкам Википедии..."
+        adapter.addTyping(checkingMsg)
+        activity.saveResponseToHistory(checkingMsg)
         activity.smoothScrollToBottom()
+
+        activity.lifecycleScope.launch {
+            val verdict = WikipediaHelper.verifyPath(claimedPath)
+            val message = when (verdict) {
+                is WikipediaHelper.Verdict.Offline ->
+                    "Не удалось проверить путь: ${verdict.reason}\nПопробуй ещё раз, попытка не сгорела."
+
+                is WikipediaHelper.Verdict.NoSuchArticle ->
+                    "Такой статьи в Википедии нет: «${verdict.title}».\n" +
+                        "Проверь название или вставь ссылку из браузера. Попытка не сгорела."
+
+                is WikipediaHelper.Verdict.BrokenHop ->
+                    "Путь не сходится: со страницы «${verdict.from}» нет ссылки на «${verdict.to}».\n" +
+                        "Попытка не сгорела — поправь цепочку и повтори."
+
+                is WikipediaHelper.Verdict.Ok -> null
+            }
+            if (message != null) {
+                adapter.addTyping(message)
+                activity.saveResponseToHistory(message)
+                activity.smoothScrollToBottom()
+                return@launch
+            }
+
+            val path = (verdict as WikipediaHelper.Verdict.Ok).canonicalPath
+            val hops = path.size - 1
+            val failure = when {
+                path.last() != puzzle.finish ->
+                    "Путь настоящий, но заканчивается не там: нужна «${puzzle.finish}», " +
+                        "а цепочка приводит в «${path.last()}». Попытка не сгорела."
+
+                hops < 1 ->
+                    "В пути нет ни одного перехода. Попытка не сгорела."
+
+                hops > WikipediaHelper.MAX_HOPS ->
+                    "Путь настоящий, но длинный: переходов ${hops}, " +
+                        "а можно не больше ${WikipediaHelper.MAX_HOPS}. Попытка не сгорела."
+
+                else -> null
+            }
+            if (failure != null) {
+                adapter.addTyping(failure)
+                activity.saveResponseToHistory(failure)
+                activity.smoothScrollToBottom()
+                return@launch
+            }
+
+            val successMsg = """
+                Поздравляем! Путь проверен — ${hops} ${hopWord(hops)} по ссылкам:
+                ${path.joinToString(" → ")}
+
+                Уровень шума снижен на 2 уровня.
+            """.trimIndent()
+
+            adapter.addTyping(successMsg)
+            activity.saveResponseToHistory(successMsg)
+
+            activity.adjustNoiseAndUpdateGlobal(0.0, "USER.UPGRADE.END")
+
+            isUpgradeSessionActive = false
+            val prefs = activity.getSharedPreferences("terminal_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("upgrade_session_active", false).apply()
+            WikipediaHelper.clearPuzzle(activity)
+
+            activity.smoothScrollToBottom()
+        }
     }
 
     fun handleRebootStartCommand() {
@@ -258,6 +322,18 @@ class TerminalUpgradeRebootCommands(
         prefs.edit().putBoolean("reboot_session_active", false).apply()
 
         activity.smoothScrollToBottom()
+    }
+
+    /** «1 переход», «2 перехода», «6 переходов» — иначе в терминале режет глаз. */
+    private fun hopWord(hops: Int): String {
+        val last2 = hops % 100
+        val last1 = hops % 10
+        return when {
+            last2 in 11..14 -> "переходов"
+            last1 == 1 -> "переход"
+            last1 in 2..4 -> "перехода"
+            else -> "переходов"
+        }
     }
 
     private companion object {
