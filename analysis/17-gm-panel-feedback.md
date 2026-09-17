@@ -19,15 +19,15 @@ will misread too.
 
 | # | His note | What it actually is | Status |
 |---|---|---|---|
-| 1 | Dashboard "Чат" rows are not clickable | True — the neighbouring "Карта" block links, this one was never wired | open (B) |
+| 1 | Dashboard "Чат" rows are not clickable | True — the neighbouring "Карта" block links, this one was never wired | **fixed** |
 | 2 | — | He withdrew it himself | — |
-| 3 | "Aura editable here, but breaks if edited in the DB?" | Correct reading; the wording that says so is unclear | open (B) |
-| 4 | Discipline note in chat drifts around | Flex spacer moves it as text length changes | open (B) |
+| 3 | "Aura editable here, but breaks if edited in the DB?" | Correct reading; the wording that says so is unclear | **fixed** |
+| 4 | Discipline note in chat drifts around | Flex spacer moves it as text length changes | **fixed** |
 | 5 | Subscription labels hard to read even on a PC | Rotated vertical headers | open (D) |
-| 6 | Noise terminology is hard | Fair; a one-line glossary would cover it | open (B) |
+| 6 | Noise terminology is hard | Fair; a glossary covers it | **fixed** |
 | 7 | **Raised noise by +1, journal showed nothing** | **Real bug** — panel never wrote to `noise_log` | **fixed** |
-| 8 | Can a player get an ability that is not in the catalogue? | Yes, and the catalogue gains a row; no path to it from the player card | open (B) |
-| 9 | Artifacts on hand are entered as bare ids | True — the data for a picker is already loaded | open (B) |
+| 8 | Can a player get an ability that is not in the catalogue? | Yes, and the catalogue gains a row; no path to it from the player card | **fixed** |
+| 9 | Artifacts on hand are entered as bare ids | True — the data for a picker is already loaded | **fixed** |
 | 10 | Mobile nav bar is monstrous | 12 items in a wrapping sticky flex row | open (C) |
 | 11 | Dashboard "Карта" table breaks on mobile | 8 dashboard tables never got the `responsive` class | open (C) |
 | 12 | Mobile chat opens invisibly, far below | Card order stacks the player list above the thread | open (C) |
@@ -168,14 +168,38 @@ somebody else's department. Cheapest useful fix is a one-line glossary in the pa
 raw 0–10 is what is stored, the player is shown half of it, and the level is the whole part of
 that half. Renaming things in the UI is not worth it this close to the game.
 
-## Still open
+## Batch B — clarity, also shipped 2026-09-18
 
-**B — cheap clarity wins (~1 h).** Make the dashboard "Чат" rows link into the chat the way
-the "Карта" rows already link into points (#1). Replace the free-text artifact id field on the
-player card with a picker — the page already loads artifact names for the ones owned, so the
-data is there (#9). Add a "нет нужной способности → создать" link from the player card into
-Справочники (#8). Reword the aura note (#3). Pin the "Читает дисциплины" line so it stops
-drifting (#4). Add the noise glossary line (#6).
+Six small changes, none of which touch a write path:
+
+- **#1** Dashboard "Чат" rows are links now, the way the "Карта" rows always were. A master's
+  row goes to that master's chat list; a discipline row goes to the chat of a master who
+  actually reads it, and names them ("читает MG_Bas и ещё 2"). A discipline nobody reads links
+  to Подписки instead, which is the page that fixes it.
+- **#9** The artifact field keeps its comma-separated ids — that is still what gets submitted,
+  and typing by hand still works — but above it there is now a picker listing all 86 artifacts
+  by name and level, with a button that appends the chosen id. Broken ids already held by a
+  player are called out in red rather than silently listed.
+- **#8** The Способности fieldset now says an ability can be created if it is missing, links
+  straight to Справочники → Способности, and warns that editing an ability's text later does
+  not rewrite marks already issued.
+- **#3** The aura note leads with the answer — the aura is rebuilt for you, and these fields
+  must not be edited in SQL because the profile would move and the aura would not.
+- **#4** The "Читает дисциплины" line was a flex sibling, so its position slid with the length
+  of the list. It is its own block now.
+- **#6** A glossary card at the top of the noise page: raw value, what the player sees, level,
+  global vs local, what one journal row is, what `app` / `site` / `gm` mean, how decay works.
+
+Verified on the live panel: all thirteen pages still return 200, the picker appends without
+duplicating and leaves the database untouched until the form is actually submitted (`bas`'s
+artifacts were unchanged after clicking through it), and the inline script pulled back off the
+production server passes `node --check`. Stylesheet cache buster is at `v=5`.
+
+Incidentally confirmed while reading the dashboard output: discipline id 9's mangled name
+(`ШЖ╫■┐ьЮ≈╒╬м╤нт&╜╓я`) is stored that way in the database on purpose. It is in-world styling
+for Шумомантия, not a rendering fault — worth knowing before someone "fixes" it.
+
+## Still open
 
 **C — mobile (~2–3 h).** Worth doing rather than declaring the panel desktop-only: by his own
 account masters will reach for a phone in the field. Collapse the nav into a dropdown under
