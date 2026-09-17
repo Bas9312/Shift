@@ -100,7 +100,7 @@ unreachable rather than merely ugly, which is exactly how he described it.
 
 Wrapped in a new `.table-scroll` container that scrolls inside its card. The `?v=` cache
 buster on `style.css` was bumped so masters do not get the old stylesheet — it has moved on
-with each batch since and now sits at `v=6`. Bump it whenever you touch the stylesheet.
+with each batch since and now sits at `v=8`. Bump it whenever you touch the stylesheet.
 
 The wide dashboard table (his #11) was a different problem — it squeezed rather than escaped,
 and the fix there was the existing `responsive` stacking; see batch C below.
@@ -228,6 +228,47 @@ Checked at 375–577 px: no page scrolls sideways, every wide table is inside a 
 container, and at 1280 px the nav is flat with all twelve links, the toggle is hidden, the
 filter defaults to "все сразу" with all 99 checkboxes visible, and the matrix fits with no
 horizontal scrolling.
+
+## The pages he never opened, on a real device
+
+Same pass over `points`, `quests`, `refs`, `artifacts`, `effects` and `aura` — first by
+reading them, then by driving the live panel in Chrome on the Android emulator
+(`emulator-5554`, 1080×2400 at density 420, so a ~411 px CSS viewport: a real phone width, not
+a desktop browser squeezed narrow).
+
+Code pass found little. Every POST form carries a CSRF token. The `UPDATE`-then-`INSERT`
+rowCount trap that bit `set_local` exists nowhere else — the other two `INSERT`s into
+`noisemancy_*` use `ON DUPLICATE KEY UPDATE`, which is immune. Only the dashboard carries a
+meta refresh, and it has no data entry.
+
+What the device found:
+
+- **`refs.php` — the abilities catalogue was unusable on a phone.** "Тип" was pinned at a
+  fixed 170 px inside a `.row`, so flex never wrapped and the description textarea got
+  whatever was left: about three words wide, with the text clipped. 78 abilities all rendered
+  that way. Fixed by stacking `label` children of a `.row` at full width under 760 px, which
+  is right everywhere on a phone; buttons in a row are untouched.
+- **The mobile header put "Выйти" before the menu.** The batch-C rule gave `order` to the
+  toggle and the nav but not to the logout form, which kept the default `0` and jumped to the
+  front — so the logout button sat exactly where a thumb reaches for the menu. Every item in
+  the bar is ordered explicitly now.
+- **`quests.php` had one more untreated table**, the per-player progress grid: four columns,
+  the last a row of controls. It renders only once players actually start a chain, i.e. it
+  first appears mid-game, which is the worst possible moment to find out it does not fit.
+  Given the stacking treatment.
+- **"Или укажите точное время справа"** in `effects.php` and `points.php`. The field is below
+  on a phone, not to the right. Same class as the chat page's "Выберите чат слева".
+
+What the device confirmed working: the collapsed nav (64 px header, menu names the current
+page, opens to twelve links), the transposed subscription matrix (one card per discipline,
+filtered to a single master), the noise glossary, the noise journal scrolling inside its card
+instead of off-screen, and — the point of the whole exercise — tapping a player in the chat
+now puts the conversation, reply box, discipline picker and send button on the first screen,
+where before the player list pushed them out of sight.
+
+One thing I called a bug and was not: an artifact badge reading "у anti" looked like clipped
+text, so I added `flex: none` to `.badge`. The holder's userId is literally `anti` (Анти).
+Reverted — a defensive rule carrying a false explanation is worse than no rule.
 
 ### One real slip, on live data
 
