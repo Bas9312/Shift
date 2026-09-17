@@ -23,16 +23,16 @@ will misread too.
 | 2 | — | He withdrew it himself | — |
 | 3 | "Aura editable here, but breaks if edited in the DB?" | Correct reading; the wording that says so is unclear | **fixed** |
 | 4 | Discipline note in chat drifts around | Flex spacer moves it as text length changes | **fixed** |
-| 5 | Subscription labels hard to read even on a PC | Rotated vertical headers | open (D) |
+| 5 | Subscription labels hard to read even on a PC | Rotated vertical headers | **fixed** |
 | 6 | Noise terminology is hard | Fair; a glossary covers it | **fixed** |
 | 7 | **Raised noise by +1, journal showed nothing** | **Real bug** — panel never wrote to `noise_log` | **fixed** |
 | 8 | Can a player get an ability that is not in the catalogue? | Yes, and the catalogue gains a row; no path to it from the player card | **fixed** |
 | 9 | Artifacts on hand are entered as bare ids | True — the data for a picker is already loaded | **fixed** |
-| 10 | Mobile nav bar is monstrous | 12 items in a wrapping sticky flex row | open (C) |
-| 11 | Dashboard "Карта" table breaks on mobile | 8 dashboard tables never got the `responsive` class | open (C) |
-| 12 | Mobile chat opens invisibly, far below | Card order stacks the player list above the thread | open (C) |
+| 10 | Mobile nav bar is monstrous | 12 items in a wrapping sticky flex row | **fixed** |
+| 11 | Dashboard "Карта" table breaks on mobile | Only this one has headers; the rest are label/value pairs | **fixed** |
+| 12 | Mobile chat opens invisibly, far below | Card order stacks the player list above the thread | **fixed** |
 | 13 | **Attachment vanished a few seconds after picking it** | **Real bug** — 30 s meta refresh on a page full of forms | **fixed** |
-| 14 | Subscriptions on mobile are endless blocks | Same matrix, stacked | open (C) |
+| 14 | Subscriptions on mobile are endless blocks | Same matrix, stacked | **fixed** |
 | 15 | **Noise journal continues off-screen to the right** | **Real bug** — `table.grid` had no CSS rule at all | **fixed** |
 | — | (found while fixing 7) | **Setting a player's noise to its current value crashed the page** | **fixed** |
 
@@ -99,10 +99,11 @@ past the viewport, and since the page body does not scroll sideways those column
 unreachable rather than merely ugly, which is exactly how he described it.
 
 Wrapped in a new `.table-scroll` container that scrolls inside its card. The `?v=` cache
-buster on `style.css` went to `v=4` so masters do not get the old stylesheet.
+buster on `style.css` was bumped so masters do not get the old stylesheet — it has moved on
+with each batch since and now sits at `v=6`. Bump it whenever you touch the stylesheet.
 
-The wide dashboard tables (his #11) are a different problem — they squeeze rather than escape,
-and the fix there is the existing `responsive` stacking. Left for C.
+The wide dashboard table (his #11) was a different problem — it squeezed rather than escaped,
+and the fix there was the existing `responsive` stacking; see batch C below.
 
 ### Bonus — setting a player's noise to the value it already had crashed the page
 
@@ -199,18 +200,48 @@ Incidentally confirmed while reading the dashboard output: discipline id 9's man
 (`ШЖ╫■┐ьЮ≈╒╬м╤нт&╜╓я`) is stored that way in the database on purpose. It is in-world styling
 for Шумомантия, not a rendering fault — worth knowing before someone "fixes" it.
 
-## Still open
+## Batches C and D — mobile and the matrix, also shipped 2026-09-18
 
-**C — mobile (~2–3 h).** Worth doing rather than declaring the panel desktop-only: by his own
-account masters will reach for a phone in the field. Collapse the nav into a dropdown under
-760 px (#10). Give the 8 dashboard tables `responsive` + `data-label` — the stacking engine is
-already written and was simply never applied there (#11). On the chat page, put the thread
-first on mobile and collapse the player list (#12). Turn the subscriptions page into
-pick-a-master-then-show-their-subscriptions (#14).
+**The matrix is transposed (#5, #14).** Disciplines are the rows, masters the columns. There
+are nine masters and eleven disciplines, and master names are far shorter ("Анте", "Фараш")
+than discipline names, so the headers now sit flat — `table.matrix th.vert`, with its
+`writing-mode: vertical-rl` and 180° flip, is gone. Above the table there is a master filter
+that hides every other column; on a phone it selects the first master on load, which turns a
+9×11 grid into a single readable column and answers #14 with the same mechanism.
 
-**D — the subscription matrix (~1 h, decide first).** His #5. `table.matrix th.vert` rotates
-the headers with `writing-mode: vertical-rl` plus a 180° transform, which is hard to read on a
-laptop and worse on a phone. This is a redesign, not a tweak: either short horizontal labels
-with the full name in a tooltip, or transpose the matrix so disciplines are rows and masters
-are columns — there are fewer masters than disciplines. Worth showing the owner a mock before
-building it.
+The checkbox names did not change (`subs[<master>][]` = discipline id), so the save handler was
+not touched at all. That mattered for the risky part: **filtering hides columns, and hidden
+checkboxes are still submitted** — only `disabled` controls are left out of a POST. Verified in
+the browser with the filter on one master: 25 checked boxes sitting in hidden columns, and all
+29 checks still present in the form's `FormData`, all nine masters still carried.
+
+**Mobile (#10, #11, #12).** The nav collapses behind a button labelled with the current page,
+which took the sticky header from a three-row block down to 64 px; it is script-driven from
+`matchMedia`, and the markup starts expanded so scripting-off degrades to today's behaviour.
+The dashboard's "Карта" table — the only one on that page with headers and four columns —
+gets the existing `responsive` stacking; the others are label/value pairs that already fit, so
+they were left alone rather than stacked for the sake of it. On the chat page, an open
+conversation is ordered first on a phone with the player list under it and capped at 45vh, so
+tapping a player no longer looks like nothing happened.
+
+Checked at 375–577 px: no page scrolls sideways, every wide table is inside a scroll
+container, and at 1280 px the nav is flat with all twelve links, the toggle is hidden, the
+filter defaults to "все сразу" with all 99 checkboxes visible, and the matrix fits with no
+horizontal scrolling.
+
+### One real slip, on live data
+
+Testing the transposed form's save path, I posted the form back unchanged expecting a no-op
+and instead got "изменено мастеров: 1" — `MG_LESHA`'s subscription to discipline 11 was gone.
+
+The panel was not at fault. My test harness built the POST body with `'\n'.join(...)`, leaving
+no trailing newline, and the shell's `while read` loop silently drops a final unterminated
+line. That line was `subs[MG_LESHA][]=11`, so the form arrived genuinely missing one checkbox
+and the handler did exactly what it should with what it was given.
+
+Restored immediately and confirmed byte-identical to the pre-test snapshot, then the test was
+re-run correctly: "Ничего не изменилось", 29 rows before and after. Worth recording because
+the failure mode is so quiet — a truncated POST to this page looks exactly like a master
+deliberately unticking a box, and the handler cannot tell the difference. The existing guard
+(only rewriting masters named in `masters[]`) is what keeps a truncation from wiping everyone
+rather than one row; it is there for a reason and should stay.
