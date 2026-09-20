@@ -347,17 +347,54 @@ Two separate confusions, neither of them wrong behaviour:
   measured at a 411px viewport, the empty summary is 276px in a 276px box and the wide journal
   is 672px in a 357px box and scrolls inside it.
 
-### #9, effects history — not done, and why
+### #9, effects history — done
 
-He asked, tentatively, for a log of effects that have been hung on players. Nothing like it
-exists: `effects` rows are deleted outright, by `effects_api/cron_delete.php` on expiry and by
-`effects_api/api.php` on manual removal. The table is at `AUTO_INCREMENT = 162` with zero rows,
-so 161 effects have come and gone leaving no trace.
+`effects` rows are deleted outright, by `effects_api/cron_delete.php` on expiry and by
+`effects_api/api.php` on manual removal. The table sat at `AUTO_INCREMENT = 162` with zero
+rows: 161 effects had come and gone leaving nothing behind, so "что на нём висело час назад"
+had no answer at all.
 
-Doing it honestly means a new table plus writes in `effects_api/api.php` (create and delete)
-and `cron_delete.php` (expiry) — that is, editing running game APIs and an unattended cron,
-not just the panel. Logging only what the panel does would produce exactly the trap that made
-`noise_log` misleading in the first round: a history that looks complete and silently omits
-everything the game itself did. Worth doing if wanted, but it is the one item here that
-touches the game rather than the admin tool, and doing it days before the game has a different
-risk profile from everything above.
+New table `effects_log` (append-only; `event` and `source` are `VARCHAR(16)` rather than
+enums, because this server runs with an empty `sql_mode` and would silently coerce a bad enum
+to `''`). Four events are recorded:
+
+| event | written by | source |
+|---|---|---|
+| `issued` | `effects_api/api.php` after create | `gm` when the panel sends it, else `app` |
+| `edited` | `gm/pages/effects.php` | `gm` |
+| `removed` | `effects_api/api.php` after delete | `gm` when the panel asks, else `app` |
+| `expired` | `effects_api/cron_delete.php` | `cron` |
+
+This is the part that had to reach outside the panel, and two rules kept it safe:
+
+- **Log after `commit`, never inside the transaction.** A failing journal insert must not roll
+  back the effect a master just hung. `effects_log()` additionally swallows its own errors into
+  `error_log`. The cost is that a crash between commit and log loses one row; that is the right
+  trade.
+- **Read the text before deleting.** Both delete paths now select `textToShowPlayers` (and
+  `expireAt`) before the `DELETE`, or the journal would record that something ended without
+  being able to say what it was.
+
+The helper lives in `effects_api/config.php` rather than its own file, because both `api.php`
+and `cron_delete.php` already require it — one fewer include that can be forgotten on upload.
+
+Panel side: a filterable history table at the bottom of the Эффекты page, newest first, last
+100 rows, with a per-player filter. It says in plain text that it only covers 2026-09-20
+onwards, since nothing earlier can be reconstructed.
+
+Verified end to end against the live game: issue → edit → remove through the panel logged all
+three with `source = gm` (and the `removed` row correctly carried the *edited* text, proving
+the pre-delete read works), then an already-expired effect was swept by the real cron and
+logged as `expired / cron`. `effects` returned to zero rows and the test entries were removed
+from the journal afterwards.
+
+Two things noticed while doing this, neither introduced here:
+
+- `effects_api/cron_delete.php` is a plain file inside a web-served directory, so it can be
+  triggered over HTTP by anyone who knows the URL. It only deletes effects that have already
+  expired, which is what it does on schedule anyway, so the impact is small — but it is not
+  meant to be a public endpoint. Its first line also used to warn on `foreach ($argv …)` when
+  reached that way; that is now guarded.
+- `users.effects` carries ids of effects that no longer exist for two players (7 ids). Harmless
+  in practice: `mage_profile_api/api.php:601` replaces that column with a live query before
+  serving a profile, so no player sees it.
