@@ -100,7 +100,7 @@ unreachable rather than merely ugly, which is exactly how he described it.
 
 Wrapped in a new `.table-scroll` container that scrolls inside its card. The `?v=` cache
 buster on `style.css` was bumped so masters do not get the old stylesheet — it has moved on
-with each batch since and now sits at `v=8`. Bump it whenever you touch the stylesheet.
+with each batch since and now sits at `v=9`. Bump it whenever you touch the stylesheet.
 
 The wide dashboard table (his #11) was a different problem — it squeezed rather than escaped,
 and the fix there was the existing `responsive` stacking; see batch C below.
@@ -286,3 +286,78 @@ the failure mode is so quiet — a truncated POST to this page looks exactly lik
 deliberately unticking a box, and the handler cannot tell the difference. The existing guard
 (only rewriting masters named in `masters[]`) is what keeps a truncation from wiping everyone
 rather than one row; it is there for a reason and should stay.
+
+## Second walkthrough, 2026-09-20
+
+Nikolai went through the panel again, this time exercising it rather than only looking, and
+sent ten more notes. Nine are fixed; the tenth needs work outside the panel and is described
+at the end.
+
+### The chat thread was rendered upside down (his #2)
+
+`GET /messages_api/chats/{peer}/history` returns messages **newest first**. This page was
+written assuming the opposite — the comment on the scroll script says "history is oldest-first,
+so open it on the newest message instead of the first one" — so it rendered the oldest at the
+bottom and then dutifully scrolled there. A master opening a conversation landed a year deep
+in history and had to scroll up through everything to find what they had just sent.
+
+The same wrong assumption picked the reply's default discipline: it walked `array_reverse()`
+looking for the player's most recent tagged message and found their **oldest** one instead, so
+the tag pre-selected in the reply box could be a year stale.
+
+Fixed by sorting on `created_at` rather than trusting whatever order the API returns, which
+also means a future change at the API end cannot flip it back.
+
+### Unread counters (his #1 and #7)
+
+Two separate confusions, neither of them wrong behaviour:
+
+- **Nothing cleared the circle.** There was a "Пометить прочитанными" button, but it sat
+  between the reply form and the thread where nobody found it, and replying did not clear
+  anything. Answering is when a master considers a question handled, so a reply now marks that
+  player's unread messages read and says so in the confirmation. The button stays for "read
+  it, not answering".
+- **Phone showed 1, desktop showed 12.** Both correct: the list and every counter are filtered
+  by the subscriptions of whoever is selected in "Отвечаю как", and that choice lives in the
+  session, so two devices drift apart. `MG_TARI` genuinely sees 12 unread from `bas` while
+  everyone else sees 1–2. The chat list now says whose eyes it is showing and that the numbers
+  are per-master.
+
+### The rest
+
+- **#3** "Только игроки" returned NPCs. NPCs are not a column — they are marked by convention,
+  `player_name = 'НПС'` (32 rows). The filter excluded masters and nothing else. Now it
+  excludes NPCs too, and there is a "Только НПС" option. Verified against the database: 42
+  players, 32 NPCs, 9 masters, 83 total.
+- **#5** The level picker offered "тлимлот", because it listed every DISTINCT level in the
+  table and one test artifact carries that word. It now offers the three canonical levels plus
+  «другое…», and additionally the current artifact's own level when that is custom — so
+  editing can never silently change it. The filter dropdown still lists everything present in
+  the data, which is what a filter is for.
+- **#4, #6** "Create new" forms sat under the whole list on artifacts, points and all four
+  catalogue tabs. Moved to the top, collapsed behind a summary, so they cost no space until
+  clicked.
+- **#8** The player card's module and ability grids (38 and 78 checkboxes) are folded away
+  behind a summary showing how many are selected, so artifacts and aura below them are
+  reachable without scrolling past everything.
+- **#10** My own fault from the previous round: `.table-scroll > table { min-width: 520px }`
+  forced *every* table in a scroll box to 520px, including the two three-column noise
+  summaries, which are header-only whenever nothing has made noise in 24 hours. Nikolai
+  guessed the cause exactly ("МБ потому, что пустые"). Now `width: auto; min-width: 100%`:
+  measured at a 411px viewport, the empty summary is 276px in a 276px box and the wide journal
+  is 672px in a 357px box and scrolls inside it.
+
+### #9, effects history — not done, and why
+
+He asked, tentatively, for a log of effects that have been hung on players. Nothing like it
+exists: `effects` rows are deleted outright, by `effects_api/cron_delete.php` on expiry and by
+`effects_api/api.php` on manual removal. The table is at `AUTO_INCREMENT = 162` with zero rows,
+so 161 effects have come and gone leaving no trace.
+
+Doing it honestly means a new table plus writes in `effects_api/api.php` (create and delete)
+and `cron_delete.php` (expiry) — that is, editing running game APIs and an unattended cron,
+not just the panel. Logging only what the panel does would produce exactly the trap that made
+`noise_log` misleading in the first round: a history that looks complete and silently omits
+everything the game itself did. Worth doing if wanted, but it is the one item here that
+touches the game rather than the admin tool, and doing it days before the game has a different
+risk profile from everything above.
