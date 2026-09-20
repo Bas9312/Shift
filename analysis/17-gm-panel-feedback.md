@@ -433,3 +433,37 @@ decided here:
 Whether a Proxy node should read as a noisemancer to players, and whether it should damp the
 world's noise, is a design question about how the mechanic is meant to feel. Excluding
 `_Proxy` from either query is a one-line change once that is decided.
+
+## Dashboard follow-ups, 2026-09-21
+
+Three things the owner spotted on the overview page after the previous round.
+
+- **The Proxy warning lived in two places.** Fixing `pages/noise.php` left the same check in
+  `pages/dashboard.php` still calling Proxy nodes "записи шума на несуществующих игроков".
+  Same `%\_Proxy` exclusion applied there, and the wording now describes a real leftover from
+  a deleted player rather than the mechanic working.
+- **"0 / 73 игроков на связи" counted NPCs.** NPCs share the `users` table and are marked only
+  by `player_name = 'НПС'` — 32 of the 74 rows. Two thirds of the denominator were never going
+  to be a player on a phone, which made the ratio meaningless. The tile now reads `0 / 42`
+  with NPCs counted on their own line, and offline NPCs carry a badge. They are deliberately
+  still listed: 31 of the 32 have pinged the server, so someone really does play them.
+- **0.1 on the dashboard vs 0.24 on the noise page** were the same number in different units —
+  the tile showed the player scale, the noise page the raw one. The tile now prints both.
+
+### Where that noise came from, and one thing worth checking
+
+The journal answered this immediately, which is the first time it has earned its keep:
+`noise_log` id 37, `GM.GLOBAL.ADJUST +1` from the panel on 2026-09-19 16:30:50, taking global
+noise from 0 to 1.0. Everything since is decay.
+
+What does not add up is the rate. `noize_api/tuning.php` has `global_down_pct = 0.07` and
+`global_down = 0.05`, and `decrease_global_noise_cron.php` has no skip condition — it always
+decrements when it runs. At an hourly cadence 1.0 would reach zero in about eleven hours; it
+has been thirty-six, and the value is 0.178. Watching it directly over ~3.7 hours, it moved
+0.24499738799721 → 0.17784757083741, which is *exactly* one application of the formula
+(0.245 − 0.245·0.07 − 0.05 = 0.17785) — so one run, not four.
+
+`analysis/15-noise-balance.md` records the crons as hourly, inferred from `:00:01` timestamps
+in last year's data. Either the global decay job is scheduled less often than that now, or it
+is not firing reliably. Worth a look at the beget scheduler before the game, because the
+balance work in doc 15 assumes −0.05-and-7% every hour.
