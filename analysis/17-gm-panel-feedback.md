@@ -398,3 +398,38 @@ Two things noticed while doing this, neither introduced here:
 - `users.effects` carries ids of effects that no longer exist for two players (7 ids). Harmless
   in practice: `mage_profile_api/api.php:601` replaces that column with a live query before
   serving a profile, so no player sees it.
+
+## The panel offered to delete a working mechanic
+
+Raised by the owner, not in either list, and the most dangerous thing found so far.
+
+The noise page warned "Записей на несуществующих игроков: 3" and offered a button to delete
+them. All three were `<player>_Proxy` rows — and those are the Proxy node mechanic working as
+designed: when a player has an active node, half of every noise increase is deliberately
+parked on a synthetic row under that name (`noize_api/service.php:204`), which is exactly why
+no `users` entry exists for it. Pressing the button would have zeroed the noise sitting on
+every proxy in the game, mid-session, with a confirmation that said it was removing junk.
+
+Fixed in both places. The page now labels proxies as proxies and says not to delete them, and
+only offers the button for a row that is neither a player nor a proxy — a real leftover from a
+deleted player, of which there are currently none. The `DELETE` itself also excludes
+`%\_Proxy`, because the form can be submitted without going through the interface. Verified
+against the live database: the old query would have removed `anton_Proxy`, `lina_Proxy` and
+`pavlik_Proxy`; the new one removes nothing.
+
+### Still open, and it is a balance call rather than a bug
+
+The warning's second claim was true, and that part is not fixed because it should not be
+decided here:
+
+- `noize_api/api.php:180` — `noisemancers` is `SELECT COUNT(*) FROM noisemancy_local`, so proxy
+  rows are counted as noisemancers in the number the player sees in the terminal. Right now
+  that is 8 rather than 5.
+- `noize_api/service.php:346` — `$activeCount` counts rows with a recent `last_action_at`, and
+  proxy rows get theirs stamped when noise lands on them. That number goes into the crowd
+  damping `crowdK / (crowdK + activeCount)`, so proxies make the crowd look bigger and global
+  noise grow more slowly.
+
+Whether a Proxy node should read as a noisemancer to players, and whether it should damp the
+world's noise, is a design question about how the mechanic is meant to feel. Excluding
+`_Proxy` from either query is a one-line change once that is decided.
