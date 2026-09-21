@@ -189,7 +189,36 @@ since a mage hears the ability, the weakness and the bond type from the familiar
 before consenting anyway. The abilities tab of that page now sorts `ability_id DESC` — newest
 first, which also puts the familiar block at the top.
 
-## 9. Open questions
+## 9. The five-hour reservation (2026-09-21)
+
+A consent used to hold nothing. The map point stayed with its player for the ordinary
+`FAMILIAR_HOLD_MINUTES = 15` of silence and was then free for anyone — so a player who went
+looking for how the ritual is performed lost the point while walking. Now consent reserves
+the point for `BOND_RESERVE_HOURS = 5`; if the ritual is not confirmed within that window the
+consent is deleted and the point is released.
+
+The sweep lives in `releaseExpiredFamiliars()` in `api_geo`, which already ran on every
+`GET /points` and on `/bind`. Player traffic is the clock, so there is still no cron. Order
+matters inside it: expired consents are deleted first, then points are released for everyone
+whose remaining consent is not pending — which is why the hold query needs no time arithmetic
+of its own. A **confirmed** bond deliberately does not hold the point: the familiar is already
+in the profile, and holding it forever would starve everyone else.
+
+The proxy caches consent locally, so it has to learn about an expiry it did not cause. On its
+periodic check it now also reads `consented`, and clears the local row when the game server
+says no. The guard is `pushed_at`: only a consent the server definitely received may be
+cleared this way, otherwise an unreachable game server would wipe a fresh consent still
+sitting in the outbox. A confirmed bond is never cleared — that one-way rule stands.
+
+One consequence worth knowing: a push rejected with 4xx marks `pushed_at` to stop the retry
+loop, so such a consent will later be cleared by this same path. That is consistent — if the
+game server refuses to record the bond, the bond does not exist — and the 4xx is in the log.
+
+Both notices in the chat (`CONSENT_NOTICE`, `EXPIRED_NOTICE`) are stored with the `assistant`
+role inside `⟪ ⟫`. A real `system` role would mean changing the CHECK constraint, the client
+model and the adapter, and shipping an APK for what two brackets already convey.
+
+## 10. Open questions
 
 - **The mirror carries the previous game across.** Every other familiar is keyed per player,
   so a new player always starts a clean chat. `familiar_mirror` is not: its shared log holds

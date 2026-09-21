@@ -64,6 +64,22 @@ REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "").strip()
 GAME_API_BASE = os.environ.get("GAME_API_BASE", "http://shift96.ru").rstrip("/")
 GAME_API_TIMEOUT_S = float(os.environ.get("GAME_API_TIMEOUT_S", "10"))
 BOND_TOKEN = os.environ.get("BOND_TOKEN", "").strip()  # X-Bond-Token для /familiars_api/bonds
+
+# Отбивка в чат сразу после согласия. Кладётся ролью assistant — отдельной роли в схеме нет,
+# а заводить её значит менять и базу, и клиент; скобки ⟪⟫ отличают её от реплики фамильяра.
+BOND_RESERVE_HOURS = os.environ.get("BOND_RESERVE_HOURS", "5").strip()
+CONSENT_NOTICE = os.environ.get("CONSENT_NOTICE", "").strip() or (
+    f"⟪ Фамильяр согласился на связь и ждёт обряда {BOND_RESERVE_HOURS} часов — "
+    "всё это время он ваш, другому магу его не перехватить. Как проводится обряд, "
+    "выясняйте в мире игры: ни фамильяр, ни мастера этого не подскажут. "
+    "До обряда способность не работает, а если не успеть — договорённость пропадёт "
+    "и всё придётся начинать заново. ⟫"
+)
+EXPIRED_NOTICE = os.environ.get("EXPIRED_NOTICE", "").strip() or (
+    f"⟪ Прошло больше {BOND_RESERVE_HOURS} часов, обряд так и не провели — "
+    "договорённость истекла, фамильяр снова свободен. Если он всё ещё нужен, "
+    "придётся договариваться заново. ⟫"
+)
 MG_RECIPIENT_ID = os.environ.get("MG_RECIPIENT_ID", "MG_Bas")
 MG_NOTIFY_TAG = os.environ.get("MG_NOTIFY_TAG", "10")  # 10 = «Общие вопросы»
 BOND_RECHECK_S = float(os.environ.get("BOND_RECHECK_S", "60"))
@@ -284,6 +300,19 @@ def mark_confirmed(user_id: str, familiar: str, when: float):
     """, (user_id, familiar, when, time.time()))
 
 
+def clear_consent_if_pushed(user_id: str, familiar: str) -> bool:
+    """Снимает согласие, когда игровой сервер о нём больше не знает — то есть бронь
+    истекла. Только для строк, которые до сервера доехали (`pushed_at`), иначе
+    недоступный сервер стирал бы свежее согласие, ещё лежащее в очереди отправки.
+    Подтверждённую связь не трогает никогда."""
+    changed = db_exec("""
+        DELETE FROM bonds
+        WHERE user_id=? AND familiar=? AND consented_at IS NOT NULL
+          AND pushed_at IS NOT NULL AND bond_confirmed_at IS NULL
+    """, (user_id, familiar))
+    return changed > 0
+
+
 def touch_checked(user_id: str, familiar: str):
     db_exec("""
         INSERT INTO bonds(user_id, familiar, checked_at) VALUES(?,?,?)
@@ -314,9 +343,10 @@ def _outcome(e: Exception, what: str, user_id: str, familiar: str) -> str:
     return RETRY
 
 
-async def fetch_bond_confirmation(user_id: str, familiar: str) -> None:
-    """Спрашивает игровой сервер, подтверждён ли обряд. Любая ошибка — не фатальна:
-    просто оставляем прежнюю фазу и попробуем в следующий раз."""
+async def fetch_bond_confirmation(user_id: str, familiar: str) -> bool:
+    """Спрашивает игровой сервер про связь. Возвращает True, если согласие протухло
+    и было снято локально. Любая ошибка — не фатальна: оставляем прежнюю фазу
+    и попробуем в следующий раз."""
     try:
         r = await game.get(f"{GAME_API_BASE}/familiars_api/api/v1/bonds",
                            params={"user_id": user_id, "familiar": familiar},
@@ -326,12 +356,22 @@ async def fetch_bond_confirmation(user_id: str, familiar: str) -> None:
     except Exception as e:
         log.warning("не спросили подтверждение связи у игрового сервера (%s/%s): %s",
                     user_id, familiar, e)
-        return
+        return False
+
     if data.get("confirmed"):
         mark_confirmed(user_id, familiar, time.time())
         log.info("связь подтверждена: %s / %s", user_id, familiar)
-    else:
-        touch_checked(user_id, familiar)
+        return False
+
+    # Сервер не знает о согласии. Это либо просроченная бронь (её там чистит
+    # releaseExpiredFamiliars), либо мы ещё не успели его отдать — поэтому снимаем
+    # только то, что до сервера точно доехало.
+    if not data.get("consented") and clear_consent_if_pushed(user_id, familiar):
+        log.info("бронь истекла, согласие снято: %s / %s", user_id, familiar)
+        return True
+
+    touch_checked(user_id, familiar)
+    return False
 
 
 async def push_consent(user_id: str, familiar: str) -> str:
@@ -563,8 +603,11 @@ async def chat_send(req: Request, bg: BackgroundTasks, x_shift_token: Optional[s
     if phase != PHASE_BOUND:
         last_check = (bond or {}).get("checked_at") or 0
         if time.time() - last_check > BOND_RECHECK_S:
-            await fetch_bond_confirmation(user_id, familiar)
+            expired = await fetch_bond_confirmation(user_id, familiar)
             phase = phase_of(get_bond(user_id, familiar))
+            if expired:
+                # Отбивка идёт до реплики игрока: истекло-то оно раньше, чем он написал.
+                save_msg(uid, familiar, "assistant", EXPIRED_NOTICE)
 
     # сохраняем вход до запроса к модели: что игрок сказал, то сказал,
     # даже если ответ не придёт
@@ -582,6 +625,10 @@ async def chat_send(req: Request, bg: BackgroundTasks, x_shift_token: Optional[s
     # Согласие принимается только из NEGOTIATING. BOUND словами модели не ставится никогда.
     if consent and phase == PHASE_NEGOTIATING and record_consent(user_id, familiar):
         log.info("СОГЛАСИЕ: %s / %s", user_id, familiar)
+        # Отбивка идёт в историю следом за репликой — игрок видит её в том же чате.
+        # Модель потом прочитает её как свою прошлую реплику; это и к лучшему, она
+        # лишний раз напоминает, что обряд не проведён.
+        save_msg(uid, familiar, "assistant", CONSENT_NOTICE)
         bg.add_task(outbox_tick)
     elif consent:
         log.info("consent=true проигнорирован (фаза %s): %s / %s", phase, user_id, familiar)
