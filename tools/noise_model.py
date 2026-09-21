@@ -19,28 +19,43 @@ import math
 # Пороги активности заданы в КОМАНДАХ В ЧАС: так их видит мастер, и так о них
 # думают за столом. Сервер хранит их в командах в минуту, перевод — в to_server().
 
+# Сверено с сервером 2026-09-21: noize_api/tuning_constants.php (альфа, пороги, софткап)
+# и noize_api/tuning.php (шаги спада, их пишет панель мастера).
+#
+# ЧАСТОТА — часть баланса, а не деталь развёртывания. Спад считается не «в час», а «за один
+# прогон крона», и кроны ходят с разной частотой (планировщик beget, сверено 2026-09-21):
+#   decrease_local_noise_cron.php   0 */1 * * *  — раз в час
+#   decrease_global_noise_cron.php  0 */4 * * *  — раз в четыре часа
+# Раньше модель применяла оба спада каждый час и поэтому сильно завышала, как быстро
+# остывает город: по её числам единица глобального шума уходила в ноль за 13 часов, а на
+# сервере — за 52. Глобальный шум копится через всю игру, и это осознанно (см. doc 15 §9.5).
 CURRENT = dict(
     name="сейчас на сервере",
-    calm_per_hour=9.0,       # NOISE_CALM_RATE 0.15/мин
-    spam_per_hour=36.0,      # NOISE_SPAM_RATE 0.60/мин
-    calm_mult=0.6,
-    spam_mult=1.35,
-    softcap_at=6.0,
-    softcap_steep=1.2,
+    calm_per_hour=1.0,       # NOISE_CALM_RATE 0.0167/мин
+    spam_per_hour=4.0,       # NOISE_SPAM_RATE 0.0667/мин
+    calm_mult=0.7,
+    spam_mult=1.5,
+    softcap_at=6.0,          # NOISE_SOFTCAP_LSOFT
+    softcap_steep=2.0,       # NOISE_SOFTCAP_STEEP
     boost=1.4,
-    local_up=0.5,            # авторост, раз в час
-    local_down_flat=2.0,     # фиксированный спад, раз в час
-    local_down_pct=0.0,      # пропорционального спада сейчас нет
-    global_alpha=0.20,
+    local_up=0.0,            # авторост выключен в планировщике
+    local_down_flat=0.2,     # tuning.php local_down
+    local_down_pct=0.20,     # tuning.php local_down_pct
+    local_every_hours=1,
+    global_alpha=0.30,       # NOISE_ALPHA
     global_k=3.0,
     global_beta=1.0,
-    global_up=0.1,
-    global_down_flat=0.54,   # global_down 0.5 + drift 0.04
-    global_down_pct=0.0,
+    global_up=0.0,
+    global_down_flat=0.05,   # tuning.php global_down
+    global_down_pct=0.07,    # tuning.php global_down_pct
+    global_every_hours=4,
 )
 
+# Для сравнения: как вёл бы себя город, если бы глобальный крон ходил раз в час с теми
+# числами, из которых считался doc 15. Не предложение — справочная колонка для `--compare`,
+# чтобы видеть цену переключения частоты.
 PROPOSED = dict(
-    name="предложение",
+    name="если бы глобальный спад был почасовым",
     calm_per_hour=1.0,       # тише одной команды в час — «спокойно»
     spam_per_hour=4.0,       # чаще четырёх в час — уже долбёжка
     calm_mult=0.7,
@@ -60,6 +75,8 @@ PROPOSED = dict(
     global_up=0.0,           # авторост выключен
     global_down_flat=0.1,
     global_down_pct=0.10,
+    local_every_hours=1,
+    global_every_hours=1,
 )
 
 RAW_MAX = 10.0
@@ -85,7 +102,8 @@ def gain(level_raw, price, cmds_per_hour, p):
     return price * activity_mult(cmds_per_hour, p) * softcap(level_raw, p) * p["boost"]
 
 
-def hourly_decay(value, flat, pct):
+def decay_step(value, flat, pct):
+    """Один прогон крона спада. Как часто он случается — см. *_every_hours в профиле."""
     return max(0.0, value - value * pct - flat)
 
 
@@ -124,8 +142,11 @@ def run(scenario, p):
             crowd = (p["global_k"] / (p["global_k"] + max(1, players))) ** p["global_beta"]
             world = min(RAW_MAX, world + p["global_alpha"] * gain(own, price, per_hour, p) * crowd * players)
             pending -= 1.0
-        own = hourly_decay(own + p["local_up"], p["local_down_flat"], p["local_down_pct"])
-        world = hourly_decay(world + p["global_up"], p["global_down_flat"], p["global_down_pct"])
+        hour = _hour + 1
+        if hour % p.get("local_every_hours", 1) == 0:
+            own = decay_step(own + p["local_up"], p["local_down_flat"], p["local_down_pct"])
+        if hour % p.get("global_every_hours", 1) == 0:
+            world = decay_step(world + p["global_up"], p["global_down_flat"], p["global_down_pct"])
     return peak, own, world
 
 
@@ -194,13 +215,25 @@ def print_table(p, compare_with=None):
         _, _, world_peak = run(s, p)
         print(f"{s['title']:<48} {world_peak:5.2f} = ур.{level(world_peak)}")
 
-    print("\n=== Сколько держится накопленное ===")
+    print("\n=== Сколько держится накопленный ЛОКАЛЬНЫЙ шум ===")
     for start in (4.0, 6.0, 8.0):
         v, hours = start, 0
-        while v > 1.0 and hours < 48:
-            v = hourly_decay(v + p["local_up"], p["local_down_flat"], p["local_down_pct"])
+        while v > 1.0 and hours < 240:
             hours += 1
+            if hours % p.get("local_every_hours", 1) == 0:
+                v = decay_step(v + p["local_up"], p["local_down_flat"], p["local_down_pct"])
         print(f"  с уровня {level(start)} ({start:.0f} сырых) до уровня 0: {hours} ч")
+
+    print("\n=== Глобальный шум за трёхдневную игру ===")
+    print("Город поднимают на +3 сырых за игровой день, ночью он только остывает.")
+    world = 0.0
+    for day in (1, 2, 3):
+        world = min(RAW_MAX, world + 3.0)
+        for h in range(24):
+            if (h + 1) % p.get("global_every_hours", 1) == 0:
+                world = decay_step(world + p["global_up"], p["global_down_flat"], p["global_down_pct"])
+        print(f"  конец дня {day}: {world:5.2f} сырых = ур.{level(world)}")
+    print(f"  (спад глобального крона применяется раз в {p.get('global_every_hours', 1)} ч)")
 
     calm, spam = to_server(p)
     print(f"\nВ config.php это: NOISE_CALM_RATE {calm:.4f}, NOISE_SPAM_RATE {spam:.4f} (команд в минуту)")
