@@ -181,6 +181,14 @@ Three catalogue familiars have no ability because they have no card: `familiar_g
 `familiar_dancefloor_queen`, `familiar_player_kristina`. Confirming a bond with them works
 and simply reports that there is nothing to grant.
 
+`familiars.description` was empty for all 23 rows and is now filled for those same 20 — what
+the creature is, its bond type, its ability with the cooldown, and the price. The Android
+client carries the field in `FamiliarCatalogResponse` but never renders it, so today this is
+text for masters in «Справочники»; it is written to survive being shown to players later,
+since a mage hears the ability, the weakness and the bond type from the familiar itself
+before consenting anyway. The abilities tab of that page now sorts `ability_id DESC` — newest
+first, which also puts the familiar block at the top.
+
 ## 9. Open questions
 
 - **The mirror carries the previous game across.** Every other familiar is keyed per player,
