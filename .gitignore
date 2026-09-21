@@ -38,3 +38,7 @@ SHIFT - работа над игрой/
 # whatever ships in the game goes into res/ or onto the server instead.
 /Карты/
 __pycache__/
+
+# Локальные зависимости тестов прокси (ставятся через pip --target)
+/proxy-tests/libs/
+familiar-prompts.zip
