@@ -150,9 +150,19 @@ voice anchor the register far better.
 
 - **The mirror carries the previous game across.** Every other familiar is keyed per player,
   so a new player always starts a clean chat. `familiar_mirror` is not: its shared log holds
-  123 messages from 2025-08-30 onwards, and each new conversation opens with the tail of the
-  last game already in context. Decide before the next game whether to archive it — the
-  chat history is the only part of the system where a previous game leaks into the next one.
+  123 messages from 2025-08-30 onwards, and every new conversation opens with the tail of
+  the last game already in context. What remains open is a game question, not a technical
+  one — whether a mirror that can refer to last game's events is a problem or a feature.
+
+  Two worries about that log were **tested and did not hold up**, so nobody needs to retest
+  them. Those old replies come from the lost pre-2026 prompt and are written in a completely
+  different voice — an oracle dispensing quoted aphorisms — so the obvious fear is that the
+  model imitates forty examples of its own former self instead of following the card. It
+  does not: asked point blank for a divination, the mirror answered in the new card's voice
+  with no aphorisms at all. The second guess, that the same history was making it terser
+  than other familiars, was checked by running the identical card under a throwaway id with
+  an empty history; the answer came out just as dry. The reserve is the character — the card
+  says "спокойный, внимательный и немного отстранённый" — and not the context.
 - Three catalogue entries have no card: `familiar_glazastik`,
   `familiar_dancefloor_queen`, `familiar_player_kristina` — the player-specific familiars
   seeded in §12. They answer `400 unknown familiar` until someone writes them.
