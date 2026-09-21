@@ -146,7 +146,42 @@ something to say about anything at all. A list of characteristic words in the sp
 works poorly — the model spreads them evenly and flatly; two or three **example lines** in
 voice anchor the register far better.
 
-## 8. Open questions
+## 8. The ability a bond grants (2026-09-21)
+
+Until this day a familiar's ability existed only as prose inside its card: confirming a
+ritual changed nothing a player could see in their profile. Now the ability is a catalogue
+row like any other, and confirming the ritual hands it over.
+
+Three small pieces make that work:
+
+- `abilities.external` (new column, default 0). `sync_abilities_marks` used to hardcode
+  `external = 0` on every ABILITY aura mark; it now reads this column. Familiar abilities are
+  the only rows with `external = 1`, so they show up as **external** marks — visible to
+  whoever reads the aura — while all 75 pre-existing abilities keep behaving exactly as
+  before.
+- `familiars.ability_id` (new column) — which ability a familiar grants.
+- The panel's «Обряд проведён» button now also writes the ability to the player. It goes
+  **through `PUT /mage_profile_api/api/v1/user/{id}`**, never SQL, because that endpoint is
+  what rebuilds the aura marks. «Снять» revokes both.
+
+The twenty familiar abilities occupy ids **101–120**, deliberately clear of the 1–80 range
+the game already used, so a familiar ability is recognisable by its number alone. Types were
+assigned by what the ability does: познание for the ones that answer questions (лиса,
+зеркало, компас, жаба, ворон-советчик, барабашка, Аркадий, Wi-Fi, плохой совет), защита for
+the ones that blunt an attack (ящерица, кошка, Зев Бездны, «Ещё пять минут», ворон),
+изменение for the ones that move things (Вайнера, дух вещей), усиление for the healing cup,
+прочее for the rest.
+
+Descriptions carry the ability and its cooldown but **not** the familiar's weakness. The
+mark is external, and a condition like «раз в сутки обязан утащить ценность» would then be
+readable by anyone scanning the player's aura. If that leak is wanted, it is one edit per
+description.
+
+Three catalogue familiars have no ability because they have no card: `familiar_glazastik`,
+`familiar_dancefloor_queen`, `familiar_player_kristina`. Confirming a bond with them works
+and simply reports that there is nothing to grant.
+
+## 9. Open questions
 
 - **The mirror carries the previous game across.** Every other familiar is keyed per player,
   so a new player always starts a clean chat. `familiar_mirror` is not: its shared log holds
