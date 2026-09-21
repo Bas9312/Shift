@@ -75,9 +75,16 @@ class ProfileEditFragment : Fragment() {
             showEditInstrumentDialog()
         }
 
-        // Настройка кнопки для фамильяра
+        // Фамильяр отсюда не меняется: он ставится вместе со связью в разделе «Связи»
+        // веб-панели, которая заодно выдаёт способность и метку в ауру. Правка здесь
+        // развела бы профиль с таблицей familiar_bonds.
+        binding.btnEditFamiliar.isEnabled = false
         binding.btnEditFamiliar.setOnClickListener {
-            showEditFamiliarDialog()
+            Toast.makeText(
+                requireContext(),
+                "Фамильяр ставится вместе со связью — в разделе «Связи» панели МГ",
+                Toast.LENGTH_LONG
+            ).show()
         }
 
         // Настройка кнопок для особенностей
@@ -488,12 +495,16 @@ class ProfileEditFragment : Fragment() {
             return
         }
 
+        // familiar не отправляем: поле здесь только показывается, а ставится вместе со
+        // связью в разделе «Связи» панели МГ. Null выпадает из JSON, а PUT частичный —
+        // значит отправка профиля из приложения фамильяра не трогает, даже если связь
+        // поменялась, пока экран был открыт.
         val updateRequest = UserUpdateRequest(
             disciplines = currentUserDisplay!!.disciplines.map { it.id },
             modules = currentUserDisplay!!.modules.map { it.id },
             abilities = currentUserDisplay!!.abilities.map { it.id },
             instrument = currentUserDisplay!!.instrument,
-            familiar = currentUserDisplay!!.familiar,
+            familiar = null,
             misc = currentUserDisplay!!.misc
         )
 
