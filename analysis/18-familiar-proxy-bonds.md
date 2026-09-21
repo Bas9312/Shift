@@ -116,9 +116,12 @@ same interlocutor.
 canonical one and the first player the mirror agrees with binds it for everybody at once.
 There is a test for this specifically, and it should stay.
 
-See §8 — the shard cards delivered on 2026-09-21 describe three mirror shards that
-explicitly do *not* share memory, which is in tension with the shared history and is an open
-question for the owner.
+The card delivered on 2026-09-21 originally described three shards that share a bearers'
+chat but *not* each other's memories — the opposite of what the storage does. The owner
+chose to keep the shared conversation, so the card was rewritten: the three shards are one
+reflecting surface, and the mirror is told that it cannot tell which bearer is speaking and
+must never attribute or retell. The storage limitation is now part of the character. The
+bond stays per bearer regardless — a shared surface is not a shared bond.
 
 ## 7. Prompts
 
@@ -145,11 +148,11 @@ voice anchor the register far better.
 
 ## 8. Open questions
 
-- **Mirror shards vs shared history.** The delivered cards define three Осколка Зеркала,
-  each with its own bearer, sharing a bearers' chat but explicitly *not* each other's
-  memories. The proxy currently gives `familiar_mirror` a single shared conversation, which
-  is the opposite. Either the card loses the no-telepathy lines, or the mirror becomes a
-  per-player chat like everyone else (one constant, `SHARED_FAMILIAR`). Owner's call.
+- **The mirror carries the previous game across.** Every other familiar is keyed per player,
+  so a new player always starts a clean chat. `familiar_mirror` is not: its shared log holds
+  123 messages from 2025-08-30 onwards, and each new conversation opens with the tail of the
+  last game already in context. Decide before the next game whether to archive it — the
+  chat history is the only part of the system where a previous game leaks into the next one.
 - Three catalogue entries have no card: `familiar_glazastik`,
   `familiar_dancefloor_queen`, `familiar_player_kristina` — the player-specific familiars
   seeded in §12. They answer `400 unknown familiar` until someone writes them.
