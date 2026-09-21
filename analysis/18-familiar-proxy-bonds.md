@@ -218,7 +218,24 @@ Both notices in the chat (`CONSENT_NOTICE`, `EXPIRED_NOTICE`) are stored with th
 role inside `⟪ ⟫`. A real `system` role would mean changing the CHECK constraint, the client
 model and the adapter, and shipping an APK for what two brackets already convey.
 
-## 10. Open questions
+## 10. One point, one bearer (2026-09-21)
+
+Confirming a ritual now retires the map point the player negotiated through. The rule is
+per **point**, not per familiar: the mirror gets three points on the map and therefore three
+bearers, the cup gets one and therefore one. How many bearers a creature has is decided by
+how many points the masters place, which is where that decision belongs.
+
+The point is not deleted — `expireAt = NOW()` drops it out of `GET /points`, whose base
+filter is already `expireAt > NOW() OR expireAt IS NULL`, while the row and its
+`assigned_player` stay as the record of who took it. «Снять» reverses it: `expireAt` back to
+NULL and the assignment cleared, so a master who confirmed the wrong row can undo it
+completely.
+
+Targeting is by `assigned_player`, not by familiar id, which is what keeps the other points
+of the same creature on the map. A bond created through «Обряд провели вживую» usually has
+no point behind it at all; that path simply reports that nothing on the map changed.
+
+## 11. Open questions
 
 - **The mirror carries the previous game across.** Every other familiar is keyed per player,
   so a new player always starts a clean chat. `familiar_mirror` is not: its shared log holds
