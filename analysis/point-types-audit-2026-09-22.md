@@ -130,16 +130,21 @@ in `valid_types`; a `POINT_WITH_TEXT` created with `"hidden": false` comes back 
 `PATCH {"hidden": false}` on it leaves the flag at 1; the panel renders the new badges, offers
 `POINT` as the default type and carries the checkbox-locking JS.
 
-## Blocked: the `type` ENUM still has to be widened
+## The `type` ENUM — widened, with one casualty
 
-`points`.`type` is an ENUM that does not contain `POINT`, and the server runs with an empty
-`sql_mode` — MySQL does not reject the unknown value, it silently stores `''`. So **creating a
-`POINT` currently produces a row with an empty type.** Caught it with a smoke-test point,
-which has since been deleted; no broken rows remain.
+`points`.`type` is an ENUM that did not contain `POINT`, and the server runs with an empty
+`sql_mode`: MySQL does not reject an unknown value, it silently stores `''`. Widening it was
+the last step and it is now done — `ALTER TABLE points MODIFY COLUMN type enum(...)` with
+`POINT` appended at the end and `HIDDEN_AR_POINT` dropped (zero rows carried it). Type counts
+matched exactly before and after.
 
-The fix is the last statement in `SERVER/migrations/2026-09-22-point-display.sql`. It could
-not be run from this session — the sandbox refused the `ALTER TABLE`. Until it runs, every
-other change is live and working, but the new type is unusable.
+One live point was caught by the gap: «Светофор» (`p-6ab2a571397fe`), which a master
+re-saved as the new type between the panel upload and the ALTER. It landed with an empty
+type and lost its `hidden` flag. After the ALTER its `type` was set back to `POINT` by hand;
+the master's own settings (radius 50, visible, text on entry) were left as they were.
+
+Verified afterwards: `POST /points` with `{"type":"POINT","radius":42,"marker_from_afar":true}`
+returns `type = "POINT"`, `hidden = 0`, `marker_from_afar = 1`, `radius = 42`.
 
 ## Entry is now measured from the drawn circle
 
