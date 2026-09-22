@@ -80,6 +80,16 @@ EXPIRED_NOTICE = os.environ.get("EXPIRED_NOTICE", "").strip() or (
     "договорённость истекла, фамильяр снова свободен. Если он всё ещё нужен, "
     "придётся договариваться заново. ⟫"
 )
+# То же самое, но в чат с МГ. CONSENT_NOTICE выше уходит в историю чата с фамильяром и
+# всплывает там только при следующем открытии чата — игрок, который продолжает переписку,
+# его не видит вовсе. Это сообщение приходит обычным путём, то есть сразу и с уведомлением
+# на телефон, и работает на уже установленных сборках: правится только прокси.
+PLAYER_NOTICE = os.environ.get("PLAYER_NOTICE", "").strip() or (
+    "[авто] Фамильяр «{name}» согласился на связь. "
+    f"Бронь держится {BOND_RESERVE_HOURS} часов — всё это время он ваш, другому магу его не "
+    "перехватить. Проведите обряд и сообщите мастеру: до подтверждения способность не работает, "
+    "а если не успеть в срок — договорённость пропадёт."
+)
 MG_RECIPIENT_ID = os.environ.get("MG_RECIPIENT_ID", "MG_Bas")
 MG_NOTIFY_TAG = os.environ.get("MG_NOTIFY_TAG", "10")  # 10 = «Общие вопросы»
 BOND_RECHECK_S = float(os.environ.get("BOND_RECHECK_S", "60"))
@@ -225,8 +235,21 @@ def init_db():
             notified_at       REAL,
             bond_confirmed_at REAL,
             checked_at        REAL,
+            player_notified_at REAL,
             PRIMARY KEY(user_id, familiar)
         )""")
+        # У живой базы на VPS таблица уже создана без player_notified_at, а CREATE TABLE
+        # IF NOT EXISTS её не тронет. Добавляем колонку отдельно и только если её нет —
+        # ALTER TABLE ... ADD COLUMN в SQLite не умеет IF NOT EXISTS и падает на второй раз.
+        have = {row[1] for row in cx.execute("PRAGMA table_info(bonds)")}
+        if "player_notified_at" not in have:
+            cx.execute("ALTER TABLE bonds ADD COLUMN player_notified_at REAL")
+            # Уже существующие согласия закрываем сразу: иначе первый же outbox_tick
+            # разошлёт уведомления по всем старым договорённостям — игрок получит письмо
+            # про бронь, которая случилась позавчера.
+            cx.execute("UPDATE bonds SET player_notified_at = COALESCE(notified_at, consented_at) "
+                       "WHERE consented_at IS NOT NULL AND player_notified_at IS NULL")
+            log.info("миграция: в bonds добавлена колонка player_notified_at")
         cx.commit()
     # Таблица threads от Assistants API осталась в базе и больше не используется.
     # Не удаляю её здесь намеренно: снос данных — ручная операция, не побочный эффект старта.
@@ -389,7 +412,9 @@ async def notify_mg(user_id: str, familiar: str) -> str:
     """Кладёт уведомление в тот же чат с МГ, куда пишет сам игрок."""
     name = _NAMES.get(familiar, familiar)
     text = (f"[авто] Фамильяр «{name}» согласился на связь с игроком {user_id}. "
-            f"Обряд ещё не проведён — подтвердить можно в панели МГ.")
+            f"Обряд ещё не проведён — подтвердить можно в панели МГ. "
+            f"Бронь держится {BOND_RESERVE_HOURS} часов: всё это время фамильяр закреплён за "
+            f"игроком и другому не достанется, после чего договорённость истекает.")
     try:
         r = await game.post(
             f"{GAME_API_BASE}/messages_api/messages",
@@ -402,13 +427,34 @@ async def notify_mg(user_id: str, familiar: str) -> str:
         return _outcome(e, "уведомление МГ", user_id, familiar)
 
 
+async def notify_player(user_id: str, familiar: str) -> str:
+    """Пишет игроку в чат с МГ: согласие получено, бронь идёт.
+
+    Отправляется от лица МГ, поэтому у игрока это входящее сообщение — с уведомлением и
+    счётчиком непрочитанных, в отличие от отбивки в чате с фамильяром.
+    """
+    name = _NAMES.get(familiar, familiar)
+    text = PLAYER_NOTICE.format(name=name)
+    try:
+        r = await game.post(
+            f"{GAME_API_BASE}/messages_api/messages",
+            headers={"X-User-Id": MG_RECIPIENT_ID},
+            data={"text": text, "recipient_id": user_id, "tags": MG_NOTIFY_TAG},
+        )
+        r.raise_for_status()
+        return SENT
+    except Exception as e:
+        return _outcome(e, "уведомление игроку", user_id, familiar)
+
+
 async def outbox_tick() -> int:
     """Досылает то, что не ушло с первого раза. Исходящие никогда не должны ронять
     разговор с фамильяром, поэтому они живут отдельно от обработки запроса."""
-    pending = db_q("""SELECT user_id, familiar, pushed_at, notified_at FROM bonds
-                      WHERE consented_at IS NOT NULL AND (pushed_at IS NULL OR notified_at IS NULL)""")
+    pending = db_q("""SELECT user_id, familiar, pushed_at, notified_at, player_notified_at FROM bonds
+                      WHERE consented_at IS NOT NULL
+                        AND (pushed_at IS NULL OR notified_at IS NULL OR player_notified_at IS NULL)""")
     done = 0
-    for user_id, familiar, pushed_at, notified_at in pending:
+    for user_id, familiar, pushed_at, notified_at, player_notified_at in pending:
         if pushed_at is None:
             # DROP тоже закрывает строку: иначе безнадёжная запись долбилась бы вечно.
             # Сигналом о проблеме остаётся ERROR в логе.
@@ -419,6 +465,11 @@ async def outbox_tick() -> int:
         if notified_at is None:
             if await notify_mg(user_id, familiar) in (SENT, DROP):
                 db_exec("UPDATE bonds SET notified_at=? WHERE user_id=? AND familiar=?",
+                        (time.time(), user_id, familiar))
+                done += 1
+        if player_notified_at is None:
+            if await notify_player(user_id, familiar) in (SENT, DROP):
+                db_exec("UPDATE bonds SET player_notified_at=? WHERE user_id=? AND familiar=?",
                         (time.time(), user_id, familiar))
                 done += 1
     return done
@@ -600,6 +651,11 @@ async def chat_send(req: Request, bg: BackgroundTasks, x_shift_token: Optional[s
     # Связь ключуется по настоящему игроку: у зеркала история общая, а связь личная.
     bond = get_bond(user_id, familiar)
     phase = phase_of(bond)
+    # Отбивки, которые надо показать игроку прямо сейчас. Класть их только в историю мало:
+    # клиент дописывает ответ в ленту сам и историю не перечитывает, так что отбивка
+    # всплывала лишь при следующем открытии чата — то есть когда она уже не нужна.
+    expired_notice = None
+    consent_notice = None
     if phase != PHASE_BOUND:
         last_check = (bond or {}).get("checked_at") or 0
         if time.time() - last_check > BOND_RECHECK_S:
@@ -608,6 +664,7 @@ async def chat_send(req: Request, bg: BackgroundTasks, x_shift_token: Optional[s
             if expired:
                 # Отбивка идёт до реплики игрока: истекло-то оно раньше, чем он написал.
                 save_msg(uid, familiar, "assistant", EXPIRED_NOTICE)
+                expired_notice = EXPIRED_NOTICE
 
     # сохраняем вход до запроса к модели: что игрок сказал, то сказал,
     # даже если ответ не придёт
@@ -629,10 +686,22 @@ async def chat_send(req: Request, bg: BackgroundTasks, x_shift_token: Optional[s
         # Модель потом прочитает её как свою прошлую реплику; это и к лучшему, она
         # лишний раз напоминает, что обряд не проведён.
         save_msg(uid, familiar, "assistant", CONSENT_NOTICE)
+        consent_notice = CONSENT_NOTICE
         bg.add_task(outbox_tick)
     elif consent:
         log.info("consent=true проигнорирован (фаза %s): %s / %s", phase, user_id, familiar)
 
     log.info("familiar=%s uid=%s phase=%s ok за %.1fs, %d символов",
              familiar, uid, phase, time.time() - started, len(answer))
-    return JSONResponse({"text": answer})
+
+    # Отбивки отдаём вместе с репликой, в том же порядке, в каком они легли в историю:
+    # истечение — до ответа (оно случилось раньше, чем игрок написал), согласие — после.
+    # Склейка в один `text`, а не отдельное поле, потому что так их увидят и уже
+    # установленные сборки: клиент показывает ровно `text`. Отдельное `notice` оставлено
+    # для будущего клиента, который сможет отрисовать отбивку своим стилем.
+    notices = [n for n in (expired_notice, consent_notice) if n]
+    if not notices:
+        return JSONResponse({"text": answer})
+    parts = ([expired_notice] if expired_notice else []) + [answer] + \
+            ([consent_notice] if consent_notice else [])
+    return JSONResponse({"text": "\n\n".join(parts), "notice": "\n\n".join(notices)})

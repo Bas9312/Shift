@@ -2,6 +2,7 @@ package bas.app.shift
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -96,11 +97,15 @@ class MainActivity : AppCompatActivity() {
         }
         checkUserDisciplines()
 
-        // Проверяем обновления один раз за время жизни процесса — иначе каждый возврат
-        // с карты/чата заново дёргает сеть и может повторно показать диалог обновления
-        // поверх текущего экрана.
-        if (!updateCheckedThisSession) {
-            updateCheckedThisSession = true
+        // Проверяем обновления не чаще раза в UPDATE_CHECK_INTERVAL_MS — иначе каждый возврат
+        // с карты/чата заново дёргает сеть и может повторно показать диалог поверх текущего
+        // экрана. Раньше здесь стояла проверка «один раз за время жизни процесса», и это не
+        // работало: процесс держит foreground-сервис геолокации, поэтому он переживает свайп
+        // из недавних. Игрок «перезапускал» приложение сколько угодно, а обновление ему не
+        // предлагалось ни разу, пока систему что-нибудь не заставит убить процесс.
+        val now = SystemClock.elapsedRealtime()
+        if (lastUpdateCheckAt == 0L || now - lastUpdateCheckAt >= UPDATE_CHECK_INTERVAL_MS) {
+            lastUpdateCheckAt = now
             checkForUpdates()
         }
 
@@ -709,6 +714,14 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val PREFS_NAME = "game_state"
         const val KEY_IN_GAME = "is_in_game"
-        private var updateCheckedThisSession = false
+
+        /** Как часто главный экран заново спрашивает сервер о новой версии. */
+        private const val UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000L
+
+        /**
+         * Момент последней проверки, по часам с момента загрузки телефона. Ноль — процесс
+         * только что стартовал и ещё не проверял, тогда проверяем сразу.
+         */
+        private var lastUpdateCheckAt = 0L
     }
 } 

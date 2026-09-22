@@ -237,6 +237,17 @@ uploaded APK was re-downloaded over HTTPS and its sha256 matched the local build
 
 ### B. Available right now, no emulator needed
 
+**Release 3.0.3 (`versionCode 22`) published 2026-09-22.** The signed APK is at
+`/static/app-release-3.0.3.apk`; `update.json` points to it and keeps the six earlier player
+release notes plus two short map/location notes. The APK downloaded over HTTPS matches the
+build SHA-256, and its signing certificate matches 3.0.2. The release build installed and
+launched on the emulator, displayed `v3.0.3`, and the player map loaded nine points. For the
+in-app path, release 3.0.2 read the live manifest, showed the 3.0.3 dialog, downloaded the
+APK, and reached Android's install prompt and Play Protect. The final Play Protect scan and
+installation were not completed by automation because that scan sends the APK to Google;
+the emulator remains at that prompt for a human to finish.
+
+
 | # | Item | Notes |
 |---|------|-------|
 | B1 | **Cross-check Kotlin `api/*.kt` against the real server PHP** | **Done 2026-08-17**, all pairs checked, no live client-side bug found. Findings below. |
@@ -521,7 +532,53 @@ Each of these was investigated to a conclusion. Re-running them wastes a session
   `currentUserId` shadowing in `ProfileFragment.showProfile` is correct by scope; `AU2`
   bitmap-cache growth is view-scoped and bounded; `MA4`/`MA5` are not reproducible.
 
+**Every master-side player list was cut off at 50, silently.** Reported 2026-09-22 ("в
+редакторе аур видно не всех"), fixed the same day **on the server**, so it reached every phone
+without a new APK. `GET /mage_profile_api/api/v1/users` (`api.php`, `get_users()`) is
+paginated and defaulted to `LIMIT 50`; the client calls it with no parameters and treats the
+answer as the complete roster. With 84 rows in `users`, the last 34 — `ORDER BY name`, so
+everyone from `lina` onwards, including four MGs — did not exist as far as the app was
+concerned. **Five call sites were affected**, not just the aura editor: `AuraEditorActivity`,
+`MgProfileViewActivity`, `ArtifactCreatorActivity`, `ArtifactDetailsFragment` and
+`NoiseManager.findUserByName` (that last one is dead code — nothing calls it).
+
+The fix returns every row when neither `page` nor `limit` is supplied, and keeps the old
+paginated behaviour when either is. Verified live afterwards: the endpoint returns 84,
+`?page=2` still returns 34, and the app under `MG_Bas` logs
+`Users loaded successfully: 84` / `Filtered users: 75` where it used to log 50 / 45.
+
+Worth remembering as a class of bug: **a default `LIMIT` on an endpoint whose caller has no
+concept of pages**. Nothing errors, nothing logs, the list just ends early — and it only
+becomes visible once the table outgrows the limit, which is exactly when the game is closest
+to starting.
+
 ## Field notes (techniques and gotchas worth keeping)
+
+**A subscribed master could see a player's question but could not mark it read.** Fixed
+2026-09-22 in the live `messages_api` and GM panel. Chat history includes messages addressed
+to other masters when their tags match the selected master's subscriptions, while
+`PUT /messages/{id}/read` previously accepted only the sender or recipient. The read endpoint
+now also accepts a master subscribed to a tag on a player-to-master message. The panel shows
+the first API error when a batch fails. Verified against `bas`'s live history as `MG_TARI`:
+one message addressed to another master returned HTTP 200 and changed to `read`. The other
+unread messages were left for the master to handle in the panel.
+
+**The app never offered an update twice, and swiping it away did not help.** Found 2026-09-22
+when the owner reported that 3.0.1 was not being offered to his 3.0 phone. `MainActivity`
+guarded the check with `updateCheckedThisSession`, a `companion object` flag — one check per
+**process**. The process does not die when the player swipes the app out of recents, because
+the foreground location service keeps it alive; the Activity is recreated, the flag is still
+`true`, and the app never asks the server again. So "I killed it and reopened it" was true and
+still produced no check. Only `am force-stop` (or the system genuinely killing the process)
+reset it. Replaced with a 30-minute interval on `elapsedRealtime`, plus a 2-hour snooze
+per `versionCode` behind «Позже» so the new frequency does not nag mid-game. Shipped in 3.0.2.
+
+**When a test says "nothing changed", check the install actually happened.** Twice this session
+an `adb install` of a debug build over the release build failed with
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE` (different signing keys) while the surrounding pipeline
+printed only `Performing Streamed Install`, and the logcat that followed came from the **old**
+APK. Both times the conclusion drawn from it was wrong. `adb install` prints `Success` on its
+own line — grep for it, do not assume it.
 
 **The emulator runs out of disk, and `disk.dataPartition.size` does not fix it.** `/data` is
 6 GB and the Google Play system image eats ~5.4 GB of it, so an install fails with

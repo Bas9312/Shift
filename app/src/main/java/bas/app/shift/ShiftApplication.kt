@@ -148,9 +148,15 @@ class ShiftApplication : Application(), DefaultLifecycleObserver, SingletonImage
         // It is already on by default in agent 7.8.2; stated explicitly so an agent upgrade
         // that changes the default does not silently stop shipping our logs. Must precede start().
         FeatureFlag.enableFeature(FeatureFlag.LogReporting)
+        // withLoggingEnabled(false) silences the agent's own chatter. Left on, it files every
+        // harvest cycle ("Harvester: connected", "Sending [34] HTTP transactions", the whole
+        // HarvestConfiguration dump) into New Relic Logs and buries the app's own lines.
+        // It swaps the agent's logger for a NullAgentLog; our LogHelper lines travel a
+        // different path (LogReporting), so they are unaffected. withLogLevel() is not enough
+        // here — it only quietens logcat, the remote config still forwards the rest.
         NewRelic.withApplicationToken(
             "eu01xa26df0283f11c861c13e80e409380634c0f68-NRMA"
-        ).start(this.applicationContext)
+        ).withLoggingEnabled(false).start(this.applicationContext)
         NewRelic.setUserId(UserPrefsHelper.getUserId(this))
         LogHelper.d("onCreate - настройка жизненного цикла приложения")
         

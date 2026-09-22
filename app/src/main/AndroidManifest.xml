@@ -104,6 +104,10 @@
             android:name=".receivers.AuraCleanupReadyReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".services.UpdateInstallReceiver"
+            android:exported="false" />
+
         <!-- Пульс для LocationService в Doze: будит сервис, когда handler.postDelayed
              замирает во время глубокого сна. -->
         <receiver

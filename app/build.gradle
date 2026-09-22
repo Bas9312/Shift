@@ -7,6 +7,14 @@ plugins {
     id 'newrelic'
 }
 
+// The plugin rewrites every android.util.Log call into one that also ships to New Relic.
+// AndroidStandardLogger goes through android.util.Log, so each LogHelper line arrived twice:
+// once tagless from the rewritten Log call, once from NewRelicLogger with the caller tag.
+// Off means logcat stays local and New Relic gets exactly one tagged copy.
+newrelic {
+    logInstrumentationEnabled = false
+}
+
 android {
     namespace 'bas.app.shift'
     compileSdk 35
@@ -15,8 +23,8 @@ android {
         applicationId "bas.app.shift"
         minSdk 26
         targetSdk 35
-        versionCode 19
-        versionName "3.0"
+        versionCode 24
+        versionName "3.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

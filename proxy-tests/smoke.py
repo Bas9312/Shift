@@ -45,6 +45,7 @@ class FakeGame:
     def __init__(self):
         self.gets, self.posts = [], []
         self.confirmed = set()          # (user_id, familiar)
+        self.consented = set()          # то же, но про согласие: сюда кладёт push_consent
         self.down = False
         self.status = 200               # ответ на POST-ы
     async def get(self, url, params=None, headers=None, **kw):
@@ -52,9 +53,16 @@ class FakeGame:
         if self.down:
             raise RuntimeError("game server down")
         key = (params["user_id"], params["familiar"])
-        return FakeResp({"confirmed": key in self.confirmed})
+        # Боевой familiars_api отдаёт оба флага (api.php: 'consented' => !empty(consented_at)).
+        # Без `consented` прокси считает, что сервер о согласии забыл, и снимает бронь —
+        # ровно это фейк и делал, из-за чего фаза падала обратно в NEGOTIATING, а следующий
+        # consent=true уходил как новый, со вторым уведомлением.
+        return FakeResp({"confirmed": key in self.confirmed,
+                         "consented": key in self.consented or key in self.confirmed})
     async def post(self, url, headers=None, data=None, **kw):
         self.posts.append((url, headers or {}, data or {}))
+        if url.endswith("/bonds") and not self.down and self.status < 400:
+            self.consented.add((data.get("user_id"), data.get("familiar")))
         if self.down:
             raise RuntimeError("game server down")
         return FakeResp({"ok": True}, self.status)
@@ -110,8 +118,17 @@ with TestClient(proxy.app) as c:
 
     print("\n-- фазы")
     check("новая пара игрок/фамильяр = NEGOTIATING", phase(c, "Bas", "familiar_fox") == "NEGOTIATING")
-    say(c, "Bas", "familiar_fox", "будешь со мной?", reply="Ладно, согласен.", consent=True)
+    r_consent = say(c, "Bas", "familiar_fox", "будешь со мной?", reply="Ладно, согласен.", consent=True)
     check("consent=true из NEGOTIATING -> CONSENTED", phase(c, "Bas", "familiar_fox") == "CONSENTED")
+
+    # Отбивку игрок должен увидеть сразу, а не при следующем открытии чата.
+    body = r_consent.json()
+    check("отбивка о согласии пришла в том же ответе", "⟪" in body.get("text", ""), body.get("text"))
+    check("реплика фамильяра при этом на месте", "Ладно, согласен." in body.get("text", ""), body.get("text"))
+    check("в тексте отбивки назван срок брони", "5 час" in body.get("text", ""), body.get("text"))
+    check("отбивка продублирована отдельным полем", "⟪" in (body.get("notice") or ""), body.get("notice"))
+    check("обычный ответ без согласия поля notice не несёт",
+          "notice" not in say(c, "Bas", "familiar_fox", "ага").json())
     check("следующий запрос видит фазу CONSENTED",
           (say(c, "Bas", "familiar_fox", "ну как"),
            openai.CALLS[-1]["input"][0]["content"])[1] == '<state phase="CONSENTED" />')
@@ -172,8 +189,23 @@ with TestClient(proxy.app) as c:
     check("в тексте отображаемое имя фамильяра, не id",
           "Лис" in data.get("text", "") and "familiar_fox" not in data.get("text", ""), data.get("text"))
     check("текст помечен как машинный", data.get("text", "").startswith("[авто]"), data.get("text"))
+    check("мастеру сказано про срок брони", "5 час" in data.get("text", ""), data.get("text"))
     pushes = [p for p in game.posts if p[0].endswith("/bonds")]
     check("согласие отдано игровому серверу", len(pushes) >= 1, len(pushes))
+
+    print("\n-- уведомление игроку")
+    # Именно про Лиса: Bas в этом прогоне успевает согласиться ещё и с Зеркалом.
+    to_player = [p for p in notes
+                 if p[2].get("recipient_id") == "Bas" and "Лис" in p[2].get("text", "")]
+    check("игроку тоже написали, ровно один раз", len(to_player) == 1, len(to_player))
+    if to_player:
+        _, p_headers, p_data = to_player[0]
+        check("отправитель — МГ", p_headers.get("X-User-Id") == "MG_Bas", p_headers)
+        check("тег тот же", p_data.get("tags") == "10", p_data)
+        check("сказано про срок брони", "5 час" in p_data.get("text", ""), p_data.get("text"))
+        check("имя фамильяра, не id",
+              "Лис" in p_data.get("text", "") and "familiar_fox" not in p_data.get("text", ""),
+              p_data.get("text"))
 
     print("\n-- outbox переживает недоступность")
     game.down = True
@@ -184,7 +216,8 @@ with TestClient(proxy.app) as c:
     check("недосланное помечено как недосланное", ("Tari",) in pending, pending)
     game.down = False
     sent = c.post("/admin/outbox-flush").json()["sent"]
-    check("после починки outbox дослал", sent == 2, sent)
+    # Три отправки на одно согласие: пуш игровому серверу, уведомление МГ и уведомление игроку.
+    check("после починки outbox дослал", sent == 3, sent)
     pending = proxy.db_q("SELECT user_id FROM bonds WHERE consented_at IS NOT NULL AND notified_at IS NULL")
     check("очередь пуста", pending == [], pending)
     check("повторный flush не шлёт дублей", c.post("/admin/outbox-flush").json()["sent"] == 0)

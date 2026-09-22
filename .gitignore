@@ -42,3 +42,6 @@ __pycache__/
 # Локальные зависимости тестов прокси (ставятся через pip --target)
 /proxy-tests/libs/
 familiar-prompts.zip
+
+# GM panel guide — carries the shared panel password, must not reach the public repo
+docs/gm-panel-guide.md
