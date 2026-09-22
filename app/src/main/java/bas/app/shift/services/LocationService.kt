@@ -10,6 +10,8 @@ import android.os.Looper
 import bas.app.shift.helpers.LogHelper
 import bas.app.shift.helpers.ProfileDiffer
 import bas.app.shift.models.Point
+import bas.app.shift.models.vLatOrLat
+import bas.app.shift.models.vLngOrLng
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -234,15 +236,18 @@ class LocationService : Service() {
                 points.forEach { point ->
                     // Вход считается для любой точки, включая скрытые: смысл скрытой точки
                     // ровно в том, чтобы игрок наткнулся на неё, не видя её на карте.
+                    // Меряем до ВИРТУАЛЬНОГО центра и полным радиусом — то есть ровно до
+                    // того круга, который игрок видит на карте. Раньше расстояние считалось
+                    // от реального центра, смещённого от нарисованного случайно на величину
+                    // до радиуса, а у фамильяра вместо радиуса стояли жёстко 50 м при круге
+                    // в 150. И то и другое давало «стою в круге, ничего не происходит».
+                    // Сервер меряет так же (ST_Distance_Sphere от vLat/vLng в api_geo).
                     val distance = calculateDistance(
                         location.latitude, location.longitude,
-                        point.lat, point.lng
+                        point.vLatOrLat, point.vLngOrLng
                     )
-                    
-                    // Для фамильяров используем расстояние 30 метров вместо радиуса точки
-                    val checkDistance = if (point.type == "FAMILIAR") 50.0 else point.radius
-                    
-                    if (distance <= checkDistance) {
+
+                    if (distance <= point.radius) {
                         newPointsInRange.add(point.pointId)
                         
                         // Если мы только что вошли в точку

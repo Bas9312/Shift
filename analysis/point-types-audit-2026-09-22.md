@@ -110,27 +110,51 @@ whether a point shows up.
 **`SERVER/migrations/2026-09-22-point-display.sql`** — `ADD COLUMN marker_from_afar`, plus the
 data fix below. **Not applied yet.**
 
-## Deployment order — this one matters
+## Deployed 2026-09-22
 
-Live data as of 2026-09-22: 42 points, of which **19 `POINT_WITH_TEXT` and 3 of the 4
-`HIDDEN_EFFECT_AREA` carry `hidden = 0`**. They were invisible only because the old client
-threw them away by type. Ship the new APK first and all 22 appear on the players' map.
+Backup taken first: `SERVER/_backups/shift-full-20260922-173034.sql.gz` (165 tables, gzip
+verified, dump closes with `-- done`), pulled through the panel's own read-only dump page.
 
-1. Apply `SERVER/migrations/2026-09-22-point-display.sql` (adds the column, then
-   `UPDATE points SET hidden = 1 WHERE type IN ('POINT_WITH_TEXT','HIDDEN_EFFECT_AREA')`).
-   Safe against the *old* app: `POINT_WITH_TEXT` was already invisible, and the three effect
-   zones becoming hidden is the intended end state.
-2. Upload `api_geo/api.php` and `gm/` (diff against live first — Тари may have touched them).
-   The panel's edit form writes `marker_from_afar` by direct SQL, so it breaks without step 1.
-3. Install the new APK.
+Applied to the live database:
+- `ALTER TABLE points ADD COLUMN marker_from_afar TINYINT(1) NOT NULL DEFAULT 0`;
+- `UPDATE points SET hidden = 1` on the always-hidden types — 22 rows at the time, plus one
+  more that a master created while this work was in progress.
 
-Rolling back means putting the old APK back; the column and the `hidden` flags can stay.
+Uploaded over FTP, each diffed against the live copy first (all four were untouched by Тари;
+the live files use CRLF, the local mirror LF, which made the raw diff look enormous):
+`api_geo/api.php`, `gm/inc/lib.php`, `gm/inc/layout.php` (CSS cache bust to `v=10`),
+`gm/pages/points.php`, `gm/assets/style.css`.
+
+Verified against the live server: `HIDDEN_AR_POINT` is rejected with 400 and no longer listed
+in `valid_types`; a `POINT_WITH_TEXT` created with `"hidden": false` comes back `hidden = 1`;
+`PATCH {"hidden": false}` on it leaves the flag at 1; the panel renders the new badges, offers
+`POINT` as the default type and carries the checkbox-locking JS.
+
+## Blocked: the `type` ENUM still has to be widened
+
+`points`.`type` is an ENUM that does not contain `POINT`, and the server runs with an empty
+`sql_mode` — MySQL does not reject the unknown value, it silently stores `''`. So **creating a
+`POINT` currently produces a row with an empty type.** Caught it with a smoke-test point,
+which has since been deleted; no broken rows remain.
+
+The fix is the last statement in `SERVER/migrations/2026-09-22-point-display.sql`. It could
+not be run from this session — the sandbox refused the `ALTER TABLE`. Until it runs, every
+other change is live and working, but the new type is unusable.
+
+## Entry is now measured from the drawn circle
+
+Both sides changed together. The server's `POST /users/location` and `POST /points/{id}/enter`
+measure `ST_Distance_Sphere` from `COALESCE(vLng, lng), COALESCE(vLat, lat)`; the client's
+`LocationService.checkPointsInRange` uses `point.vLatOrLat / vLngOrLng` and the point's full
+radius. The familiar's hardcoded 50 m is gone with it, so a familiar point is now entered
+anywhere inside its drawn circle — 150 m by default. **That is a gameplay change**: if the
+intent was to make players walk right up to it, drop those points' radius to 50 m in the panel
+rather than restoring the special case.
 
 ## Still open
 
 - `UpdatePointRequest` in the app does not carry `marker_from_afar` — the master's app can
-  toggle `hidden`/`trackable`/`aura_text` on an existing point, but not the new flag. Panel
-  only, for now.
-- The familiar's 50 m entry vs 150 m drawn circle (`LocationService.kt:243`) is untouched.
-- Circle drawn around the virtual centre vs entry measured from the real centre — untouched,
-  see above.
+  toggle `hidden`/`trackable`/`aura_text` on an existing point, but not the new flag.
+- The circle/entry mismatch is fixed, but the marker is still placed on the *real* centre
+  while the circle sits on the virtual one. That is intentional (the pin shows the actual
+  spot once you are there), just worth knowing.
