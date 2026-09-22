@@ -20,25 +20,35 @@ object PointVisualizer {
     private const val TRACKABLE_STROKE_WIDTH = 7f
     private val TRACKABLE_STROKE_PATTERN = listOf(Dash(40f), Gap(24f))
 
+    // Цвет есть у каждого типа: раньше половина таблицы пустовала, и «скрытая зона эффекта»,
+    // мёртвая AR-точка и по-настоящему неизвестный тип выглядели на карте одинаковым серым
+    // пятном. Серый остался только у UNKNOWN — как сигнал «сервер прислал что-то новое».
     private val circleColors = mapOf(
-        PointType.USER to Color.parseColor("#4CAF50"),        // Зеленый
-        PointType.FAMILIAR to Color.parseColor("#1CAF50"),        // Зеленый
-        PointType.FAKE_FAMILIAR_BITER to Color.parseColor("#1CAF50"),   // Зеленый, как у фамильяра
-        PointType.OPEN_PROBLEM to Color.parseColor("#F44336"),    // Красный
-        PointType.APPROACHING_BITER to Color.parseColor("#9C27B0"), // Фиолетовый
-        PointType.SHRINKING_CIRCLE to Color.parseColor("#1FEB3B"), // Желтый
-        PointType.DEMON_BLACK_CIRCLE to Color.parseColor("#000000"), // Желтый
-        PointType.APPROACHING_VIRTUAL to Color.parseColor("#8FEB3B") // Желтый
+        PointType.USER to Color.parseColor("#4CAF50"),                  // зелёный
+        PointType.POINT to Color.parseColor("#2196F3"),                 // синий, нейтральная точка
+        PointType.FAMILIAR to Color.parseColor("#1CAF50"),              // зелёный
+        PointType.FAKE_FAMILIAR_BITER to Color.parseColor("#1CAF50"),   // зелёный, как у фамильяра
+        PointType.HIDDEN_EFFECT_AREA to Color.parseColor("#795548"),    // коричневый, видит только МГ
+        PointType.OPEN_PROBLEM to Color.parseColor("#F44336"),          // красный
+        PointType.APPROACHING_BITER to Color.parseColor("#9C27B0"),     // фиолетовый
+        PointType.SHRINKING_CIRCLE to Color.parseColor("#1FEB3B"),      // салатовый
+        PointType.DEMON_BLACK_CIRCLE to Color.parseColor("#000000"),    // чёрный
+        PointType.APPROACHING_VIRTUAL to Color.parseColor("#8FEB3B"),   // светло-салатовый
+        PointType.POINT_WITH_TEXT to Color.parseColor("#9E9E9E"),       // серый, видит только МГ
     )
 
     private val markerColors = mapOf(
         PointType.USER to BitmapDescriptorFactory.HUE_GREEN,
+        PointType.POINT to BitmapDescriptorFactory.HUE_BLUE,
         PointType.FAMILIAR to BitmapDescriptorFactory.HUE_ROSE,
         PointType.FAKE_FAMILIAR_BITER to BitmapDescriptorFactory.HUE_ROSE,
+        PointType.HIDDEN_EFFECT_AREA to BitmapDescriptorFactory.HUE_ORANGE,
         PointType.OPEN_PROBLEM to BitmapDescriptorFactory.HUE_RED,
         PointType.APPROACHING_BITER to BitmapDescriptorFactory.HUE_VIOLET,
         PointType.SHRINKING_CIRCLE to BitmapDescriptorFactory.HUE_CYAN,
+        PointType.DEMON_BLACK_CIRCLE to BitmapDescriptorFactory.HUE_MAGENTA,
         PointType.APPROACHING_VIRTUAL to BitmapDescriptorFactory.HUE_YELLOW,
+        PointType.POINT_WITH_TEXT to BitmapDescriptorFactory.HUE_AZURE,
     )
 
     fun getCircleOptions(

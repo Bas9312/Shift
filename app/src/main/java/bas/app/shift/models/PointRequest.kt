@@ -12,5 +12,6 @@ data class PointRequest(
     val next_point_id: String? = null,
     val trackable: Boolean? = null,
     val hidden: Boolean? = null,
+    val marker_from_afar: Boolean? = null,
     val createdAt: String? = null,
 )

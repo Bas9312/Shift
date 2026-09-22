@@ -33,13 +33,12 @@ class MapPointsRenderer(
 
     /** Диффит серверный список с уже отрисованным: убирает лишнее, добавляет/двигает остальное. */
     fun syncPoints(serverPoints: List<Point>) {
-        val desired = serverPoints.filter { point ->
-            when {
-                !isMgUser && point.type == "POINT_WITH_TEXT" -> false
-                !isMgUser && point.hidden == 1 -> false
-                else -> true
-            }
-        }
+        // Видимость решает ТОЛЬКО `hidden`, приходящий с сервера. Раньше здесь же по типу
+        // выкидывался POINT_WITH_TEXT, из-за чего галочка «скрыта» в панели МГ ничего не
+        // значила: мастер снимал её, заводил цепочку, шёл в поле — и не видел на карте
+        // ничего. Теперь такие типы сервер сам держит скрытыми (ALWAYS_HIDDEN_POINT_TYPES),
+        // а приложение просто рисует то, что ему прислали.
+        val desired = serverPoints.filter { point -> isMgUser || point.hidden != 1 }
         val desiredIds = desired.map { it.pointId }.toSet()
 
         // Удаляем то, чего больше нет (или что стало скрытым/отфильтрованным)
@@ -72,12 +71,13 @@ class MapPointsRenderer(
             currentLocationMarker?.position = latLng
         }
 
-        // Для MG пользователей показываем все точки всегда
-        if (isMgUser) {
-            pointsOfInterest.forEach { (id, pointData) ->
-                val (point, circle, currentMarker) = pointData
+        // Мастеру булавки видны всегда. Игроку — если мастер отметил точку как «булавка
+        // издалека» (`marker_from_afar`), иначе только пока игрок внутри радиуса: издалека
+        // он видит круг, а что там — узнаёт, дойдя. Своих правил приложение не добавляет.
+        pointsOfInterest.forEach { (id, pointData) ->
+            val (point, circle, currentMarker) = pointData
 
-                // Если маркера еще нет - создаем его
+            if (shouldShowMarker(point, latLng)) {
                 if (currentMarker == null) {
                     val newMarker = map.addMarker(
                         PointVisualizer.getMarkerOptions(
@@ -89,37 +89,21 @@ class MapPointsRenderer(
                     )
                     pointsOfInterest[id] = Triple(point, circle, newMarker)
                 }
-            }
-        } else {
-            // Для обычных пользователей проверяем, находится ли пользователь в каких-либо кругах
-            pointsOfInterest.forEach { (id, pointData) ->
-                val (point, circle, currentMarker) = pointData
-
-                val virtualCenter = LatLng(point.vLat ?: point.lat, point.vLng ?: point.lng)
-                val distance = if (point.type == "USER") 0f else calculateDistance(latLng, virtualCenter)
-
-                if (distance <= point.radius) {
-                    // Если пользователь в круге и маркера еще нет - создаем его
-                    if (currentMarker == null) {
-                        val newMarker = map.addMarker(
-                            PointVisualizer.getMarkerOptions(
-                                LatLng(point.lat, point.lng),
-                                PointType.fromServerValue(point.type),
-                                getPointTitle(PointType.fromServerValue(point.type)),
-                                getPointDescription(point)
-                            )
-                        )
-                        pointsOfInterest[id] = Triple(point, circle, newMarker)
-                    }
-                } else {
-                    // Если пользователь вне круга и маркер существует - удаляем его
-                    if (currentMarker != null) {
-                        currentMarker.remove()
-                        pointsOfInterest[id] = Triple(point, circle, null)
-                    }
-                }
+            } else if (currentMarker != null) {
+                currentMarker.remove()
+                pointsOfInterest[id] = Triple(point, circle, null)
             }
         }
+    }
+
+    /** Булавка точки: всегда мастеру, по флагу сервера — игроку, иначе только внутри радиуса. */
+    private fun shouldShowMarker(point: Point, playerAt: LatLng): Boolean {
+        if (isMgUser) return true
+        if (point.marker_from_afar == 1) return true
+        // Метка живого человека не имеет круга, в который можно войти — она видна как есть.
+        if (point.type == "USER") return true
+        val virtualCenter = LatLng(point.vLat ?: point.lat, point.vLng ?: point.lng)
+        return calculateDistance(playerAt, virtualCenter) <= point.radius
     }
 
     fun findPointForMarker(marker: Marker): Point? =
@@ -136,6 +120,7 @@ class MapPointsRenderer(
     fun getPointTitle(type: PointType): String {
         return when (type) {
             PointType.USER -> "Кто-то в игре"
+            PointType.POINT -> "Точка"
             PointType.FAMILIAR -> "Фамильяр"
             PointType.HIDDEN_EFFECT_AREA -> "Скрытая зона эффекта"
             PointType.FAKE_FAMILIAR_BITER -> "'Фамильяр'"
@@ -144,8 +129,7 @@ class MapPointsRenderer(
             PointType.SHRINKING_CIRCLE -> "Сужающийся Круг"
             PointType.DEMON_BLACK_CIRCLE -> "Демон Черный Круг"
             PointType.APPROACHING_VIRTUAL -> "Приближающаяся Виртуальная проблема"
-            PointType.HIDDEN_AR_POINT -> "Скрытая AR точка"
-            PointType.POINT_WITH_TEXT -> "Точка с текстом"
+            PointType.POINT_WITH_TEXT -> "Скрытая точка с текстом при входе"
             PointType.UNKNOWN -> "Неизвестный тип точки"
         }
     }
@@ -175,12 +159,7 @@ class MapPointsRenderer(
     }
 
     private fun addPoint(point: Point) {
-        // Для обычных пользователей: не показываем точки типа POINT_WITH_TEXT
-        if (!isMgUser && point.type == "POINT_WITH_TEXT") {
-            return
-        }
-
-        // Для обычных пользователей: скрытые точки не показываем на карте
+        // Единственное правило видимости — флаг `hidden` с сервера (см. syncPoints).
         if (!isMgUser && point.hidden == 1) {
             return
         }
@@ -223,7 +202,10 @@ class MapPointsRenderer(
         val (oldPoint, circle, marker) = existing
         // Смена типа влияет на цвет круга и иконку маркера, смена trackable — на стиль обводки
         // и кликабельность круга. И то и другое задаётся при создании, поэтому пересоздаём.
-        if (oldPoint.type != point.type || oldPoint.trackable != point.trackable) {
+        if (oldPoint.type != point.type ||
+            oldPoint.trackable != point.trackable ||
+            oldPoint.marker_from_afar != point.marker_from_afar
+        ) {
             circle?.remove()
             marker?.remove()
             pointsOfInterest.remove(point.pointId)

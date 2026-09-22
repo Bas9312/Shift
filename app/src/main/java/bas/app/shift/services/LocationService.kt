@@ -232,8 +232,8 @@ class LocationService : Service() {
                 val newPointsInRange = mutableSetOf<String>()
 
                 points.forEach { point ->
-                    // Для обычных пользователей: пропускаем точки типа POINT_WITH_TEXT
-                    
+                    // Вход считается для любой точки, включая скрытые: смысл скрытой точки
+                    // ровно в том, чтобы игрок наткнулся на неё, не видя её на карте.
                     val distance = calculateDistance(
                         location.latitude, location.longitude,
                         point.lat, point.lng

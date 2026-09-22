@@ -84,7 +84,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
 
     /**
      * Последний полный ответ сервера — до фильтрации, которую делает рендерер. Экстрасенс
-     * читает ауры и у тех точек, что на карту не попали (скрытые, точки с текстом), а
+     * читает ауры и у тех точек, что на карту не попали (скрытые), а
      * `pointsRenderer.allPoints()` знает только нарисованное.
      */
     private var lastServerPoints: List<Point> = emptyList()
@@ -129,7 +129,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             }
         }
 
-        // Экстрасенс читает ауры вокруг себя, не тыкая в маркеры: скрытые точки и точки
+        // Экстрасенс читает ауры вокруг себя, не тыкая в маркеры: скрытые точки
         // с текстом ему на карте не рисуются, а ауру у них считать он должен уметь.
         if (isExtrasensory) {
             binding.fabSenseAura.visibility = View.VISIBLE
@@ -200,6 +200,15 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(googleMap: GoogleMap) {
         LogHelper.d("Карта готова к использованию")
         mMap = googleMap
+        // onResume зовёт getMapAsync при каждом возврате на экран, поэтому onMapReady
+        // приходит повторно — и на ТУ ЖЕ карту, с уже нарисованными маркерами и кругами.
+        // Новый MapPointsRenderer про них не знает (его currentLocationMarker снова null,
+        // pointsOfInterest пуст), так что подвинуть или снять их он не может и рисует свои
+        // поверх. Игрок получал по лишней синей метке «Ваше местоположение» за каждый заход
+        // на карту — след из маркеров вдоль маршрута, — а МГ ещё и дубли кругов точек.
+        // Чистим карту перед тем, как отдать её новому рендереру: точки тут же вернутся,
+        // startPointsUpdate() и requestForLocation() ниже перерисуют всё с нуля.
+        mMap.clear()
         pointsRenderer = MapPointsRenderer(mMap, isMgUser)
         mMap.setIndoorEnabled(false)
         mMap.isTrafficEnabled = false
@@ -466,12 +475,13 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
     /**
      * С какого расстояния читается аура. У видимой точки маркер игрок и так видит только
      * внутри радиуса, но радиус бывает и в километр, поэтому требуем подойти вплотную —
-     * аура читается с места, а не с другого конца парка. У скрытых точек и точек с текстом
-     * маркера нет вовсе: попасть вслепую в 50 м от центра — лотерея, поэтому там аура ловится
-     * по всему радиусу зоны, то есть «зашёл внутрь и почувствовал».
+     * аура читается с места, а не с другого конца парка. У скрытой точки маркера нет вовсе:
+     * попасть вслепую в 50 м от центра — лотерея, поэтому там аура ловится по всему радиусу
+     * зоны, то есть «зашёл внутрь и почувствовал». Проверка идёт по одному лишь `hidden`:
+     * скрытые-по-природе типы сервер и так отдаёт с этим флагом.
      */
     private fun auraReadRangeFor(point: Point): Double =
-        if (point.hidden == 1 || point.type == "POINT_WITH_TEXT") {
+        if (point.hidden == 1) {
             maxOf(point.radius, AURA_READ_MAX_DISTANCE_M)
         } else {
             AURA_READ_MAX_DISTANCE_M
@@ -761,6 +771,14 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedType = pointTypeValues[position]
                 LogHelper.d("Выбран тип точки: $selectedType")
+
+                // Скрытые-по-природе типы сервер всё равно создаст скрытыми, поэтому
+                // галочку ставим и запираем — чтобы мастер не считал, что у него есть выбор.
+                val alwaysHidden = PointType.fromServerValue(selectedType) in PointType.ALWAYS_HIDDEN
+                if (alwaysHidden) {
+                    dialogBinding.cbHidden.isChecked = true
+                }
+                dialogBinding.cbHidden.isEnabled = !alwaysHidden
                 
                 // У фамильяра ауры места нет: он персонаж, а не место, читать у него нечего.
                 val auraFieldVisibility = if (selectedType == "FAMILIAR") View.GONE else View.VISIBLE
@@ -843,7 +861,8 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             // Поле ауры у фамильяра скрыто, но в нём может остаться набранное до смены типа —
             // на сервер такое отправлять нечего.
             val auraText = if (selectedType == "FAMILIAR") "" else dialogBinding.etAuraText.text.toString()
-            val isHidden = dialogBinding.cbHidden.isChecked
+            val isHidden = dialogBinding.cbHidden.isChecked ||
+                PointType.fromServerValue(selectedType) in PointType.ALWAYS_HIDDEN
             val isTrackable = dialogBinding.cbTrackable.isChecked
             val radius: Double? = if (dialogBinding.cbCustomRadius.isChecked) {
                 PointRadiusMath.radiusFromSlider(dialogBinding.sliderRadius.value)
@@ -881,7 +900,7 @@ class EkatMaps : AppCompatActivity(), OnMapReadyCallback {
             
             // Для точек типа POINT_WITH_TEXT поле textToShowOnEnter обязательно
             if (selectedType == "POINT_WITH_TEXT" && textToShowOnEnter.isBlank()) {
-                Toast.makeText(this, "Для точек типа 'Точка с текстом' обязательно заполните поле 'Текст при входе'", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Скрытой точке с текстом при входе нужен текст — ради него она и ставится", Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
             
