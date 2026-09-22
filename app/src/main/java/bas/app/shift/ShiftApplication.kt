@@ -12,18 +12,19 @@ import androidx.lifecycle.LifecycleOwner
 import bas.app.shift.MainActivity.Companion.KEY_IN_GAME
 import bas.app.shift.MainActivity.Companion.PREFS_NAME
 import bas.app.shift.helpers.AndroidStandardLogger
-import bas.app.shift.helpers.BugfenderLogger
 import bas.app.shift.helpers.FamiliarCatalog
 import bas.app.shift.helpers.FamiliarImages
 import bas.app.shift.helpers.LogHelper
+import bas.app.shift.helpers.NewRelicLogger
 import bas.app.shift.helpers.UserPrefsHelper
 import bas.app.shift.services.LocationService
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
-import com.bugfender.sdk.Bugfender
 import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.newrelic.agent.android.FeatureFlag
+import com.newrelic.agent.android.NewRelic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -138,14 +139,19 @@ class ShiftApplication : Application(), DefaultLifecycleObserver, SingletonImage
     override fun onCreate() {
         super<Application>.onCreate()
         LogHelper.setLogLevel(LogHelper.LogLevel.DEBUG)
-        // AndroidStandardLogger намеренно выключен: SDK Bugfender сам дублирует всё в
-        // logcat с префиксом "BF/", поэтому отладка через `adb logcat` работает и так,
-        // а второй логгер просто удваивал бы каждую строку.
-        //   adb logcat | grep BF/
-        //LogHelper.addLogger(AndroidStandardLogger())
-        LogHelper.addLogger(BugfenderLogger())
-        Bugfender.init(this, "jrdTZKyAg4q91SOxfYvaUFszBhvNihH5", true, true)
-        Bugfender.setDeviceString("user id", UserPrefsHelper.getUserId(this))
+        // AndroidStandardLogger is back on: Bugfender used to mirror every line into logcat
+        // itself (prefix "BF/"), so a second logger would have doubled each one. New Relic
+        // does not mirror anything, so without this `adb logcat` would show nothing at all.
+        LogHelper.addLogger(AndroidStandardLogger())
+        LogHelper.addLogger(NewRelicLogger())
+        // LogReporting is what makes NewRelic.logInfo()/logError() reach New Relic Logs.
+        // It is already on by default in agent 7.8.2; stated explicitly so an agent upgrade
+        // that changes the default does not silently stop shipping our logs. Must precede start().
+        FeatureFlag.enableFeature(FeatureFlag.LogReporting)
+        NewRelic.withApplicationToken(
+            "eu01xa26df0283f11c861c13e80e409380634c0f68-NRMA"
+        ).start(this.applicationContext)
+        NewRelic.setUserId(UserPrefsHelper.getUserId(this))
         LogHelper.d("onCreate - настройка жизненного цикла приложения")
         
         // Регистрируем наблюдатель жизненного цикла

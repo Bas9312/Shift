@@ -63,6 +63,29 @@ was deliberately judged too risky for an unattended session.
 Three weeks in which the centre of gravity moved off the client and onto everything around it.
 Details are in [08-changes-applied.md](08-changes-applied.md) Waves 27–29; the short version:
 
+- **Version 3.0 (`versionCode 19`) was built, signed, published and verified end-to-end**
+  (2026-09-22). This is the first release to players since `2.5 / versionCode 18`, which had
+  been sitting on the server for two months while 61 commits piled up behind it. Three things
+  had to be fixed before it could ship at all: `versionCode` was still `18`, so
+  `UpdateService`'s `currentVersionCode < latestVersionCode` check could never fire; the
+  `signingConfigs` block sat **inside** `defaultConfig` where no buildType can reference it;
+  and it pointed at `app/keystore.jks`, while the keystore is in the project root. Together
+  those meant `assembleRelease` emitted `app-release-unsigned.apk`. Now fixed — the release
+  buildType carries `signingConfig signingConfigs.release` with
+  `storeFile rootProject.file('keystore.jks')`, and the signing certificate is confirmed
+  identical to the one on the APK players already run (`09fbe4fe…324bcf39`, `CN=Alex B`), so
+  updates install over the top without losing preferences.
+
+- **Bugfender replaced by New Relic** (2026-09-22, owner's decision). `BugfenderLogger` is gone,
+  `NewRelicLogger` takes its place behind the same `ILogger`/`LogHelper` seam, and the agent is
+  started in `ShiftApplication.onCreate` with the EU token. Two consequences worth knowing:
+  `AndroidStandardLogger` had to be switched **back on** (Bugfender mirrored every line into
+  logcat with a `BF/` prefix, New Relic does not — without it `adb logcat` would show nothing),
+  and the New Relic agent instruments OkHttp by default, so request URLs, status codes and
+  timings now leave the phone, which Bugfender never collected. Verified live the same day
+  (A11): the agent connects and harvests, but **log reporting is off account-side**, so until
+  it is enabled in the New Relic UI the `LogHelper` lines reach logcat only.
+
 - **Familiar and aura artwork left the APK** (2026-08-17/18, spec in
   [12-familiars-remote-assets.md](12-familiars-remote-assets.md), commit `4ca3304`) — 36 `webp`
   files (~6.3 MB) now come from `shift96.ru` with a disk cache, the hardcoded familiar `Map` is
@@ -124,7 +147,7 @@ are current — every line reference in documents 01–07 is stale after the ref
 | 18 | MG role by `MG_` prefix, passwordless login | **open by design** | `UserRoles.isMg`, `AuthActivity.kt:26`. Deduplicated but unchanged in substance — owner's deliberate model |
 | 19 | `noiseManager` lateinit without guard | **FIXED** | Always constructed, no-op on empty userId (`TerminalActivity.kt:430`) |
 | 20 | MG map/chat buttons disabled by the `updateUI` tail | **FIXED** (2026-08-15, P1) | Plus three further in-game gates the audit never spotted; verified live under `MG_Bas` |
-| — | Low catch-all | **PARTIAL** | Done: Glide removed (Coil only), RxJava gone, profile diff extracted + tested, Gson adapters added. Still: `allowBackup="true"`, unencrypted prefs, Bugfender token hardcoded (`ShiftApplication.kt:105`), packaging hacks in gradle |
+| — | Low catch-all | **PARTIAL** | Done: Glide removed (Coil only), RxJava gone, profile diff extracted + tested, Gson adapters added. Still: `allowBackup="true"`, unencrypted prefs, observability token hardcoded (now the New Relic one, `ShiftApplication.kt:148`), packaging hacks in gradle |
 
 **Tally after the 2026-08-15 fixes: 13 fixed, 2 partial (rows 3 and 13) + the Low row, 4 declined by the owner, 1 open by design (row 18).**
 
@@ -184,6 +207,33 @@ exists. Worth a comment in the code if it stays.
 | ~~A9~~ | ~~The chase mechanic from a phone, not from the API~~ | **Done 2026-09-08 on `emulator-5554`, passed.** A throwaway chain (`q-qa0908`: start → fork into a correct branch and a dead end → finish) was built in the live database, walked with `adb emu geo fix`, and deleted afterwards; the database was backed up first (`SERVER/_backups/bas931wn_inst1-20260908-163458.sql.gz`). What the walk confirmed: all four events fire and each raises its notification with the right text (`started` «📍 След взят», `dead_end` «След обрывается… Вернись к началу», `advanced`, `finished` «Сообщи мастеру, что дошёл до финиша»); a dead end really does make the start point visible again and re-entering it restarts the chain; and the visibility rules hold server-side — the player is served only the start point, both branches appear once the chain is active, and everything disappears again when the quest is done, while the MG sees all four throughout. **The dedup question is answered, but not the way the code comments assume:** the second delivery path (`POST /points/{id}/enter`, fired from `LocationService.onEnterPoint`) does run — confirmed in the log — but the server counts the entry once and returns an empty `chase` to whichever request arrives second, so only one payload ever reaches `ChaseNotifier`. The client-side one-minute dedup is therefore a second line of defence that did not have to act, not the thing preventing the double notification. |
 | ~~A9-note~~ | ~~Two notifications per chain point~~ | **Fixed 2026-09-08 (Wave 31), owner's call.** Entering a chain point used to raise two notifications back to back — the point's own text and the chase status. They are now one: `ChaseNotifier` puts the place text (which the server already sends inside the event) above the status line, and `LocationService` skips its own notification when the server counted the entry as a chain step. Verified live on a fresh chain: one notification titled «📍 След взят» with the point's text in the body, and the same on the finish. No text is lost — that text is shown to players nowhere else. |
 | ~~A10~~ | ~~The aura-sensing FAB, live~~ | **Done 2026-09-08 on `emulator-5554`, passed.** Standing at the centre of the "Аура ЕСТЬ" test point (56.83917, 60.6056983): the FAB is there for `bas` (a psychic), the dialog shows exactly one text, and the control point 120 m away — whose aura text literally reads «Этот текст игрок увидеть не должен» — is **not** in it, so the 50 m rule for visible points holds. Moved to the three `POINT_WITH_TEXT` rows at 55.755826, 37.617299, which `MapPointsRenderer` never draws: the FAB read all three (`считано 3 из 43 точек`) and showed their texts separated by `⁂`, with no names and no distances anywhere in the dialog. That is the feature's whole reason to exist — auras of places the player cannot see — confirmed working. **One branch is still unproven:** `auraReadRangeFor()`'s `hidden == 1` half. No hidden point in the live data has an aura text, and the only way to make one was a write to the production database, which was refused. The `POINT_WITH_TEXT` half of the same condition is proven, and the two share one line of code. |
+| ~~A11~~ | ~~New Relic agent, live check~~ | **Done 2026-09-22 on `emulator-5554`. The agent works; logs do not, and that is an account setting, not a code problem.** Confirmed live: agent starts (`New Relic Agent v7.8.2`), connects (`account_id=8537286`, `application_id=538904901`), and harvests — one cycle sent 8 HTTP transactions, 1 activity trace, 19 session attributes and 132 analytics events, plus queued `ApplicationExitInfo` traces. Instrumentation applies in both build types, no crashes, log tags resolve to the real caller (`ShiftApplication.onCreate():155`). **What does not work: `NewRelic.logInfo()` and friends ship nothing.** The collector's own reply carries `logReportingConfiguration={"enabled"=false,"level"="NONE","sampling_rate"=0.0}` — remote config overrides the client-side `FeatureFlag`, so log reporting has to be switched on in the New Relic UI under the mobile app's settings. Until that is done, `LogHelper` output lives only in logcat via `AndroidStandardLogger`. **Also worth knowing: the agent adds a `newrelic:` distributed-tracing header to every outgoing OkHttp request** — 13 of them in one minute, including calls to `shift96.ru` and the familiar proxy. PHP ignores unknown headers, so nothing breaks, but the requests are no longer byte-identical to what the old build sent. |
+
+### A12 — the 3.0 release, verified end-to-end (2026-09-22, closed)
+
+The whole update path was walked on `emulator-5554` with the real artefacts, not a simulation:
+`2.5 / versionCode 18` (the exact APK players are running, kept at `app/release/app-release.apk`)
+was installed, logged in as `bas`, and left to run its own startup update check. It fetched
+`https://shift96.ru/static/update.json`, logged
+`Текущая версия: 18, доступная версия: 19`, and raised the "Доступно обновление" dialog with
+the release notes rendered as bullets. Pressing «ОБНОВИТЬ» took the full path: the
+unknown-sources permission prompt → Settings → back → `pendingUpdateInfo` replayed the dialog →
+`DownloadManager` fetched the APK → `PackageInstallerActivity` → **Play Protect** →
+installed. Afterwards: `versionCode=19 versionName=3.0`, the app starts, `userName: bas`
+survived the update (same signing key), and the New Relic agent connects from the release
+build too (`Harvester: connected`, 12 HTTP transactions in the first cycle).
+
+**Tell the players about Play Protect.** It interrupts the install with «Рекомендуется проверка
+приложения» and offers only «Проверить» and «Не устанавливать» — there is no visible "install
+anyway". Tapping «Проверить» uploads the APK to Google, which came back with «Судя по всему,
+приложение безопасное» and *then* showed «Установить». It works, but a player who reads
+«Не устанавливать» as the only safe-looking option will abandon the update. Worth one line in
+whatever message announces the release.
+
+Two upload rules that held: the live `update.json` was diffed against the local mirror before
+being overwritten (identical — Тари had not touched it), and the APK went up **before** the
+JSON, so no phone could read a manifest pointing at a file that was not there yet. The
+uploaded APK was re-downloaded over HTTPS and its sha256 matched the local build exactly.
 
 ### B. Available right now, no emulator needed
 
@@ -472,6 +522,19 @@ Each of these was investigated to a conclusion. Re-running them wastes a session
   bitmap-cache growth is view-scoped and bounded; `MA4`/`MA5` are not reproducible.
 
 ## Field notes (techniques and gotchas worth keeping)
+
+**The emulator runs out of disk, and `disk.dataPartition.size` does not fix it.** `/data` is
+6 GB and the Google Play system image eats ~5.4 GB of it, so an install fails with
+`Requested internal only, but not enough space` well before the disk is full — Android refuses
+to install below its low-storage threshold (~5 % of the partition). Raising
+`disk.dataPartition.size` in `~/.android/avd/Medium_Phone_API_35.avd/config.ini` (2026-09-22:
+6 GB → 12 GB) and restarting **does not actually resize** the existing `userdata-qemu.img.qcow2`
+— `df` still reported 5.8 GB afterwards. What did free enough room was the owner uninstalling
+third-party apps. A real resize needs `qemu-img resize` plus `resize2fs` on the stopped image.
+The config edit is harmless and was left in place; `config.ini.bak-20260922` sits next to it.
+A full copy of the userdata image was taken before the attempt and is at
+`/home/bas/userdata-qemu.img.qcow2.bak-20260922` (9.9 GB) — **delete it once the New Relic
+check is finished**, it is 20 % of the free space on `/home`.
 
 **Шкала шума: почему хранится 0..10, а показывается 0..5** (разобрано 2026-09-08)
 

@@ -1,4 +1,16 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+// New Relic ships its Gradle plugin to Maven Central only, so it is resolved the classic way
+// through buildscript instead of the plugins DSL used below.
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.newrelic.agent.android:agent-gradle-plugin:7.8.2'
+    }
+}
+
 plugins {
     alias(libs.plugins.android.application) apply false
     id 'org.jetbrains.kotlin.android' version '2.1.20' apply false

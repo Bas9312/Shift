@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.google.android.libraries.mapsplatform.secrets.gradle.plugin)
     id 'com.google.gms.google-services'
     id 'com.google.firebase.crashlytics'
+    id 'newrelic'
 }
 
 android {
@@ -14,17 +15,21 @@ android {
         applicationId "bas.app.shift"
         minSdk 26
         targetSdk 35
-        versionCode 18
+        versionCode 19
         versionName "3.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        signingConfigs {
-            release {
-                storeFile file('./keystore.jks')
-                storePassword 'dFt56Yu2'
-                keyAlias 'key0'
-                keyPassword 'dFt56Yu2'
-            }
+    }
+
+    // Was nested inside defaultConfig (where Gradle accepts it but no buildType can reference
+    // it) and pointed at app/keystore.jks, which does not exist — the keystore is in the
+    // project root. Both wrong, which is why assembleRelease produced an unsigned APK.
+    signingConfigs {
+        release {
+            storeFile rootProject.file('keystore.jks')
+            storePassword 'dFt56Yu2'
+            keyAlias 'key0'
+            keyPassword 'dFt56Yu2'
         }
     }
 
@@ -37,6 +42,7 @@ android {
         release {
             minifyEnabled false
             debuggable true
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -113,7 +119,7 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:34.1.0')
     implementation("com.google.firebase:firebase-crashlytics-ndk")
     implementation("com.google.firebase:firebase-analytics")
-    implementation("com.bugfender.sdk:android:3.+")
+    implementation("com.newrelic.agent.android:android-agent:7.8.2")
 
 }
 
